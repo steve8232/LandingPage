@@ -1,0 +1,35 @@
+{
+  "demo-ecommerce-bold-red-hero-01": {
+    "id": "demo-ecommerce-bold-red-hero-01",
+    "role": "hero",
+    "url": "https://images.pexels.com/photos/5709661/pexels-photo-5709661.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
+    "source_page_url": "https://www.pexels.com/photo/crop-woman-with-shopping-bags-5709661/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo by Karolina Grabowska on Pexels",
+    "attribution_url": "https://www.pexels.com/@karolina-grabowska",
+    "notes": "Pexels License. Demo reference only; do not redistribute as a stock pack."
+  },
+  "demo-ecommerce-bold-red-card-01": {
+    "id": "demo-ecommerce-bold-red-card-01",
+    "role": "card",
+    "url": "https://images.pexels.com/photos/1152077/pexels-photo-1152077.jpeg?auto=compress&cs=tinysrgb&w=600&h=&dpr=1",
+    "source_page_url": "https://www.pexels.com/photo/women-s-white-and-black-button-up-collared-shirt-1152077/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo by Artem Beliaikin on Pexels",
+    "attribution_url": "https://www.pexels.com/@belart84",
+    "notes": "Pexels License. Demo reference only; do not redistribute as a stock pack."
+  },
+  "demo-ecommerce-bold-red-card-02": {
+    "id": "demo-ecommerce-bold-red-card-02",
+    "role": "card",
+    "url": "https://images.pexels.com/photos/1488463/pexels-photo-1488463.jpeg?auto=compress&cs=tinysrgb&w=600&h=&dpr=1",
+    "source_page_url": "https://www.pexels.com/photo/person-holding-black-leather-handbag-1488463/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo by Ivan Babydov on Pexels",
+    "attribution_url": "https://www.pexels.com/@ivan-babydov",
+    "notes": "Pexels License. Demo reference only; do not redistribute as a stock pack."
+  }
+}

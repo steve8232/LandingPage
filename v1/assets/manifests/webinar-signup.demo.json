@@ -1,0 +1,35 @@
+{
+  "demo-webinar-signup-hero-01": {
+    "id": "demo-webinar-signup-hero-01",
+    "role": "hero",
+    "url": "https://images.pexels.com/photos/3321793/pexels-photo-3321793.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
+    "source_page_url": "https://www.pexels.com/photo/black-and-gray-microphone-3321793/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo by Dmitry Demidov on Pexels",
+    "attribution_url": "https://www.pexels.com/@dmitry-demidov-515774",
+    "notes": "Pexels License. Demo reference only; do not redistribute as a stock pack."
+  },
+  "demo-webinar-signup-card-01": {
+    "id": "demo-webinar-signup-card-01",
+    "role": "card",
+    "url": "https://images.pexels.com/photos/4226140/pexels-photo-4226140.jpeg?auto=compress&cs=tinysrgb&w=600&h=&dpr=1",
+    "source_page_url": "https://www.pexels.com/photo/smiling-formal-male-with-laptop-chatting-4226140/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo by Andrea Piacquadio on Pexels",
+    "attribution_url": "https://www.pexels.com/@olly",
+    "notes": "Pexels License. Demo reference only; do not redistribute as a stock pack."
+  },
+  "demo-webinar-signup-card-02": {
+    "id": "demo-webinar-signup-card-02",
+    "role": "card",
+    "url": "https://images.pexels.com/photos/2774556/pexels-photo-2774556.jpeg?auto=compress&cs=tinysrgb&w=600&h=&dpr=1",
+    "source_page_url": "https://www.pexels.com/photo/people-at-theater-2774556/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo by Monica Silvestre on Pexels",
+    "attribution_url": "https://www.pexels.com/@monica-silvestre-561586",
+    "notes": "Pexels License. Demo reference only; do not redistribute as a stock pack."
+  }
+}

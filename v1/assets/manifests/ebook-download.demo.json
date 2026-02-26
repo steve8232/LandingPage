@@ -1,0 +1,35 @@
+{
+  "demo-ebook-download-hero-01": {
+    "id": "demo-ebook-download-hero-01",
+    "role": "hero",
+    "url": "https://images.pexels.com/photos/159866/pexels-photo-159866.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
+    "source_page_url": "https://www.pexels.com/photo/ereader-on-table-159866/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo by Perfecto Capucine on Pexels",
+    "attribution_url": "https://www.pexels.com/@perfecto-capucine-20504",
+    "notes": "Pexels License. Demo reference only; do not redistribute as a stock pack."
+  },
+  "demo-ebook-download-card-01": {
+    "id": "demo-ebook-download-card-01",
+    "role": "card",
+    "url": "https://images.pexels.com/photos/1340502/pexels-photo-1340502.jpeg?auto=compress&cs=tinysrgb&w=600&h=&dpr=1",
+    "source_page_url": "https://www.pexels.com/photo/white-ceramic-mug-on-table-1340502/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo by Adrienne Andersen on Pexels",
+    "attribution_url": "https://www.pexels.com/@adrienne-andersen-567838",
+    "notes": "Pexels License. Demo reference only; do not redistribute as a stock pack."
+  },
+  "demo-ebook-download-card-02": {
+    "id": "demo-ebook-download-card-02",
+    "role": "card",
+    "url": "https://images.pexels.com/photos/904616/pexels-photo-904616.jpeg?auto=compress&cs=tinysrgb&w=600&h=&dpr=1",
+    "source_page_url": "https://www.pexels.com/photo/assorted-books-on-book-shelves-904616/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo by Element5 Digital on Pexels",
+    "attribution_url": "https://www.pexels.com/@element5digital",
+    "notes": "Pexels License. Demo reference only; do not redistribute as a stock pack."
+  }
+}

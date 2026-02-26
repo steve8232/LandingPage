@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="A high-trust lead generation template for local service businesses. Navy + orange palette, split hero, social proof bar, service grid, testimonials, and a strong CTA form.">
+  <title>Local Pro Lead Gen</title>
+  <style>
+/* === v1 tokens === */
+/*
+ * v1 Design Tokens
+ *
+ * All v1 styles are scoped under .v1-page so they never collide with the
+ * legacy CSS in /src.  Theme files override these variables to create
+ * distinct visual identities.
+ *
+ * Architecture decision: we use CSS custom properties rather than a
+ * preprocessor so tokens are runtime-swappable and the composed HTML
+ * is fully self-contained (no build step required for previews).
+ */
+
+/* ── Base token layer (defaults — overridden by theme files) ──────────── */
+
+.v1-page {
+  /* —— Spacing scale (4px base) —— */
+  --v1-space-1: 4px;
+  --v1-space-2: 8px;
+  --v1-space-3: 12px;
+  --v1-space-4: 16px;
+  --v1-space-5: 20px;
+  --v1-space-6: 24px;
+  --v1-space-8: 32px;
+  --v1-space-10: 40px;
+  --v1-space-12: 48px;
+  --v1-space-16: 64px;
+  --v1-space-20: 80px;
+  --v1-space-24: 96px;
+
+  /* —— Typography scale —— */
+  --v1-font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --v1-font-size-xs: 0.75rem;   /* 12px */
+  --v1-font-size-sm: 0.875rem;  /* 14px */
+  --v1-font-size-base: 1rem;    /* 16px */
+  --v1-font-size-lg: 1.125rem;  /* 18px */
+  --v1-font-size-xl: 1.25rem;   /* 20px */
+  --v1-font-size-2xl: 1.5rem;   /* 24px */
+  --v1-font-size-3xl: 1.875rem; /* 30px */
+  --v1-font-size-4xl: 2.25rem;  /* 36px */
+  --v1-font-size-5xl: 3rem;     /* 48px */
+
+  --v1-font-weight-normal: 400;
+  --v1-font-weight-medium: 500;
+  --v1-font-weight-semibold: 600;
+  --v1-font-weight-bold: 700;
+  --v1-font-weight-extrabold: 800;
+
+  --v1-line-height-tight: 1.2;
+  --v1-line-height-normal: 1.5;
+  --v1-line-height-relaxed: 1.75;
+
+  /* —— Border radius —— */
+  --v1-radius-sm: 4px;
+  --v1-radius-md: 8px;
+  --v1-radius-lg: 12px;
+  --v1-radius-xl: 16px;
+  --v1-radius-full: 9999px;
+
+  /* —— Shadow system —— */
+  --v1-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --v1-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
+  --v1-shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+  --v1-shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.12);
+
+  /* —— Semantic colours (theme overridable) —— */
+  --v1-color-primary: #2563eb;
+  --v1-color-primary-dark: #1e40af;
+  --v1-color-accent: #f97316;
+  --v1-color-bg: #ffffff;
+  --v1-color-bg-alt: #f8fafc;
+  --v1-color-text: #1e293b;
+  --v1-color-text-muted: #64748b;
+  --v1-color-border: #e2e8f0;
+  --v1-color-hero-bg: #1e3a5f;
+  --v1-color-hero-text: #ffffff;
+  --v1-color-cta-bg: #f97316;
+  --v1-color-cta-text: #ffffff;
+  --v1-color-card-bg: #ffffff;
+  --v1-color-card-text: #1e293b;
+  --v1-color-footer-bg: #1e293b;
+  --v1-color-footer-text: #e2e8f0;
+
+  /* —— Base reset scoped to v1 —— */
+  font-family: var(--v1-font-family);
+  font-size: var(--v1-font-size-base);
+  line-height: var(--v1-line-height-normal);
+  color: var(--v1-color-text);
+  background: var(--v1-color-bg);
+  box-sizing: border-box;
+}
+
+.v1-page *, .v1-page *::before, .v1-page *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+.v1-page img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* —— Utility container —— */
+.v1-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 var(--v1-space-5);
+}
+
+
+/* === v1 theme: theme-localpro === */
+/*
+ * Theme: LocalPro
+ *
+ * Trustworthy navy + bold orange accent.
+ * Designed for local service businesses (plumbers, contractors, etc.)
+ * that need to project reliability and professionalism.
+ *
+ * All overrides target .v1-page so they layer on top of tokens.css
+ * without affecting any legacy styles.
+ */
+
+.v1-page {
+  /* —— Colour overrides —— */
+  --v1-color-primary: #1e3a5f;
+  --v1-color-primary-dark: #0f2744;
+  --v1-color-accent: #f97316;
+  --v1-color-bg: #ffffff;
+  --v1-color-bg-alt: #f0f9ff;
+  --v1-color-text: #1e293b;
+  --v1-color-text-muted: #64748b;
+  --v1-color-border: #cbd5e1;
+  --v1-color-hero-bg: #1e3a5f;
+  --v1-color-hero-text: #ffffff;
+  --v1-color-cta-bg: #f97316;
+  --v1-color-cta-text: #ffffff;
+  --v1-color-card-bg: #ffffff;
+  --v1-color-card-text: #1e293b;
+  --v1-color-footer-bg: #0f2744;
+  --v1-color-footer-text: #e2e8f0;
+
+  /* —— Typography —— */
+  --v1-font-family: Roboto, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+  /* —— Layout feel —— */
+  --v1-radius-md: 8px;
+  --v1-radius-lg: 12px;
+
+  /* —— Shadow (subtle, professional) —— */
+  --v1-shadow-md: 0 4px 12px rgba(30, 58, 95, 0.08);
+  --v1-shadow-lg: 0 8px 24px rgba(30, 58, 95, 0.12);
+}
+
+
+  </style>
+</head>
+<body>
+  <div class="v1-page">
+
+<section class="v1-hero-split" style="
+  display: flex; flex-wrap: wrap; align-items: center;
+  background: var(--v1-color-hero-bg);
+  color: var(--v1-color-hero-text);
+  padding: var(--v1-space-20) 0;
+  min-height: 480px;
+">
+  <div class="v1-container" style="
+    display: flex; flex-wrap: wrap; align-items: center; gap: var(--v1-space-12); width: 100%;
+  ">
+    <!-- Text column -->
+    <div style="flex: 1 1 400px; min-width: 0;">
+      <h1 style="
+        font-size: var(--v1-font-size-5xl);
+        font-weight: var(--v1-font-weight-bold);
+        line-height: var(--v1-line-height-tight);
+        margin-bottom: var(--v1-space-6);
+        color: var(--v1-color-hero-text);
+      ">Your Trusted Local Experts — Fast, Reliable Service</h1>
+      <p style="
+        font-size: var(--v1-font-size-lg);
+        color: var(--v1-color-hero-text);
+        opacity: 0.9;
+        margin-bottom: var(--v1-space-8);
+        max-width: 540px;
+      ">Licensed, insured, and ready to help. Call now or fill out the form for a free estimate.</p>
+      <a href="#contact" style="
+        display: inline-block;
+        background: var(--v1-color-cta-bg);
+        color: var(--v1-color-cta-text);
+        padding: var(--v1-space-4) var(--v1-space-8);
+        border-radius: var(--v1-radius-md);
+        font-weight: var(--v1-font-weight-semibold);
+        font-size: var(--v1-font-size-lg);
+        text-decoration: none;
+        transition: opacity 0.2s;
+      ">Get a Free Estimate</a>
+    </div>
+    <!-- Image column -->
+    <div style="flex: 1 1 360px; min-width: 0; text-align: center;">
+      <img
+        src="https://images.pexels.com/photos/6419128/pexels-photo-6419128.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1"
+        alt=""
+        data-fallback="/v1/assets/placeholders/local/local-services-trust-hero-01.svg"
+        onerror="if(this.dataset.fallback&&this.src!==this.dataset.fallback){this.src=this.dataset.fallback;}"
+        style="
+          width: 100%; max-width: 520px;
+          border-radius: var(--v1-radius-lg);
+          box-shadow: var(--v1-shadow-lg);
+          object-fit: cover;
+        "
+      />
+    </div>
+  </div>
+</section>
+
+<section class="v1-social-proof" style="
+  background: var(--v1-color-bg-alt);
+  padding: var(--v1-space-10) 0;
+  text-align: center;
+">
+  <div class="v1-container">
+    <p style="
+      font-size: var(--v1-font-size-sm);
+      color: var(--v1-color-text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: var(--v1-space-6);
+      font-weight: var(--v1-font-weight-semibold);
+    ">Trusted by Homeowners Across the Region</p>
+    <div style="
+      display: flex; flex-wrap: wrap; justify-content: center;
+      gap: var(--v1-space-5);
+    ">
+      
+      <div style="
+        display: flex; align-items: center; justify-content: center;
+        background: var(--v1-color-bg);
+        border: 1px solid var(--v1-color-border);
+        border-radius: var(--v1-radius-sm, 4px);
+        padding: var(--v1-space-3) var(--v1-space-6);
+        min-width: 120px; height: 48px;
+        font-size: var(--v1-font-size-sm);
+        color: var(--v1-color-text-muted);
+        font-weight: var(--v1-font-weight-medium);
+        text-transform: capitalize;
+      ">bbb</div>
+
+      <div style="
+        display: flex; align-items: center; justify-content: center;
+        background: var(--v1-color-bg);
+        border: 1px solid var(--v1-color-border);
+        border-radius: var(--v1-radius-sm, 4px);
+        padding: var(--v1-space-3) var(--v1-space-6);
+        min-width: 120px; height: 48px;
+        font-size: var(--v1-font-size-sm);
+        color: var(--v1-color-text-muted);
+        font-weight: var(--v1-font-weight-medium);
+        text-transform: capitalize;
+      ">google reviews</div>
+
+      <div style="
+        display: flex; align-items: center; justify-content: center;
+        background: var(--v1-color-bg);
+        border: 1px solid var(--v1-color-border);
+        border-radius: var(--v1-radius-sm, 4px);
+        padding: var(--v1-space-3) var(--v1-space-6);
+        min-width: 120px; height: 48px;
+        font-size: var(--v1-font-size-sm);
+        color: var(--v1-color-text-muted);
+        font-weight: var(--v1-font-weight-medium);
+        text-transform: capitalize;
+      ">homeadvisor</div>
+
+      <div style="
+        display: flex; align-items: center; justify-content: center;
+        background: var(--v1-color-bg);
+        border: 1px solid var(--v1-color-border);
+        border-radius: var(--v1-radius-sm, 4px);
+        padding: var(--v1-space-3) var(--v1-space-6);
+        min-width: 120px; height: 48px;
+        font-size: var(--v1-font-size-sm);
+        color: var(--v1-color-text-muted);
+        font-weight: var(--v1-font-weight-medium);
+        text-transform: capitalize;
+      ">angies list</div>
+    </div>
+  </div>
+</section>
+
+<section class="v1-service-list" style="
+  background: var(--v1-color-bg-alt);
+  padding: var(--v1-space-20) 0;
+">
+  <div class="v1-container">
+    <h2 style="
+      font-size: var(--v1-font-size-3xl);
+      font-weight: var(--v1-font-weight-bold);
+      text-align: center;
+      margin-bottom: var(--v1-space-12);
+      color: var(--v1-color-text);
+    ">What We Offer</h2>
+    <div style="
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: var(--v1-space-8);
+    ">
+      
+    <div style="
+      background: var(--v1-color-card-bg);
+      color: var(--v1-color-card-text);
+      padding: var(--v1-space-8);
+      border-radius: var(--v1-radius-lg);
+      box-shadow: var(--v1-shadow-md);
+      text-align: center;
+    ">
+      <div style="margin-bottom: var(--v1-space-4);"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--v1-color-accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94L6.73 20.2a2 2 0 0 1-2.83-2.83l6.83-6.73A6 6 0 0 1 18.6 2.77z"/></svg></div>
+      <h3 style="
+        font-size: var(--v1-font-size-xl);
+        font-weight: var(--v1-font-weight-semibold);
+        margin-bottom: var(--v1-space-3);
+        color: var(--v1-color-primary);
+      ">Emergency Repairs</h3>
+      <p style="
+        font-size: var(--v1-font-size-base);
+        color: var(--v1-color-text-muted);
+        line-height: var(--v1-line-height-relaxed);
+      ">24/7 same-day service for urgent problems.</p>
+    </div>
+
+    <div style="
+      background: var(--v1-color-card-bg);
+      color: var(--v1-color-card-text);
+      padding: var(--v1-space-8);
+      border-radius: var(--v1-radius-lg);
+      box-shadow: var(--v1-shadow-md);
+      text-align: center;
+    ">
+      <div style="margin-bottom: var(--v1-space-4);"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--v1-color-accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/><path d="M12 2L2 7l10 5 10-5L12 2z"/></svg></div>
+      <h3 style="
+        font-size: var(--v1-font-size-xl);
+        font-weight: var(--v1-font-weight-semibold);
+        margin-bottom: var(--v1-space-3);
+        color: var(--v1-color-primary);
+      ">Full Installations</h3>
+      <p style="
+        font-size: var(--v1-font-size-base);
+        color: var(--v1-color-text-muted);
+        line-height: var(--v1-line-height-relaxed);
+      ">Licensed professionals for new installs and upgrades.</p>
+    </div>
+
+    <div style="
+      background: var(--v1-color-card-bg);
+      color: var(--v1-color-card-text);
+      padding: var(--v1-space-8);
+      border-radius: var(--v1-radius-lg);
+      box-shadow: var(--v1-shadow-md);
+      text-align: center;
+    ">
+      <div style="margin-bottom: var(--v1-space-4);"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--v1-color-accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+      <h3 style="
+        font-size: var(--v1-font-size-xl);
+        font-weight: var(--v1-font-weight-semibold);
+        margin-bottom: var(--v1-space-3);
+        color: var(--v1-color-primary);
+      ">Maintenance Plans</h3>
+      <p style="
+        font-size: var(--v1-font-size-base);
+        color: var(--v1-color-text-muted);
+        line-height: var(--v1-line-height-relaxed);
+      ">Preventive care that saves you money long-term.</p>
+    </div>
+
+    <div style="
+      background: var(--v1-color-card-bg);
+      color: var(--v1-color-card-text);
+      padding: var(--v1-space-8);
+      border-radius: var(--v1-radius-lg);
+      box-shadow: var(--v1-shadow-md);
+      text-align: center;
+    ">
+      <div style="margin-bottom: var(--v1-space-4);"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--v1-color-accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
+      <h3 style="
+        font-size: var(--v1-font-size-xl);
+        font-weight: var(--v1-font-weight-semibold);
+        margin-bottom: var(--v1-space-3);
+        color: var(--v1-color-primary);
+      ">Free Inspections</h3>
+      <p style="
+        font-size: var(--v1-font-size-base);
+        color: var(--v1-color-text-muted);
+        line-height: var(--v1-line-height-relaxed);
+      ">Honest assessments with upfront pricing.</p>
+    </div>
+    </div>
+  </div>
+</section>
+
+<section class="v1-image-pair" style="
+  background: var(--v1-color-bg);
+  padding: var(--v1-space-16) 0;
+">
+  <div class="v1-container">
+    <h2 style="
+      font-size: var(--v1-font-size-3xl);
+      font-weight: var(--v1-font-weight-bold);
+      text-align: center;
+      margin-bottom: var(--v1-space-10);
+      color: var(--v1-color-text);
+    ">Recent Work</h2>
+
+    <div style="
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: var(--v1-space-8);
+      align-items: stretch;
+    ">
+      <img
+        src="https://images.pexels.com/photos/257736/pexels-photo-257736.jpeg?auto=compress&cs=tinysrgb&w=600"
+        alt=""
+        data-fallback="/v1/assets/placeholders/local/local-services-trust-card-01.svg"
+        onerror="if(this.dataset.fallback&&this.src!==this.dataset.fallback){this.src=this.dataset.fallback;}"
+        style="
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    border-radius: var(--v1-radius-lg);
+    box-shadow: var(--v1-shadow-md);
+    background: var(--v1-color-card-bg);
+  "
+      />
+      <img
+        src="https://images.pexels.com/photos/3243/pen-calendar-to-do-checklist.jpg?auto=compress&cs=tinysrgb&w=600"
+        alt=""
+        data-fallback="/v1/assets/placeholders/local/local-services-trust-card-02.svg"
+        onerror="if(this.dataset.fallback&&this.src!==this.dataset.fallback){this.src=this.dataset.fallback;}"
+        style="
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    border-radius: var(--v1-radius-lg);
+    box-shadow: var(--v1-shadow-md);
+    background: var(--v1-color-card-bg);
+  "
+      />
+    </div>
+  </div>
+</section>
+
+<section class="v1-testimonials" style="
+  background: var(--v1-color-bg);
+  padding: var(--v1-space-20) 0;
+">
+  <div class="v1-container">
+    <h2 style="
+      font-size: var(--v1-font-size-3xl);
+      font-weight: var(--v1-font-weight-bold);
+      text-align: center;
+      margin-bottom: var(--v1-space-12);
+      color: var(--v1-color-text);
+    ">What Our Customers Say</h2>
+    <div style="
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: var(--v1-space-8);
+    ">
+      
+    <div style="
+      background: var(--v1-color-card-bg);
+      color: var(--v1-color-card-text);
+      padding: var(--v1-space-8);
+      border-radius: var(--v1-radius-lg);
+      box-shadow: var(--v1-shadow-md);
+    ">
+      <p style="
+        font-style: italic;
+        font-size: var(--v1-font-size-base);
+        line-height: var(--v1-line-height-relaxed);
+        margin-bottom: var(--v1-space-5);
+        color: var(--v1-color-card-text);
+      ">&ldquo;They fixed our burst pipe at 2 AM — absolute lifesavers.&rdquo;</p>
+      <div>
+        <strong style="
+          display: block;
+          font-weight: var(--v1-font-weight-semibold);
+          color: var(--v1-color-primary);
+        ">Robert M.</strong>
+        <span style="
+          font-size: var(--v1-font-size-sm);
+          color: var(--v1-color-text-muted);
+        ">Homeowner</span>
+      </div>
+    </div>
+
+    <div style="
+      background: var(--v1-color-card-bg);
+      color: var(--v1-color-card-text);
+      padding: var(--v1-space-8);
+      border-radius: var(--v1-radius-lg);
+      box-shadow: var(--v1-shadow-md);
+    ">
+      <p style="
+        font-style: italic;
+        font-size: var(--v1-font-size-base);
+        line-height: var(--v1-line-height-relaxed);
+        margin-bottom: var(--v1-space-5);
+        color: var(--v1-color-card-text);
+      ">&ldquo;Honest, fair pricing and incredible workmanship.&rdquo;</p>
+      <div>
+        <strong style="
+          display: block;
+          font-weight: var(--v1-font-weight-semibold);
+          color: var(--v1-color-primary);
+        ">Jennifer H.</strong>
+        <span style="
+          font-size: var(--v1-font-size-sm);
+          color: var(--v1-color-text-muted);
+        ">Property Manager</span>
+      </div>
+    </div>
+
+    <div style="
+      background: var(--v1-color-card-bg);
+      color: var(--v1-color-card-text);
+      padding: var(--v1-space-8);
+      border-radius: var(--v1-radius-lg);
+      box-shadow: var(--v1-shadow-md);
+    ">
+      <p style="
+        font-style: italic;
+        font-size: var(--v1-font-size-base);
+        line-height: var(--v1-line-height-relaxed);
+        margin-bottom: var(--v1-space-5);
+        color: var(--v1-color-card-text);
+      ">&ldquo;The only contractor I will ever call again.&rdquo;</p>
+      <div>
+        <strong style="
+          display: block;
+          font-weight: var(--v1-font-weight-semibold);
+          color: var(--v1-color-primary);
+        ">Tom R.</strong>
+        <span style="
+          font-size: var(--v1-font-size-sm);
+          color: var(--v1-color-text-muted);
+        ">Repeat Customer</span>
+      </div>
+    </div>
+    </div>
+  </div>
+</section>
+
+<section class="v1-final-cta" id="contact" style="
+  background: var(--v1-color-cta-bg);
+  color: var(--v1-color-cta-text);
+  padding: var(--v1-space-20) 0;
+  text-align: center;
+">
+  <div class="v1-container">
+    <h2 style="
+      font-size: var(--v1-font-size-3xl);
+      font-weight: var(--v1-font-weight-bold);
+      margin-bottom: var(--v1-space-4);
+      color: var(--v1-color-cta-text);
+    ">Ready to Get Started?</h2>
+    <p style="
+      font-size: var(--v1-font-size-lg);
+      opacity: 0.9;
+      margin-bottom: var(--v1-space-10);
+      max-width: 540px; margin-left: auto; margin-right: auto;
+      color: var(--v1-color-cta-text);
+    ">Fill out the form below and we will be in touch within the hour.</p>
+    
+    <form class="v1-contact-form" onsubmit="return false;" style="
+      max-width: 500px; margin: 0 auto; text-align: left;
+    ">
+      <input type="text" name="name" placeholder="Your Name" required style="
+        width: 100%; padding: 12px; margin-bottom: 12px;
+        border: 1px solid rgba(255,255,255,0.3);
+        border-radius: var(--v1-radius-md);
+        font-size: var(--v1-font-size-base);
+        background: rgba(255,255,255,0.1);
+        color: var(--v1-color-cta-text);
+      " />
+<input type="email" name="email" placeholder="Your Email" required style="
+        width: 100%; padding: 12px; margin-bottom: 12px;
+        border: 1px solid rgba(255,255,255,0.3);
+        border-radius: var(--v1-radius-md);
+        font-size: var(--v1-font-size-base);
+        background: rgba(255,255,255,0.1);
+        color: var(--v1-color-cta-text);
+      " />
+<input type="tel" name="phone" placeholder="Your Phone"  style="
+        width: 100%; padding: 12px; margin-bottom: 12px;
+        border: 1px solid rgba(255,255,255,0.3);
+        border-radius: var(--v1-radius-md);
+        font-size: var(--v1-font-size-base);
+        background: rgba(255,255,255,0.1);
+        color: var(--v1-color-cta-text);
+      " />
+<textarea name="message" placeholder="Tell us about your needs..." rows="4"  style="
+        width: 100%; padding: 12px; margin-bottom: 12px;
+        border: 1px solid rgba(255,255,255,0.3);
+        border-radius: var(--v1-radius-md);
+        font-size: var(--v1-font-size-base);
+        background: rgba(255,255,255,0.1);
+        color: var(--v1-color-cta-text);
+      "></textarea>
+      <button type="submit" style="
+        display: block; width: 100%;
+        background: var(--v1-color-hero-bg);
+        color: var(--v1-color-hero-text);
+        padding: var(--v1-space-4) var(--v1-space-8);
+        border: none; border-radius: var(--v1-radius-md);
+        font-size: var(--v1-font-size-lg);
+        font-weight: var(--v1-font-weight-semibold);
+        cursor: pointer;
+        transition: opacity 0.2s;
+      ">Request a Callback</button>
+    </form>
+  </div>
+</section>
+
+<footer class="v1-attribution" style="
+  padding: 12px 24px;
+  background: #f5f5f5;
+  color: #666;
+  font-size: 11px;
+  text-align: center;
+  border-top: 1px solid #e0e0e0;
+">
+  Demo images: <a href="https://www.pexels.com/photo/plumber-installs-pipe-fittings-6419128/" target="_blank" rel="noopener noreferrer" style="color: inherit; text-decoration: underline;">Photo by Anıl Karakaya on Pexels</a> · <a href="https://www.pexels.com/photo/electrician-fixing-an-opened-switchboard-257736/" target="_blank" rel="noopener noreferrer" style="color: inherit; text-decoration: underline;">Photo by Pixabay on Pexels</a> · <a href="https://www.pexels.com/photo/pen-calendar-to-do-checklist-3243/" target="_blank" rel="noopener noreferrer" style="color: inherit; text-decoration: underline;">Photo by Breakingpic on Pexels</a>
+</footer>
+  </div>
+</body>
+</html>

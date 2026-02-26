@@ -1,0 +1,39 @@
+/*
+ * Theme: Coming Soon Vibrant (Light)
+ *
+ * Colorful gradient vibes for energetic launch countdowns.
+ *
+ * All overrides target .v1-page so they layer on top of tokens.css
+ * without affecting any legacy styles.
+ */
+
+.v1-page {
+  /* —— Colour overrides —— */
+  --v1-color-primary: #ec4899;
+  --v1-color-primary-dark: #db2777;
+  --v1-color-accent: #8b5cf6;
+  --v1-color-bg: #ffffff;
+  --v1-color-bg-alt: #fdf2f8;
+  --v1-color-text: #1e293b;
+  --v1-color-text-muted: #64748b;
+  --v1-color-border: #fce7f3;
+  --v1-color-hero-bg: linear-gradient(135deg,#ec4899,#8b5cf6);
+  --v1-color-hero-text: #ffffff;
+  --v1-color-cta-bg: #ec4899;
+  --v1-color-cta-text: #ffffff;
+  --v1-color-card-bg: #ffffff;
+  --v1-color-card-text: #1e293b;
+  --v1-color-footer-bg: #1e1b4b;
+  --v1-color-footer-text: #c4b5fd;
+
+  /* —— Typography —— */
+  --v1-font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+  /* —— Layout feel —— */
+  --v1-radius-md: 12px;
+  --v1-radius-lg: 20px;
+
+  /* —— Shadow —— */
+  --v1-shadow-md: 0 4px 12px rgba(236,72,153,0.1);
+  --v1-shadow-lg: 0 10px 24px rgba(236,72,153,0.15);
+}

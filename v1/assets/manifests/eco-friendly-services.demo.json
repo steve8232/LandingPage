@@ -1,0 +1,35 @@
+{
+  "demo-eco-friendly-services-hero-01": {
+    "id": "demo-eco-friendly-services-hero-01",
+    "role": "hero",
+    "url": "https://images.pexels.com/photos/1301856/pexels-photo-1301856.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
+    "source_page_url": "https://www.pexels.com/photo/selective-focus-photography-of-green-plant-1301856/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo by Min An on Pexels",
+    "attribution_url": "https://www.pexels.com/@minan1398",
+    "notes": "Pexels License. Demo reference only; do not redistribute as a stock pack."
+  },
+  "demo-eco-friendly-services-card-01": {
+    "id": "demo-eco-friendly-services-card-01",
+    "role": "card",
+    "url": "https://images.pexels.com/photos/4108715/pexels-photo-4108715.jpeg?auto=compress&cs=tinysrgb&w=600&h=&dpr=1",
+    "source_page_url": "https://www.pexels.com/photo/crop-woman-with-mop-and-bucket-in-house-4108715/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo by Karolina Grabowska on Pexels",
+    "attribution_url": "https://www.pexels.com/@karolina-grabowska",
+    "notes": "Pexels License. Demo reference only; do not redistribute as a stock pack."
+  },
+  "demo-eco-friendly-services-card-02": {
+    "id": "demo-eco-friendly-services-card-02",
+    "role": "card",
+    "url": "https://images.pexels.com/photos/1072824/pexels-photo-1072824.jpeg?auto=compress&cs=tinysrgb&w=600&h=&dpr=1",
+    "source_page_url": "https://www.pexels.com/photo/green-succulent-plants-on-brown-pot-1072824/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo by Designecologist on Pexels",
+    "attribution_url": "https://www.pexels.com/@designecologist",
+    "notes": "Pexels License. Demo reference only; do not redistribute as a stock pack."
+  }
+}

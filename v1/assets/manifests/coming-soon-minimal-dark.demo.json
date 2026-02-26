@@ -1,0 +1,35 @@
+{
+  "demo-coming-soon-minimal-dark-hero-01": {
+    "id": "demo-coming-soon-minimal-dark-hero-01",
+    "role": "hero",
+    "url": "https://images.pexels.com/photos/1629236/pexels-photo-1629236.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
+    "source_page_url": "https://www.pexels.com/photo/close-up-photo-of-gray-concrete-road-1629236/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo by Emiliano Arano on Pexels",
+    "attribution_url": "https://www.pexels.com/@emiliano-arano",
+    "notes": "Pexels License. Demo reference only; do not redistribute as a stock pack."
+  },
+  "demo-coming-soon-minimal-dark-card-01": {
+    "id": "demo-coming-soon-minimal-dark-card-01",
+    "role": "card",
+    "url": "https://images.pexels.com/photos/2088170/pexels-photo-2088170.jpeg?auto=compress&cs=tinysrgb&w=600&h=&dpr=1",
+    "source_page_url": "https://www.pexels.com/photo/orange-and-green-abstract-painting-2088170/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo by Gradienta on Pexels",
+    "attribution_url": "https://www.pexels.com/@gradienta",
+    "notes": "Pexels License. Demo reference only; do not redistribute as a stock pack."
+  },
+  "demo-coming-soon-minimal-dark-card-02": {
+    "id": "demo-coming-soon-minimal-dark-card-02",
+    "role": "card",
+    "url": "https://images.pexels.com/photos/2387793/pexels-photo-2387793.jpeg?auto=compress&cs=tinysrgb&w=600&h=&dpr=1",
+    "source_page_url": "https://www.pexels.com/photo/photo-of-abstract-painting-2387793/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo by Anni Roenkae on Pexels",
+    "attribution_url": "https://www.pexels.com/@anniroenkae",
+    "notes": "Pexels License. Demo reference only; do not redistribute as a stock pack."
+  }
+}

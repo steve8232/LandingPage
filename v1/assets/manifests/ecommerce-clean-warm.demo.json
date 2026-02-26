@@ -1,0 +1,35 @@
+{
+  "demo-ecommerce-clean-warm-hero-01": {
+    "id": "demo-ecommerce-clean-warm-hero-01",
+    "role": "hero",
+    "url": "https://images.pexels.com/photos/5632399/pexels-photo-5632399.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
+    "source_page_url": "https://www.pexels.com/photo/woman-holding-shopping-bags-5632399/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo by Karolina Grabowska on Pexels",
+    "attribution_url": "https://www.pexels.com/@karolina-grabowska",
+    "notes": "Pexels License. Demo reference only; do not redistribute as a stock pack."
+  },
+  "demo-ecommerce-clean-warm-card-01": {
+    "id": "demo-ecommerce-clean-warm-card-01",
+    "role": "card",
+    "url": "https://images.pexels.com/photos/3373736/pexels-photo-3373736.jpeg?auto=compress&cs=tinysrgb&w=600&h=&dpr=1",
+    "source_page_url": "https://www.pexels.com/photo/flatlay-photography-of-cosmetics-3373736/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo by Element5 Digital on Pexels",
+    "attribution_url": "https://www.pexels.com/@element5digital",
+    "notes": "Pexels License. Demo reference only; do not redistribute as a stock pack."
+  },
+  "demo-ecommerce-clean-warm-card-02": {
+    "id": "demo-ecommerce-clean-warm-card-02",
+    "role": "card",
+    "url": "https://images.pexels.com/photos/4464482/pexels-photo-4464482.jpeg?auto=compress&cs=tinysrgb&w=600&h=&dpr=1",
+    "source_page_url": "https://www.pexels.com/photo/person-holding-white-box-4464482/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo by Ketut Subiyanto on Pexels",
+    "attribution_url": "https://www.pexels.com/@ketut-subiyanto",
+    "notes": "Pexels License. Demo reference only; do not redistribute as a stock pack."
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "demo-local-hero-01": {
+    "id": "demo-local-hero-01",
+    "role": "hero",
+    "url": "https://images.pexels.com/photos/6419128/pexels-photo-6419128.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
+    "source_page_url": "https://www.pexels.com/photo/plumber-installs-pipe-fittings-6419128/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo by Anıl Karakaya on Pexels",
+    "attribution_url": "https://www.pexels.com/@anilkarakaya",
+    "notes": "Close-up of a plumber's hands installing steel pipes indoors. 6000×4000 original. Pexels License allows free commercial use; attribution is recommended but not legally required."
+  },
+  "demo-local-card-01": {
+    "id": "demo-local-card-01",
+    "role": "card",
+    "url": "https://images.pexels.com/photos/257736/pexels-photo-257736.jpeg?auto=compress&cs=tinysrgb&w=600",
+    "source_page_url": "https://www.pexels.com/photo/electrician-fixing-an-opened-switchboard-257736/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo by Pixabay on Pexels",
+    "attribution_url": "https://www.pexels.com/@pixabay",
+    "notes": "Electrician working on a circuit breaker panel with colourful wires. Conveys professional competence and trust. Pexels License."
+  },
+  "demo-local-card-02": {
+    "id": "demo-local-card-02",
+    "role": "card",
+    "url": "https://images.pexels.com/photos/3243/pen-calendar-to-do-checklist.jpg?auto=compress&cs=tinysrgb&w=600",
+    "source_page_url": "https://www.pexels.com/photo/pen-calendar-to-do-checklist-3243/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo by Breakingpic on Pexels",
+    "attribution_url": "https://www.pexels.com/@breakingpic",
+    "notes": "Close-up of a pen on a checklist / to-do list. Evokes estimates, work orders, and organized scheduling. Pexels License."
+  }
+}
+

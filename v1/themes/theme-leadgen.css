@@ -1,0 +1,39 @@
+/*
+ * Theme: Lead Gen (Light)
+ *
+ * Versatile purple/blue theme for webinars, ebooks, and lead gen pages.
+ *
+ * All overrides target .v1-page so they layer on top of tokens.css
+ * without affecting any legacy styles.
+ */
+
+.v1-page {
+  /* —— Colour overrides —— */
+  --v1-color-primary: #7c3aed;
+  --v1-color-primary-dark: #6d28d9;
+  --v1-color-accent: #06b6d4;
+  --v1-color-bg: #ffffff;
+  --v1-color-bg-alt: #f5f3ff;
+  --v1-color-text: #1e293b;
+  --v1-color-text-muted: #64748b;
+  --v1-color-border: #e2e8f0;
+  --v1-color-hero-bg: #4c1d95;
+  --v1-color-hero-text: #ffffff;
+  --v1-color-cta-bg: #7c3aed;
+  --v1-color-cta-text: #ffffff;
+  --v1-color-card-bg: #ffffff;
+  --v1-color-card-text: #1e293b;
+  --v1-color-footer-bg: #1e1b4b;
+  --v1-color-footer-text: #c4b5fd;
+
+  /* —— Typography —— */
+  --v1-font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+  /* —— Layout feel —— */
+  --v1-radius-md: 10px;
+  --v1-radius-lg: 16px;
+
+  /* —— Shadow —— */
+  --v1-shadow-md: 0 4px 10px rgba(124,58,237,0.08);
+  --v1-shadow-lg: 0 10px 24px rgba(124,58,237,0.12);
+}

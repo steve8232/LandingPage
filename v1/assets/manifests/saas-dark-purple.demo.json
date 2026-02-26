@@ -1,0 +1,35 @@
+{
+  "demo-saas-dark-purple-hero-01": {
+    "id": "demo-saas-dark-purple-hero-01",
+    "role": "hero",
+    "url": "https://images.pexels.com/photos/1181671/pexels-photo-1181671.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
+    "source_page_url": "https://www.pexels.com/photo/woman-sitting-while-operating-macbook-pro-1181671/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo by Christina Morillo on Pexels",
+    "attribution_url": "https://www.pexels.com/@divinitylrl",
+    "notes": "Pexels License. Demo reference only; do not redistribute as a stock pack."
+  },
+  "demo-saas-dark-purple-card-01": {
+    "id": "demo-saas-dark-purple-card-01",
+    "role": "card",
+    "url": "https://images.pexels.com/photos/1714208/pexels-photo-1714208.jpeg?auto=compress&cs=tinysrgb&w=600&h=&dpr=1",
+    "source_page_url": "https://www.pexels.com/photo/person-using-laptop-computer-1714208/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo by Burst on Pexels",
+    "attribution_url": "https://www.pexels.com/@burst",
+    "notes": "Pexels License. Demo reference only; do not redistribute as a stock pack."
+  },
+  "demo-saas-dark-purple-card-02": {
+    "id": "demo-saas-dark-purple-card-02",
+    "role": "card",
+    "url": "https://images.pexels.com/photos/577585/pexels-photo-577585.jpeg?auto=compress&cs=tinysrgb&w=600&h=&dpr=1",
+    "source_page_url": "https://www.pexels.com/photo/turned-on-gray-laptop-computer-577585/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo by Lukas Blazek on Pexels",
+    "attribution_url": "https://www.pexels.com/@goumbik",
+    "notes": "Pexels License. Demo reference only; do not redistribute as a stock pack."
+  }
+}

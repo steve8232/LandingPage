@@ -1,65 +1,231 @@
-import Image from "next/image";
+'use client';
+
+import { useState } from 'react';
+import WelcomeScreen from '@/components/WelcomeScreen';
+import ProgressIndicator from '@/components/ProgressIndicator';
+import Step0TemplateSelect from '@/components/Step0TemplateSelect';
+import Step1DesignInput from '@/components/Step1DesignInput';
+import Step2BusinessInfo from '@/components/Step2BusinessInfo';
+import Step3ContactInfo from '@/components/Step3ContactInfo';
+import GeneratingScreen from '@/components/GeneratingScreen';
+import PreviewDownload from '@/components/PreviewDownload';
+import { FormData, GeneratedLandingPage, DesignInput, BusinessInfo, ContactInfo, Template } from '@/types';
+
+type AppState = 'welcome' | 'form' | 'generating' | 'preview';
+
+// Steps now include Template selection (step 0)
+// If user chose to customize with URL, they see Design step
+// Otherwise they skip to Business Info
+const STEPS_WITH_DESIGN = ['Template', 'Design', 'Business Info', 'Contact'];
+const STEPS_NO_DESIGN = ['Template', 'Business Info', 'Contact'];
+
+const initialFormData: FormData = {
+  selectedTemplate: undefined,
+  customizeWithUrl: false,
+  design: { option: 'description' },
+  business: {
+    productService: '',
+    offer: '',
+    pricing: '',
+    cta: '',
+    uniqueValue: '',
+    customerLove: '',
+    images: [],
+  },
+  contact: { email: '', phone: '' },
+};
 
 export default function Home() {
+  const [appState, setAppState] = useState<AppState>('welcome');
+  const [currentStep, setCurrentStep] = useState(0);
+  const [formData, setFormData] = useState<FormData>(initialFormData);
+  const [generatingStage, setGeneratingStage] = useState('');
+  const [landingPage, setLandingPage] = useState<GeneratedLandingPage | null>(null);
+  const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Determine which steps to show based on whether user wants to customize with URL
+  const steps = formData.customizeWithUrl ? STEPS_WITH_DESIGN : STEPS_NO_DESIGN;
+
+  const updateTemplate = (template: Template, customizeWithUrl: boolean) => {
+    setFormData(prev => ({ ...prev, selectedTemplate: template, customizeWithUrl }));
+    setCurrentStep(1);
+  };
+  const updateDesign = (design: DesignInput) => setFormData(prev => ({ ...prev, design }));
+  const updateBusiness = (business: BusinessInfo) => setFormData(prev => ({ ...prev, business }));
+  const updateContact = (contact: ContactInfo) => setFormData(prev => ({ ...prev, contact }));
+
+  const generateLandingPage = async () => {
+    setIsSubmitting(true);
+    setError('');
+
+    // Switch to generating screen after a short delay
+    setTimeout(() => setAppState('generating'), 100);
+
+    const stages = [
+      'Analyzing your inputs...',
+      'Crafting compelling headlines...',
+      'Generating testimonials...',
+      'Building your landing page...',
+      'Applying styles and polish...',
+      'Almost done...',
+    ];
+
+    let stageIndex = 0;
+    const stageInterval = setInterval(() => {
+      if (stageIndex < stages.length) {
+        setGeneratingStage(stages[stageIndex]);
+        stageIndex++;
+      }
+    }, 5000);
+
+    try {
+      setGeneratingStage(stages[0]);
+
+      const response = await fetch('/api/generate-landing-page', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+
+      clearInterval(stageInterval);
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to generate landing page');
+      }
+
+      const result = await response.json();
+      setLandingPage({
+        html: result.html,
+        css: result.css,
+        preview: result.preview,
+      });
+      setAppState('preview');
+    } catch (err) {
+      clearInterval(stageInterval);
+      setError(err instanceof Error ? err.message : 'An error occurred');
+      setAppState('form');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const startOver = () => {
+    setFormData(initialFormData);
+    setCurrentStep(0);
+    setLandingPage(null);
+    setAppState('welcome');
+  };
+
+  if (appState === 'welcome') {
+    return <WelcomeScreen onStart={() => setAppState('form')} />;
+  }
+
+  if (appState === 'generating') {
+    return <GeneratingScreen stage={generatingStage} />;
+  }
+
+  if (appState === 'preview' && landingPage) {
+    return (
+      <PreviewDownload
+        landingPage={landingPage}
+        onStartOver={startOver}
+        formData={formData}
+        testimonialCount={8}
+      />
+    );
+  }
+
+  // Determine which component to show based on step and customizeWithUrl
+  const renderStep = () => {
+    // Step 0: Template Selection
+    if (currentStep === 0) {
+      return (
+        <Step0TemplateSelect onSelect={updateTemplate} />
+      );
+    }
+
+    // If customizing with URL: steps are [Template, Design, Business, Contact]
+    // If not: steps are [Template, Business, Contact]
+    if (formData.customizeWithUrl) {
+      // Step 1: Design Input (URL analysis)
+      if (currentStep === 1) {
+        return (
+          <Step1DesignInput
+            data={formData.design}
+            onUpdate={updateDesign}
+            onNext={() => setCurrentStep(2)}
+            onBack={() => setCurrentStep(0)}
+          />
+        );
+      }
+      // Step 2: Business Info
+      if (currentStep === 2) {
+        return (
+          <Step2BusinessInfo
+            data={formData.business}
+            onUpdate={updateBusiness}
+            onNext={() => setCurrentStep(3)}
+            onBack={() => setCurrentStep(1)}
+          />
+        );
+      }
+      // Step 3: Contact Info
+      if (currentStep === 3) {
+        return (
+          <Step3ContactInfo
+            data={formData.contact}
+            onUpdate={updateContact}
+            onSubmit={generateLandingPage}
+            onBack={() => setCurrentStep(2)}
+            isGenerating={isSubmitting}
+          />
+        );
+      }
+    } else {
+      // Without URL customization: skip design step
+      // Step 1: Business Info
+      if (currentStep === 1) {
+        return (
+          <Step2BusinessInfo
+            data={formData.business}
+            onUpdate={updateBusiness}
+            onNext={() => setCurrentStep(2)}
+            onBack={() => setCurrentStep(0)}
+          />
+        );
+      }
+      // Step 2: Contact Info
+      if (currentStep === 2) {
+        return (
+          <Step3ContactInfo
+            data={formData.contact}
+            onUpdate={updateContact}
+            onSubmit={generateLandingPage}
+            onBack={() => setCurrentStep(1)}
+            isGenerating={isSubmitting}
+          />
+        );
+      }
+    }
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 py-8">
+      <div className={currentStep === 0 ? "max-w-5xl mx-auto" : "max-w-2xl mx-auto"}>
+        <div className="bg-white rounded-2xl shadow-xl p-6 md:p-8">
+          <ProgressIndicator currentStep={currentStep} steps={steps} />
+
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
+              {error}
+            </div>
+          )}
+
+          {renderStep()}
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+      </div>
     </div>
   );
 }

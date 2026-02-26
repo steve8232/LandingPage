@@ -1,0 +1,35 @@
+{
+  "demo-saas-modern-light-hero-01": {
+    "id": "demo-saas-modern-light-hero-01",
+    "role": "hero",
+    "url": "https://images.pexels.com/photos/546819/pexels-photo-546819.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
+    "source_page_url": "https://www.pexels.com/photo/javascript-code-across-monitor-546819/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo by Luis Gomes on Pexels",
+    "attribution_url": "https://www.pexels.com/@luis-gomes-166272",
+    "notes": "Pexels License. Demo reference only; do not redistribute as a stock pack."
+  },
+  "demo-saas-modern-light-card-01": {
+    "id": "demo-saas-modern-light-card-01",
+    "role": "card",
+    "url": "https://images.pexels.com/photos/3183150/pexels-photo-3183150.jpeg?auto=compress&cs=tinysrgb&w=600&h=&dpr=1",
+    "source_page_url": "https://www.pexels.com/photo/photo-of-people-using-laptops-3183150/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo by Canva Studio on Pexels",
+    "attribution_url": "https://www.pexels.com/@canvastudio",
+    "notes": "Pexels License. Demo reference only; do not redistribute as a stock pack."
+  },
+  "demo-saas-modern-light-card-02": {
+    "id": "demo-saas-modern-light-card-02",
+    "role": "card",
+    "url": "https://images.pexels.com/photos/590022/pexels-photo-590022.jpeg?auto=compress&cs=tinysrgb&w=600&h=&dpr=1",
+    "source_page_url": "https://www.pexels.com/photo/person-writing-on-notebook-590022/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo by Lukas on Pexels",
+    "attribution_url": "https://www.pexels.com/@goumbik",
+    "notes": "Pexels License. Demo reference only; do not redistribute as a stock pack."
+  }
+}

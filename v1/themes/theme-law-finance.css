@@ -1,0 +1,39 @@
+/*
+ * Theme: Law & Finance (Light)
+ *
+ * Authoritative dark tones with gold accent for legal/financial.
+ *
+ * All overrides target .v1-page so they layer on top of tokens.css
+ * without affecting any legacy styles.
+ */
+
+.v1-page {
+  /* —— Colour overrides —— */
+  --v1-color-primary: #1f2937;
+  --v1-color-primary-dark: #111827;
+  --v1-color-accent: #b45309;
+  --v1-color-bg: #ffffff;
+  --v1-color-bg-alt: #f9fafb;
+  --v1-color-text: #111827;
+  --v1-color-text-muted: #4b5563;
+  --v1-color-border: #d1d5db;
+  --v1-color-hero-bg: #1f2937;
+  --v1-color-hero-text: #ffffff;
+  --v1-color-cta-bg: #b45309;
+  --v1-color-cta-text: #ffffff;
+  --v1-color-card-bg: #ffffff;
+  --v1-color-card-text: #111827;
+  --v1-color-footer-bg: #111827;
+  --v1-color-footer-text: #9ca3af;
+
+  /* —— Typography —— */
+  --v1-font-family: Georgia, 'Times New Roman', serif;
+
+  /* —— Layout feel —— */
+  --v1-radius-md: 4px;
+  --v1-radius-lg: 8px;
+
+  /* —— Shadow —— */
+  --v1-shadow-md: 0 2px 8px rgba(31,41,55,0.08);
+  --v1-shadow-lg: 0 6px 16px rgba(31,41,55,0.12);
+}
