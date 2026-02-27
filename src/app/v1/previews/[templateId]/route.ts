@@ -12,7 +12,9 @@ export async function GET(
   const templateId = resolvedParams.templateId;
 
   try {
-    const { html } = composeV1Template(templateId);
+		// In-browser previews can use richer remote demo images (when specs reference demo-* IDs).
+		// Offline/static previews generated via v1/preview/buildPreviews.ts remain remote-free by default.
+		const { html } = composeV1Template(templateId, undefined, { allowRemoteDemoImages: true });
     return new Response(html, {
       status: 200,
       headers: {

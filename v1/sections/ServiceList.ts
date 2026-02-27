@@ -47,32 +47,37 @@ export function renderServiceList(props: ServiceListProps): string {
   const cardsHtml = props.services
     .map(
       (svc) => `
-    <div style="
-      background: var(--v1-color-card-bg);
-      color: var(--v1-color-card-text);
-      padding: var(--v1-space-8);
-      border-radius: var(--v1-radius-lg);
-      box-shadow: var(--v1-shadow-md);
-      text-align: center;
-    ">
-      <div style="margin-bottom: var(--v1-space-4);">${iconSvg(svc.icon)}</div>
-      <h3 style="
-        font-size: var(--v1-font-size-xl);
-        font-weight: var(--v1-font-weight-semibold);
-        margin-bottom: var(--v1-space-3);
-        color: var(--v1-color-primary);
-      ">${escapeHtml(svc.title)}</h3>
-      <p style="
-        font-size: var(--v1-font-size-base);
-        color: var(--v1-color-text-muted);
-        line-height: var(--v1-line-height-relaxed);
-      ">${escapeHtml(svc.description)}</p>${svc.benefit ? `
-      <p style="
-        font-size: var(--v1-font-size-sm);
-        font-weight: var(--v1-font-weight-semibold);
-        color: var(--v1-color-accent);
-        margin-top: var(--v1-space-3);
-      ">${escapeHtml(svc.benefit)}</p>` : ''}
+    <div class="v1-card" style="padding: var(--v1-space-8);">
+      <div style="display:flex; gap: 14px; align-items:flex-start;">
+        <div style="
+          width: 52px; height: 52px;
+          border-radius: var(--v1-radius-lg);
+          background: rgba(2, 6, 23, 0.04);
+          border: 1px solid rgba(2, 6, 23, 0.06);
+          display:flex; align-items:center; justify-content:center;
+          flex-shrink: 0;
+        ">${iconSvg(svc.icon)}</div>
+        <div style="min-width: 0;">
+          <h3 style="
+            font-size: var(--v1-font-size-xl);
+            font-weight: var(--v1-font-weight-semibold);
+            margin: 0 0 var(--v1-space-2) 0;
+            color: var(--v1-color-text);
+          ">${escapeHtml(svc.title)}</h3>
+          <p class="v1-muted" style="
+            font-size: var(--v1-font-size-base);
+            line-height: var(--v1-line-height-relaxed);
+            margin: 0;
+          ">${escapeHtml(svc.description)}</p>
+          ${svc.benefit ? `
+          <p style="
+            font-size: var(--v1-font-size-sm);
+            font-weight: var(--v1-font-weight-semibold);
+            color: var(--v1-color-accent);
+            margin: var(--v1-space-3) 0 0;
+          ">${escapeHtml(svc.benefit)}</p>` : ''}
+        </div>
+      </div>
     </div>`
     )
     .join('\n');

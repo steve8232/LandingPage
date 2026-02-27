@@ -10,31 +10,53 @@ const spec: TemplateSpec = {
     {
       type: 'HeroSplit',
       props: {
-        headline: 'Serious counsel for serious decisions',
-        subheadline:
-          'Professional guidance for individuals and businesses. Clear next steps, confidential conversations, and timely responses.',
-        ctaLabel: 'Request Consultation',
+		      eyebrow: 'Confidential consult • Clear next steps • Fast response',
+	        headline: 'Clear, confidential guidance when the stakes are high',
+		      subheadline:
+		        'Professional guidance for individuals and businesses. Understand your options, reduce risk, and leave with a concrete plan — not vague advice.',
+	        bullets: [
+	          'Plain-English explanation of options + tradeoffs',
+	          'Document review and risk checks before you sign',
+	          'Actionable next steps you can execute immediately',
+	        ],
+	        proofPoints: ['Confidential', 'Secure intake form', 'Response within 1 business day'],
+	        ctaLabel: 'Request a consultation',
+	        secondaryCtaLabel: 'Ask a quick question',
+	        secondaryCtaHref: '#contact',
         ctaHref: '#contact',
+		      trustBadge: 'Secure form • Confidential conversations • Clear next steps',
         imageAsset: 'heroImageId',
         fallbackAsset: 'fallbackHeroImageId',
       },
     },
+	    {
+	      type: 'SocialProofLogos',
+	      props: {
+	        heading: 'Professional standards you can count on',
+		      supportingText: 'Privacy-first • Secure intake • Fast response',
+	        logos: ['ssl-secure', 'verified', 'gdpr', 'fast-response'],
+	      },
+	    },
     {
       type: 'ServiceList',
       props: {
-        heading: 'Areas of focus',
+	        heading: 'Areas of focus',
+	        subheading: 'Support designed to remove uncertainty and help you move forward with confidence.',
         services: [
-          { title: 'Advisory', description: 'Structured guidance and decision support.', icon: 'search' },
-          { title: 'Documentation', description: 'Clear, accurate paperwork and review.', icon: 'tool' },
-          { title: 'Risk management', description: 'Identify and reduce exposure early.', icon: 'shield' },
-          { title: 'Planning', description: 'Long-term plans with measurable milestones.', icon: 'wrench' },
+	          { title: 'Advisory', description: 'Structured guidance and decision support tailored to your situation.', icon: 'search', benefit: 'Get clarity' },
+	          { title: 'Documentation', description: 'Clear, accurate paperwork drafting and review.', icon: 'tool', benefit: 'Avoid surprises' },
+	          { title: 'Risk management', description: 'Identify issues early and reduce exposure before it grows.', icon: 'shield', benefit: 'Reduce risk' },
+		        { title: 'Planning', description: 'A practical plan with milestones — and what to do next.', icon: 'wrench', benefit: 'Move forward' },
         ],
       },
     },
     {
       type: 'ImagePair',
       props: {
-        heading: 'Professional standards',
+	        heading: 'Professional standards',
+		      subheading: 'A clean process and clear documentation — so decisions feel straightforward.',
+	        caption1: 'Document review: clarity on terms, risks, and recommended edits.',
+	        caption2: 'Planning: a simple roadmap with milestones and next actions.',
         imageAsset1: 'supportImage1',
         fallbackAsset1: 'fallbackSupportImage1',
         imageAsset2: 'supportImage2',
@@ -44,15 +66,27 @@ const spec: TemplateSpec = {
     {
       type: 'TestimonialsCards',
       props: {
-        heading: 'What clients say',
+	        heading: 'What clients say',
+	        subheading: 'Clear answers, faster decisions, and less stress.',
         testimonials: [
-          { quote: 'Clear guidance and quick turnaround. We felt supported throughout.', name: 'Daniel K.', title: 'Client' },
-          { quote: 'Professional, thorough, and easy to work with.', name: 'Fatima A.', title: 'Client' },
-          { quote: 'Helped us understand options and make the right call.', name: 'Olivia P.', title: 'Client' },
+	          { quote: 'Clear guidance and quick turnaround. We felt supported throughout.', highlight: 'quick turnaround', rating: 5, name: 'Daniel K.', title: 'Client' },
+	          { quote: 'Professional, thorough, and easy to work with.', highlight: 'thorough', rating: 5, name: 'Fatima A.', title: 'Client' },
+	          { quote: 'Helped us understand options and make the right call.', highlight: 'make the right call', rating: 5, name: 'Olivia P.', title: 'Client' },
         ],
       },
     },
-	    { type: 'FinalCTA', props: { heading: 'Start with a conversation', subheading: 'Send details and we\'ll respond with next steps.', ctaLabel: 'Contact Us' } },
+	    {
+	      type: 'FinalCTA',
+	      props: {
+	        heading: 'Start with a conversation',
+		      subheading: 'Share a few details and we’ll reply with the next best step for your situation.',
+	        ctaLabel: 'Request a confidential consult',
+	        urgency: 'Limited consult slots each week',
+	        nextSteps: ['Send a brief message', 'We confirm fit + timing', 'Get clear next steps and a plan'],
+		      guarantee: 'Confidential • No pressure • Clear next steps',
+		      privacyNote: 'No spam — we only respond about your request.',
+	      },
+	    },
   ],
   assets: {
     heroImageId: 'demo-law-finance-hero-01',
@@ -66,11 +100,11 @@ const spec: TemplateSpec = {
     logo: '/v1/assets/placeholders/common/logo-placeholder.svg',
     avatar: '/v1/assets/placeholders/common/avatar-placeholder.svg',
   },
-  form: [
-    { name: 'name', type: 'text', placeholder: 'Name', required: true },
-    { name: 'email', type: 'email', placeholder: 'Email', required: true },
-    { name: 'message', type: 'textarea', placeholder: 'How can we help?', required: true },
-  ],
+	  form: [
+	    { name: 'name', type: 'text', placeholder: 'Full name', required: true },
+	    { name: 'email', type: 'email', placeholder: 'Email', required: true },
+	    { name: 'message', type: 'textarea', placeholder: 'Briefly describe your situation and what outcome you want', required: true },
+	  ],
   metadata: {
     name: 'Law & Finance (Light)',
     description: 'Authoritative law/finance template with strong trust cues and a straightforward consultation form.',

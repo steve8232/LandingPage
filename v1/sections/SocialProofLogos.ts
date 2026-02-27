@@ -12,6 +12,8 @@
 
 export interface SocialProofLogosProps {
   heading?: string;
+  /** Optional supporting proof line under the heading (e.g. "4.8★ avg across 1,200+ reviews") */
+  supportingText?: string;
   logos: string[];
 }
 
@@ -107,6 +109,38 @@ const BADGE_LIBRARY: Record<string, BadgeEntry> = {
     label: 'Fast Response',
     svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
   },
+
+  /* ── SaaS / B2B trust ─────────────────────────────────────────────────── */
+  'soc2': {
+    label: 'SOC 2',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>`,
+  },
+  'pci-dss': {
+    label: 'PCI DSS',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 10h10"/><path d="M7 14h6"/></svg>`,
+  },
+  'g2': {
+    label: 'G2',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M15.5 12h-3v-3"/><path d="M15.5 12a3.5 3.5 0 1 1-1.1-2.5"/></svg>`,
+  },
+  'capterra': {
+    label: 'Capterra',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l10 5-10 5L2 7l10-5z"/><path d="M22 7v10l-10 5-10-5V7"/></svg>`,
+  },
+
+  /* ── E-commerce checkout cues (generic icons, not brand marks) ────────── */
+  'secure-checkout': {
+    label: 'Secure Checkout',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`,
+  },
+  'free-shipping': {
+    label: 'Free Shipping',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h11v10H3z"/><path d="M14 10h4l3 3v4h-7z"/><circle cx="7" cy="19" r="1.5"/><circle cx="18" cy="19" r="1.5"/></svg>`,
+  },
+  'easy-returns': {
+    label: 'Easy Returns',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15-6"/><polyline points="18 3 18 7 14 7"/><path d="M21 12a9 9 0 0 1-15 6"/><polyline points="6 21 6 17 10 17"/></svg>`,
+  },
 };
 
 /** Exported so the AI prompt can list available badge IDs */
@@ -147,42 +181,18 @@ export function renderSocialProofLogos(props: SocialProofLogosProps): string {
       const badge = matchBadge(id);
 
       if (badge) {
-        // Render with inline SVG icon + label
         return `
-      <div style="
-        display: flex; align-items: center; gap: 8px;
-        background: var(--v1-color-bg);
-        border: 1px solid var(--v1-color-border);
-        border-radius: var(--v1-radius-sm, 4px);
-        padding: var(--v1-space-3) var(--v1-space-6);
-        min-width: 130px; height: 52px;
-        color: var(--v1-color-text-muted);
-        transition: box-shadow .2s;
-      ">
-        <span style="width:24px; height:24px; flex-shrink:0; color: var(--v1-color-primary);">${badge.svg}</span>
-        <span style="
-          font-size: var(--v1-font-size-sm);
-          font-weight: var(--v1-font-weight-semibold);
-          line-height: 1.2;
-          color: var(--v1-color-text);
-        ">${escapeHtml(badge.label)}</span>
+      <div class="v1-badge">
+        <span class="v1-badge__icon">${badge.svg}</span>
+        <span class="v1-badge__label">${escapeHtml(badge.label)}</span>
       </div>`;
       }
 
       // Fallback: plain text badge (for unrecognised names)
       return `
-      <div style="
-        display: flex; align-items: center; justify-content: center;
-        background: var(--v1-color-bg);
-        border: 1px solid var(--v1-color-border);
-        border-radius: var(--v1-radius-sm, 4px);
-        padding: var(--v1-space-3) var(--v1-space-6);
-        min-width: 120px; height: 52px;
-        font-size: var(--v1-font-size-sm);
-        color: var(--v1-color-text-muted);
-        font-weight: var(--v1-font-weight-medium);
-        text-transform: capitalize;
-      ">${escapeHtml(id.replace(/-/g, ' '))}</div>`;
+      <div class="v1-badge v1-badge--textonly">
+        <span class="v1-badge__label" style="color: var(--v1-color-text-muted); font-weight: var(--v1-font-weight-medium); text-transform: capitalize;">${escapeHtml(id.replace(/-/g, ' '))}</span>
+      </div>`;
     })
     .join('\n');
 
@@ -198,9 +208,10 @@ export function renderSocialProofLogos(props: SocialProofLogosProps): string {
       color: var(--v1-color-text-muted);
       text-transform: uppercase;
       letter-spacing: 0.08em;
-      margin-bottom: var(--v1-space-6);
+	      margin-bottom: ${props.supportingText ? 'var(--v1-space-3)' : 'var(--v1-space-6)'};
       font-weight: var(--v1-font-weight-semibold);
     ">${escapeHtml(heading)}</p>
+	    ${props.supportingText ? `<p style="font-size: var(--v1-font-size-base); color: var(--v1-color-text-muted); margin-bottom: var(--v1-space-6);">${escapeHtml(props.supportingText)}</p>` : ''}
     <div style="
       display: flex; flex-wrap: wrap; justify-content: center;
       gap: var(--v1-space-5);

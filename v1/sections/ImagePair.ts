@@ -40,8 +40,8 @@ export function renderImagePair(props: ImagePairProps): string {
     aspect-ratio: 4 / 3;
     object-fit: cover;
     border-radius: var(--v1-radius-lg);
-    box-shadow: var(--v1-shadow-md);
-    background: var(--v1-color-card-bg);
+    background: var(--v1-color-bg-alt);
+    border: 1px solid var(--v1-color-border);
   `;
 
   return `
@@ -72,34 +72,36 @@ export function renderImagePair(props: ImagePairProps): string {
       gap: var(--v1-space-8);
       align-items: stretch;
     ">
-      <figure style="margin: 0;">
+	      <figure class="v1-card" style="margin: 0; padding: var(--v1-space-6);">
         <img
           src="${escapeAttr(src1)}"
           alt="${escapeAttr(props._altText1 || '')}"
           data-fallback="${escapeAttr(fb1)}"
           onerror="if(this.dataset.fallback&&this.src!==this.dataset.fallback){this.src=this.dataset.fallback;}"
           style="${escapeAttr(imgStyle)}"
-        />${props.caption1 ? `
+	        />${props.caption1 ? `
         <figcaption style="
-          text-align: center;
+	          text-align: left;
           font-size: var(--v1-font-size-sm);
           color: var(--v1-color-text-muted);
           margin-top: var(--v1-space-3);
+	          line-height: var(--v1-line-height-relaxed);
         ">${escapeHtml(props.caption1)}</figcaption>` : ''}
       </figure>
-      <figure style="margin: 0;">
+	      <figure class="v1-card" style="margin: 0; padding: var(--v1-space-6);">
         <img
           src="${escapeAttr(src2)}"
           alt="${escapeAttr(props._altText2 || '')}"
           data-fallback="${escapeAttr(fb2)}"
           onerror="if(this.dataset.fallback&&this.src!==this.dataset.fallback){this.src=this.dataset.fallback;}"
           style="${escapeAttr(imgStyle)}"
-        />${props.caption2 ? `
+	        />${props.caption2 ? `
         <figcaption style="
-          text-align: center;
+	          text-align: left;
           font-size: var(--v1-font-size-sm);
           color: var(--v1-color-text-muted);
           margin-top: var(--v1-space-3);
+	          line-height: var(--v1-line-height-relaxed);
         ">${escapeHtml(props.caption2)}</figcaption>` : ''}
       </figure>
     </div>

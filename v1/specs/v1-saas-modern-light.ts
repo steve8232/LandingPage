@@ -10,24 +10,43 @@ const spec: TemplateSpec = {
     {
       type: 'HeroSplit',
       props: {
-	      headline: 'Modern SaaS that ships faster — without the chaos',
-        subheadline: 'A clean, modular platform your team can adopt in a day and love for years.',
-        ctaLabel: 'Start Free Trial',
+	        eyebrow: 'Built for lean teams',
+		      headline: 'Ship faster — without the chaos of scattered tools',
+	        subheadline: 'A modular workspace to standardize workflows, automate handoffs, and keep every project moving from idea to done.',
+	        bullets: [
+	          'Set up in under 10 minutes (no IT ticket)',
+	          'Automate approvals, follow-ups, and recurring work',
+	          'Real-time dashboards your team actually trusts',
+	        ],
+	        proofPoints: ['SOC 2-ready', 'GDPR-friendly', 'No-code + API'],
+	        ctaLabel: 'Start free (14 days)',
+	        secondaryCtaLabel: 'Book a demo',
+	        secondaryCtaHref: '#contact',
         ctaHref: '#contact',
+	        trustBadge: 'No credit card • Cancel anytime • Setup help included',
         imageAsset: 'heroImageId',
         fallbackAsset: 'fallbackHeroImageId',
       },
     },
-    { type: 'SocialProofLogos', props: { heading: 'Trusted by teams at', logos: ['acme', 'nova', 'orbit', 'vertex'] } },
+	    {
+	      type: 'SocialProofLogos',
+	      props: {
+	        heading: 'Trusted by teams who ship weekly',
+	        supportingText: '4.8★ average across 1,200+ reviews • Security-first by default',
+	        logos: ['soc2', 'g2', 'capterra', 'gdpr'],
+	      },
+	    },
     {
       type: 'ServiceList',
       props: {
         heading: 'Everything you need to launch',
+        subheading:
+          'The essentials teams ask for on day one — plus the guardrails you need as you scale.',
         services: [
-          { title: 'Automations', description: 'Eliminate repetitive work with safe workflows.', icon: 'tool' },
-          { title: 'Dashboards', description: 'Measure what matters with real-time insights.', icon: 'search' },
-          { title: 'Security', description: 'Sane defaults, roles, and audit-ready controls.', icon: 'shield' },
-          { title: 'Integrations', description: 'Connect your stack with a few clicks.', icon: 'wrench' },
+	          { title: 'Automations', description: 'Turn repeatable steps into reliable workflows your team can trust.', icon: 'tool', benefit: 'Ship without busywork' },
+	          { title: 'Dashboards', description: 'See progress, blockers, and outcomes in one place — updated in real time.', icon: 'search', benefit: 'Know what to fix next' },
+	          { title: 'Security', description: 'Roles, permissions, and audit trails that satisfy serious customers.', icon: 'shield', benefit: 'Be enterprise-ready' },
+	          { title: 'Integrations', description: 'Connect to the tools you already use (or build your own via API).', icon: 'wrench', benefit: 'Fits your stack' },
         ],
       },
     },
@@ -35,6 +54,9 @@ const spec: TemplateSpec = {
       type: 'ImagePair',
       props: {
         heading: 'Product snapshots',
+        subheading: 'A quick look at how the workflow stays clean from start to finish.',
+	      caption1: 'Standardize the workflow (so nothing slips through the cracks).',
+	      caption2: 'Track outcomes and cycle time with a dashboard everyone can read.',
         imageAsset1: 'supportImage1',
         fallbackAsset1: 'fallbackSupportImage1',
         imageAsset2: 'supportImage2',
@@ -45,14 +67,30 @@ const spec: TemplateSpec = {
       type: 'TestimonialsCards',
       props: {
         heading: 'Loved by operators and engineers',
+	        subheading: 'Fast onboarding, sane defaults, and results you can measure in weeks.',
         testimonials: [
-          { quote: 'We rolled it out in a weekend and immediately cut our cycle time.', name: 'Priya S.', title: 'Head of Ops' },
-          { quote: 'The UX is crisp and the defaults are exactly what we needed.', name: 'Marcus L.', title: 'Engineering Manager' },
-          { quote: 'It replaced three tools and the team actually enjoys using it.', name: 'Elena G.', title: 'Product Lead' },
+		          { quote: 'We onboarded the whole team in one afternoon and cut cycle time by ~35% in the first month.', highlight: 'cut cycle time by ~35%', rating: 5, name: 'Priya S.', title: 'Head of Ops' },
+		          { quote: 'The defaults are sane. We stopped arguing about process and started shipping.', highlight: 'started shipping', rating: 5, name: 'Marcus L.', title: 'Engineering Manager' },
+		          { quote: 'It replaced three tools. Our weekly review is finally one screen, not five tabs.', highlight: 'one screen', rating: 5, name: 'Elena G.', title: 'Product Lead' },
         ],
       },
     },
-    { type: 'FinalCTA', props: { heading: 'Try it today', subheading: 'Get a free sandbox and see value in minutes.', ctaLabel: 'Create Account' } },
+	    {
+	      type: 'FinalCTA',
+	      props: {
+	        heading: 'Start shipping this week',
+	        subheading: 'Create a workspace, import one workflow, and get your first dashboard live today.',
+	        ctaLabel: 'Create my workspace',
+	        urgency: 'Onboarding calls available this week (limited slots)',
+	        nextSteps: [
+	          'Create your workspace (2 minutes)',
+	          'Pick a workflow template and customize it',
+	          'Invite your team and track results in real time',
+	        ],
+	        guarantee: 'Cancel anytime. Your data stays yours.',
+	        privacyNote: 'No spam — just your login link and product updates you opt into.',
+	      },
+	    },
   ],
   assets: {
     heroImageId: 'demo-saas-modern-light-hero-01',

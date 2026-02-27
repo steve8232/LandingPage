@@ -10,24 +10,39 @@ const spec: TemplateSpec = {
     {
       type: 'HeroSplit',
       props: {
-        headline: 'Clean product pages that convert',
-        subheadline: 'Warm accents, spacious layout, and a clear path to purchase.',
-        ctaLabel: 'Shop Now',
+        eyebrow: 'New arrival • Fast shipping • Easy returns',
+        headline: 'A product page that makes buying feel effortless',
+        subheadline:
+          'Benefits up front, trust cues that calm hesitation, and a checkout path that stays friction-free — designed to convert without feeling pushy.',
+        bullets: ['Secure checkout in seconds', 'Free shipping over $50', '30-day returns & free exchanges'],
+        proofPoints: ['4.9★ verified reviews', 'Ships in 24h', 'Secure checkout'],
+        ctaLabel: 'Shop the collection',
+        secondaryCtaLabel: 'Get sizing help',
+        secondaryCtaHref: '#contact',
         ctaHref: '#contact',
+        trustBadge: 'Secure checkout • Free exchanges • Real support',
         imageAsset: 'heroImageId',
         fallbackAsset: 'fallbackHeroImageId',
       },
     },
-    { type: 'SocialProofLogos', props: { heading: 'As seen in', logos: ['styleweekly', 'gearhub', 'dailydeal', 'trendline'] } },
+    {
+      type: 'SocialProofLogos',
+      props: {
+        heading: 'Shop with confidence',
+        supportingText: 'Secure checkout • Fast delivery • Easy returns',
+        logos: ['secure-checkout', 'free-shipping', 'easy-returns', 'ssl-secure'],
+      },
+    },
     {
       type: 'ServiceList',
       props: {
         heading: 'Why customers love it',
+        subheading: 'Small details that make a big difference the moment it arrives.',
         services: [
-          { title: 'Quality materials', description: 'Built to last with premium finishes.', icon: 'shield' },
-          { title: 'Fast shipping', description: 'Reliable delivery with transparent tracking.', icon: 'tool' },
-          { title: 'Easy returns', description: 'Hassle-free returns within 30 days.', icon: 'wrench' },
-          { title: 'Support', description: 'Human help when you need it.', icon: 'search' },
+          { title: 'Quality materials', description: 'Premium feel, clean stitching, and durable construction.', icon: 'shield', benefit: 'Built to last' },
+          { title: 'Fast shipping', description: 'Orders ship quickly with transparent tracking updates.', icon: 'tool', benefit: 'Ships in 24h' },
+          { title: 'Easy returns', description: '30-day returns with simple exchanges if sizing isn’t perfect.', icon: 'wrench', benefit: 'Zero hassle' },
+          { title: 'Support', description: 'Real humans available to help with sizing and order questions.', icon: 'search', benefit: 'Quick answers' },
         ],
       },
     },
@@ -35,6 +50,9 @@ const spec: TemplateSpec = {
       type: 'ImagePair',
       props: {
         heading: 'Product gallery',
+        subheading: 'See the details up close — and how it looks in real life.',
+        caption1: 'Detail close-up: materials and finish.',
+        caption2: 'Lifestyle shot: fit and scale in context.',
         imageAsset1: 'supportImage1',
         fallbackAsset1: 'fallbackSupportImage1',
         imageAsset2: 'supportImage2',
@@ -45,14 +63,26 @@ const spec: TemplateSpec = {
       type: 'TestimonialsCards',
       props: {
         heading: 'Verified reviews',
+	        subheading: 'Fast shipping, premium feel, and an easy exchange if you need it.',
         testimonials: [
-          { quote: 'Arrived quickly and looks even better in person.', name: 'Taylor K.', title: 'Customer' },
-	          { quote: 'Great packaging, great quality — will buy again.', name: 'Jamie W.', title: 'Customer' },
-          { quote: 'Simple, clean design and super comfortable to use.', name: 'Alex N.', title: 'Customer' },
+	          { quote: 'Arrived fast, feels premium, and the photos were accurate. Zero surprises.', highlight: 'zero surprises', rating: 5, name: 'Taylor K.', title: 'Verified buyer' },
+		          { quote: 'Great packaging, great quality — and the exchange was painless when I changed sizes.', highlight: 'exchange was painless', rating: 5, name: 'Jamie W.', title: 'Verified buyer' },
+	          { quote: 'Clean design, comfortable, and I’ve already gotten compliments.', highlight: 'gotten compliments', rating: 5, name: 'Alex N.', title: 'Verified buyer' },
         ],
       },
     },
-    { type: 'FinalCTA', props: { heading: 'Ready to order?', subheading: 'Drop your email to get an instant checkout link.', ctaLabel: 'Send Checkout Link' } },
+    {
+      type: 'FinalCTA',
+      props: {
+        heading: 'Ready to order?',
+        subheading: 'Drop your email to get an instant checkout link (plus shipping + receipt updates).',
+        ctaLabel: 'Send my checkout link',
+        urgency: 'Limited inventory this week',
+        nextSteps: ['We email your checkout link instantly', 'Pick your options and complete payment', 'Tracking arrives as soon as it ships'],
+        guarantee: '30-day returns • Free exchanges',
+        privacyNote: 'No spam — order-only emails.',
+      },
+    },
   ],
   assets: {
     heroImageId: 'demo-ecommerce-clean-warm-hero-01',

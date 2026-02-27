@@ -130,7 +130,10 @@ export async function POST(request: NextRequest) {
         console.log('[v1 adapter] Enhancement pass complete');
       }
 
-      const { html } = composeV1Template(templateId, overrides);
+	      // For the interactive app output we allow remote demo images (when used)
+	      // so pages look richly illustrated without requiring user uploads.
+	      // Previews/build artifacts can still opt to stay fully offline.
+	      const { html } = composeV1Template(templateId, overrides, { allowRemoteDemoImages: true });
       return NextResponse.json({
         html,
         css: '',       // CSS is inlined in the v1 HTML

@@ -22,6 +22,45 @@ import { validateSpec, TemplateSpec, V1FormField } from '../specs/schema';
 import { sectionRegistry } from '../sections/index';
 import { resolveAsset, getDemoAttributions, DemoAssetEntry, ResolvedAsset } from '../assets/resolveAsset';
 
+// ── Asset inlining (SVG placeholders) ─────────────────────────────────────────
+
+/**
+ * v1 outputs are intended to be *single-file* HTML. Specs reference SVG
+ * placeholders via /v1/assets/... paths, but those paths won't exist when
+ * the HTML is opened as a standalone file.
+ *
+ * To preserve the architecture while meeting the self-contained constraint,
+ * we inline local SVG placeholder files as data: URIs at compose-time.
+ */
+const _svgDataUriCache = new Map<string, string>();
+
+function inlineLocalSvgIfPossible(src: string): string {
+  // Only inline local v1 SVGs (placeholders/logo/avatar). Remote demo images stay remote.
+  if (!src.startsWith('/v1/assets/') || !src.toLowerCase().endsWith('.svg')) return src;
+  if (src.startsWith('data:')) return src;
+
+  const cached = _svgDataUriCache.get(src);
+  if (cached) return cached;
+
+  try {
+    if (!_readFileSync) {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      _readFileSync = require('fs').readFileSync;
+    }
+    const path = require('path');
+    const relativePath = src.replace(/^\//, ''); // "/v1/assets/..." → "v1/assets/..."
+    const filePath = path.resolve(process.cwd(), relativePath);
+    const svg = _readFileSync!(filePath, 'utf-8');
+    const b64 = Buffer.from(svg, 'utf-8').toString('base64');
+    const dataUri = `data:image/svg+xml;base64,${b64}`;
+    _svgDataUriCache.set(src, dataUri);
+    return dataUri;
+  } catch {
+    // If we can't read it (e.g. browser context), fall back to original.
+    return src;
+  }
+}
+
 // ── CSS loading ────────────────────────────────────────────────────────────────
 
 /**
@@ -69,29 +108,16 @@ function renderFormFields(
       const placeholder = overridePh || f.placeholder;
       const ph = placeholder ? `placeholder="${escapeAttr(placeholder)}"` : '';
       const overrideLabel = formOverrides?.[f.name]?.label;
-      const style = `
-        width: 100%; padding: 12px; margin-bottom: 12px;
-        border: 1px solid rgba(255,255,255,0.3);
-        border-radius: var(--v1-radius-md);
-        font-size: var(--v1-font-size-base);
-        background: rgba(255,255,255,0.1);
-        color: var(--v1-color-cta-text);
-      `;
-      const labelStyle = `
-        display: block; margin-bottom: 4px;
-        font-size: var(--v1-font-size-sm);
-        font-weight: var(--v1-font-weight-medium);
-        color: var(--v1-color-cta-text);
-        opacity: 0.85;
-      `;
       const labelHtml = overrideLabel
-        ? `<label for="v1-${escapeAttr(f.name)}" style="${labelStyle}">${escapeHtml(overrideLabel)}</label>`
+        ? `<label for="v1-${escapeAttr(f.name)}" class="v1-label">${escapeHtml(overrideLabel)}</label>`
         : '';
 
+      const baseAttrs = `id="v1-${escapeAttr(f.name)}" name="${escapeAttr(f.name)}" ${ph} ${req} class="v1-input"`;
+
       if (f.type === 'textarea') {
-        return `${labelHtml}<textarea id="v1-${escapeAttr(f.name)}" name="${escapeAttr(f.name)}" ${ph} rows="4" ${req} style="${style}"></textarea>`;
+        return `<div class="v1-field">${labelHtml}<textarea ${baseAttrs} rows="4"></textarea></div>`;
       }
-      return `${labelHtml}<input id="v1-${escapeAttr(f.name)}" type="${f.type}" name="${escapeAttr(f.name)}" ${ph} ${req} style="${style}" />`;
+      return `<div class="v1-field">${labelHtml}<input ${baseAttrs} type="${escapeAttr(f.type)}" /></div>`;
     })
     .join('\n');
 }
@@ -135,10 +161,22 @@ export interface V1ContentOverrides {
   imageSearchTerms?: Record<string, string>;
 }
 
+export interface ComposeV1Options {
+  /**
+   * If true, demo asset IDs (demo-*) resolve to remote image URLs.
+   * If false (default), demo assets resolve to their local SVG fallbacks so
+   * composed HTML contains no remote demo image URLs.
+   */
+  allowRemoteDemoImages?: boolean;
+}
+
 export function composeV1Template(
   templateId: string,
-  overrides?: V1ContentOverrides
+  overrides?: V1ContentOverrides,
+  options?: ComposeV1Options
 ): ComposeResult {
+  const allowRemoteDemoImages = options?.allowRemoteDemoImages === true;
+
   // 1. Load spec
   const spec = getV1Spec(templateId);
   if (!spec) {
@@ -160,7 +198,7 @@ export function composeV1Template(
   // 4. Pre-render form HTML for injection into FinalCTA
   const formHtml = renderFormFields(spec.form, overrides?.formOverrides);
 
-  // 4b. Resolve all demo asset IDs → real URLs (with fallback)
+  // 4b. Resolve all asset IDs → final src strings (offline-safe by default)
   // User-provided asset overrides take priority over spec defaults
   const mergedAssets = { ...spec.assets, ...(overrides?.assets ?? {}) };
   const resolvedAssets: Record<string, string> = {};
@@ -170,10 +208,19 @@ export function composeV1Template(
       resolvedAssets[key] = value;
     } else {
       const fallback = getFallbackForAssetKey(key, mergedAssets);
-      resolvedAssets[key] = value.startsWith('demo-')
-        ? resolveAsset(value, fallback).src
-        : resolveAsset(value).src;
+      if (value.startsWith('demo-')) {
+        // Default: keep v1 HTML self-contained by using local SVG fallbacks.
+        // Opt-in: allow remote demo images for online previews.
+        resolvedAssets[key] = allowRemoteDemoImages
+          ? resolveAsset(value, fallback).src
+          : fallback || '/v1/assets/placeholders/common/logo-placeholder.svg';
+      } else {
+        resolvedAssets[key] = resolveAsset(value).src;
+      }
     }
+
+    // Inline local SVG placeholders so the final HTML is truly single-file.
+    resolvedAssets[key] = inlineLocalSvgIfPossible(resolvedAssets[key]);
   }
 
   // Track which demo IDs are actually used by rendered sections
@@ -200,7 +247,7 @@ export function composeV1Template(
         const assetKey = props.imageAsset as string;
         props._resolvedImageUrl = resolvedAssets[assetKey];
         const id = spec.assets[assetKey];
-        if (typeof id === 'string' && id.startsWith('demo-')) usedDemoIds.add(id);
+        if (allowRemoteDemoImages && typeof id === 'string' && id.startsWith('demo-')) usedDemoIds.add(id);
       }
       if (typeof (props as Record<string, unknown>).fallbackAsset === 'string') {
         const fbKey = (props as Record<string, unknown>).fallbackAsset as string;
@@ -213,7 +260,7 @@ export function composeV1Template(
         if (resolvedAssets[k]) {
           (props as Record<string, unknown>)._resolvedImageUrl1 = resolvedAssets[k];
           const id = spec.assets[k];
-          if (typeof id === 'string' && id.startsWith('demo-')) usedDemoIds.add(id);
+          if (allowRemoteDemoImages && typeof id === 'string' && id.startsWith('demo-')) usedDemoIds.add(id);
         }
       }
       if (typeof (props as Record<string, unknown>).fallbackAsset1 === 'string') {
@@ -225,7 +272,7 @@ export function composeV1Template(
         if (resolvedAssets[k]) {
           (props as Record<string, unknown>)._resolvedImageUrl2 = resolvedAssets[k];
           const id = spec.assets[k];
-          if (typeof id === 'string' && id.startsWith('demo-')) usedDemoIds.add(id);
+          if (allowRemoteDemoImages && typeof id === 'string' && id.startsWith('demo-')) usedDemoIds.add(id);
         }
       }
       if (typeof (props as Record<string, unknown>).fallbackAsset2 === 'string') {
