@@ -6,6 +6,16 @@ import { GeneratedLandingPage, FormData } from '@/types';
 import { calculateConversionScore, extractScoreInput, ConversionScore } from '@/lib/conversionScore';
 import VisualEditor from '@/components/editor/VisualEditor';
 
+function isV1HtmlDocument(html: string): boolean {
+  // v1 composer outputs a full HTML document and includes stable markers.
+  // We use these to bypass the legacy VisualEditor pipeline (which parses
+  // legacy section markup and reconstructs its own CSS/HTML).
+  return (
+    /\bclass=["']v1-page["']/.test(html) ||
+    /\/\*\s*===\s*v1 tokens\s*===\s*\*\//.test(html)
+  );
+}
+
 interface PreviewDownloadProps {
   landingPage: GeneratedLandingPage;
   onStartOver: () => void;
@@ -23,6 +33,8 @@ export default function PreviewDownload({
   const [editedCss, setEditedCss] = useState(landingPage.css);
   const [showScoreDetails, setShowScoreDetails] = useState(false);
   const [scoreCollapsed, setScoreCollapsed] = useState(false);
+
+  const isV1 = useMemo(() => isV1HtmlDocument(landingPage.html), [landingPage.html]);
 
   // Calculate conversion score based on current edited HTML
   const conversionScore: ConversionScore = useMemo(() => {
@@ -52,12 +64,27 @@ export default function PreviewDownload({
     setEditedCss(css);
   }, []);
 
-  // Create edited landing page object for the editor
+  const handleDownloadV1Html = useCallback(() => {
+    const blob = new Blob([editedHtml], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'index.html';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, [editedHtml]);
+
+  // Create edited landing page object for the legacy editor.
+  // For v1 HTML documents, we bypass VisualEditor entirely (see below).
   const editedLandingPage: GeneratedLandingPage = useMemo(() => ({
     html: editedHtml,
     css: editedCss,
-    preview: `<!DOCTYPE html><html><head><style>${editedCss}</style></head><body>${editedHtml.replace(/<!DOCTYPE html>|<html[^>]*>|<\/html>|<head>[\s\S]*<\/head>/gi, '')}</body></html>`,
-  }), [editedHtml, editedCss]);
+    preview: isV1
+      ? editedHtml
+      : `<!DOCTYPE html><html><head><style>${editedCss}</style></head><body>${editedHtml.replace(/<!DOCTYPE html>|<html[^>]*>|<\/html>|<head>[\s\S]*<\/head>/gi, '')}</body></html>`,
+  }), [editedHtml, editedCss, isV1]);
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
@@ -73,6 +100,15 @@ export default function PreviewDownload({
                 <Target className="w-4 h-4 text-white" />
               </div>
               <span className="font-semibold text-gray-900">Conversion Score</span>
+	              <span
+	                className={`text-xs font-medium px-2 py-0.5 rounded-full border ${
+	                  isV1
+	                    ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+	                    : 'bg-gray-50 text-gray-700 border-gray-200'
+	                }`}
+	              >
+	                Pipeline: {isV1 ? 'v1' : 'legacy'}
+	              </span>
               <span className={`text-xl font-bold ${getScoreColor(conversionScore.score)}`}>
                 {conversionScore.score}/{conversionScore.maxScore}
               </span>
@@ -127,14 +163,49 @@ export default function PreviewDownload({
         </div>
       </div>
 
-      {/* Visual Editor */}
+      {/* Output */}
       <div className="flex-1">
-        <VisualEditor
-          landingPage={editedLandingPage}
-          formData={formData}
-          onSave={handleSave}
-          onStartOver={onStartOver}
-        />
+        {isV1 ? (
+          <div className="h-full flex flex-col">
+            <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+              <div>
+                <div className="text-sm font-semibold text-gray-900">v1 template output</div>
+                <div className="text-xs text-gray-500">Rendered as a self-contained single-file HTML document</div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={onStartOver}
+                  className="px-3 py-2 text-sm text-gray-700 hover:text-gray-900"
+                >
+                  Start Over
+                </button>
+                <button
+                  onClick={handleDownloadV1Html}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+                >
+                  Download HTML
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 p-4">
+              <div className="bg-white rounded-xl shadow-xl overflow-hidden h-full">
+                <iframe
+                  title="v1 preview"
+                  srcDoc={editedHtml}
+                  className="w-full h-full border-0"
+                />
+              </div>
+            </div>
+          </div>
+        ) : (
+          <VisualEditor
+            landingPage={editedLandingPage}
+            formData={formData}
+            onSave={handleSave}
+            onStartOver={onStartOver}
+          />
+        )}
       </div>
     </div>
   );
