@@ -31,11 +31,11 @@ export type SectionRenderer = (props: Record<string, unknown>) => string;
  * section in the spec.
  */
 export const sectionRegistry: Record<string, SectionRenderer> = {
-  HeroSplit: renderHeroSplit as SectionRenderer,
-  SocialProofLogos: renderSocialProofLogos as SectionRenderer,
-  ServiceList: renderServiceList as SectionRenderer,
-  ImagePair: renderImagePair as SectionRenderer,
-  TestimonialsCards: renderTestimonialsCards as SectionRenderer,
-  FinalCTA: renderFinalCTA as SectionRenderer,
+  HeroSplit: renderHeroSplit as unknown as SectionRenderer,
+  SocialProofLogos: renderSocialProofLogos as unknown as SectionRenderer,
+  ServiceList: renderServiceList as unknown as SectionRenderer,
+  ImagePair: renderImagePair as unknown as SectionRenderer,
+  TestimonialsCards: renderTestimonialsCards as unknown as SectionRenderer,
+  FinalCTA: renderFinalCTA as unknown as SectionRenderer,
 };
 
