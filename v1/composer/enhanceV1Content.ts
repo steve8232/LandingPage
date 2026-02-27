@@ -12,6 +12,7 @@
 import { TemplateSpec } from '../specs/schema';
 import { V1ContentOverrides, V1MetaOverrides } from './composeV1Template';
 import { V1FormInput } from './generateV1Content';
+import { AVAILABLE_BADGES } from '../sections/SocialProofLogos';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -134,7 +135,7 @@ Generate JSON with these EXACT fields:
   "heroTrustBadge": "Polished trust badge — more specific and credible",
   "services": [${currentServices.map(() => '{"title": "Tighter title", "description": "Cut filler, lead with verb or benefit, max 15 words", "benefit": "Crisper outcome statement"}').join(', ')}],
   "testimonials": [${currentTestimonials.map(() => '{"quote": "More vivid and specific — add sensory detail or a number, 15-25 words", "name": "First L.", "title": "Role", "highlight": "Key phrase to bold", "rating": 5}').join(', ')}],
-  "socialProofLogos": ["Refined badge 1", "Refined badge 2", "Refined badge 3", "Refined badge 4"],
+  "socialProofLogos": ["Pick 4 from: ${AVAILABLE_BADGES.join(', ')}"],
   "imagePairCaption1": "More descriptive caption for image 1",
   "imagePairCaption2": "More descriptive caption for image 2",
   "ctaHeading": "Polished final CTA heading — max 8 words",
@@ -153,7 +154,7 @@ POLISH RULES:
 1. Hero: Sharpen rhythm, increase emotional punch, max 10 words headline
 2. Services: Tighten each description — cut filler words, lead with verb or benefit
 3. Testimonials: Make each quote more vivid and specific — add sensory detail or a number
-4. Social proof: Make badge names more relevant and credible for this specific business
+4. Social proof: Pick badge IDs from the available list that are MOST credible for this business type
 5. CTA: Increase urgency, strengthen risk reversal language
 6. Keep the same meaning — just make every word work harder
 7. Page title MUST include the core service/product

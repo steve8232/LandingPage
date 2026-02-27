@@ -131,6 +131,8 @@ export interface V1ContentOverrides {
   meta?: V1MetaOverrides;
   /** Personalized form-field placeholders keyed by field name */
   formOverrides?: Record<string, { placeholder?: string; label?: string }>;
+  /** AI-generated stock photo search terms keyed by section role */
+  imageSearchTerms?: Record<string, string>;
 }
 
 export function composeV1Template(
@@ -245,6 +247,19 @@ export function composeV1Template(
         }
         if (typeof p.imageAsset2 === 'string' && altTexts[p.imageAsset2 as string]) {
           p._altText2 = altTexts[p.imageAsset2 as string];
+        }
+      }
+
+      // Inject AI-generated image search terms as fallback alt texts
+      const imgTerms = overrides?.imageSearchTerms;
+      if (imgTerms) {
+        const p = props as Record<string, unknown>;
+        if (entry.type === 'HeroSplit' && imgTerms.hero && !props._altText) {
+          props._altText = imgTerms.hero;
+        }
+        if (entry.type === 'ImagePair') {
+          if (imgTerms.image1 && !p._altText1) p._altText1 = imgTerms.image1;
+          if (imgTerms.image2 && !p._altText2) p._altText2 = imgTerms.image2;
         }
       }
 

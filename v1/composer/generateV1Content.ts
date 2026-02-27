@@ -8,6 +8,7 @@
 
 import { TemplateSpec, V1SectionEntry } from '../specs/schema';
 import { V1ContentOverrides } from './composeV1Template';
+import { AVAILABLE_BADGES } from '../sections/SocialProofLogos';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -49,6 +50,12 @@ interface AIGeneratedContent {
   ctaButtonLabel: string;
   ctaUrgency?: string;
   ctaGuarantee?: string;
+  imageSearchTerms?: {
+    hero?: string;
+    image1?: string;
+    image2?: string;
+    serviceIcon?: string;
+  };
 }
 
 // ── Prompt builder ─────────────────────────────────────────────────────────────
@@ -68,6 +75,7 @@ function buildPrompt(input: V1FormInput, spec: TemplateSpec): string {
 
   const tone = categoryContext[spec.category] || 'professional, persuasive';
   const iconChoices = 'wrench, tool, shield, search';
+  const badgeList = AVAILABLE_BADGES.join(', ');
 
   return `You are an elite direct-response copywriter who specializes in high-converting landing pages. You write with the specificity of David Ogilvy and the urgency of Gary Halbert.
 
@@ -104,31 +112,49 @@ COPYWRITING RULES:
 - Service descriptions: max 15 words, benefit-first
 - Testimonials: 15-30 words, must feel like a real person wrote it
 - All CTA copy must use strong action verbs
-- Trust badges should be relevant to this specific business type
+- For socialProofLogos, pick 4 IDs from this list that are MOST relevant to the business type: ${badgeList}
+- For imageSearchTerms, provide specific stock-photo search queries tailored to this exact business — NOT generic placeholders. Example for a plumber: "professional plumber repairing kitchen sink modern home"
+
+OBJECTION HANDLING — weave these into the copy:
+- Address the #1 reason someone would NOT buy (price, trust, timing, effort)
+- Preemptively answer "Why should I choose you over competitors?"
+- Include at least one "even if…" or "without…" qualifier in the hero or services
+
+EMOTIONAL TRIGGERS — use where appropriate:
+- Fear of missing out (limited availability, seasonal pricing)
+- Social proof anchoring (specific numbers: "500+ projects", "12 years")
+- Pain agitation (remind them what happens if they do nothing)
+- Transformation language (before → after framing)
 
 Generate JSON with these EXACT fields:
 {
   "heroHeadline": "Power headline, max 10 words, lead with biggest benefit",
-  "heroSubheadline": "Supporting value prop, max 30 words, include urgency trigger",
+  "heroSubheadline": "Supporting value prop, max 30 words, include urgency trigger and an objection-handling qualifier",
   "heroCta": "CTA button text, max 5 words, action verb + value",
   "heroTrustBadge": "Micro-trust line under CTA, e.g. '✓ 500+ happy customers' or '✓ No credit card required'",
   "socialProofHeading": "Social proof bar heading, max 8 words",
-  "socialProofLogos": ["Trust badge 1", "Trust badge 2", "Trust badge 3", "Trust badge 4"],
+  "socialProofLogos": ["badge-id-1", "badge-id-2", "badge-id-3", "badge-id-4"],
   "servicesHeading": "Services/features section heading, max 8 words",
-  "servicesSubheading": "Intro paragraph for services section, max 25 words, set context",
-  "services": [${Array(serviceCount).fill(`{"title": "...", "description": "max 15 words, benefit-first", "benefit": "Single outcome statement, e.g. Save 40% on bills", "icon": "one of: ${iconChoices}"}`).join(', ')}],
+  "servicesSubheading": "Intro paragraph for services section, max 25 words, set context and handle objection",
+  "services": [${Array(serviceCount).fill(`{"title": "...", "description": "max 15 words, benefit-first, include transformation language", "benefit": "Single outcome statement with specific number, e.g. Save 40% on bills", "icon": "one of: ${iconChoices}"}`).join(', ')}],
   "imagePairHeading": "Gallery/showcase heading, max 6 words",
   "imagePairSubheading": "Descriptive line below heading, max 20 words",
   "imagePairCaption1": "Caption for first image, max 10 words",
   "imagePairCaption2": "Caption for second image, max 10 words",
   "testimonialsHeading": "Testimonials section heading, max 8 words",
   "testimonialsSubheading": "Intro line, e.g. 'Join 500+ satisfied customers', max 15 words",
-  "testimonials": [${Array(testimonialCount).fill('{"quote": "Specific 15-25 word testimonial referencing a concrete result", "name": "First L.", "title": "Role/Context", "highlight": "Key phrase from the quote to bold", "rating": 5}').join(', ')}],
+  "testimonials": [${Array(testimonialCount).fill('{"quote": "Specific 15-25 word testimonial referencing a concrete result with a number", "name": "First L.", "title": "Role/Context", "highlight": "Key phrase from the quote to bold", "rating": 5}').join(', ')}],
   "ctaHeading": "Final CTA heading, max 8 words, creates urgency",
-  "ctaSubheading": "Supporting text for CTA, max 20 words",
+  "ctaSubheading": "Supporting text for CTA, max 20 words, handle final objection",
   "ctaButtonLabel": "CTA button text, max 4 words",
   "ctaUrgency": "Urgency line, e.g. 'Limited spots available this month'",
-  "ctaGuarantee": "Risk reversal, e.g. '100% satisfaction guaranteed or your money back'"
+  "ctaGuarantee": "Risk reversal, e.g. '100% satisfaction guaranteed or your money back'",
+  "imageSearchTerms": {
+    "hero": "Specific stock photo search query for the hero image, tailored to this business",
+    "image1": "Specific stock photo search query for gallery image 1",
+    "image2": "Specific stock photo search query for gallery image 2",
+    "serviceIcon": "General icon/illustration search term for this industry"
+  }
 }`;
 }
 
@@ -269,6 +295,7 @@ function mapToOverrides(
   return {
     sections: sectionOverrides,
     assets: Object.keys(assetOverrides).length > 0 ? assetOverrides : undefined,
+    imageSearchTerms: ai.imageSearchTerms || undefined,
   };
 }
 
