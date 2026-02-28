@@ -1,5 +1,6 @@
 import { Template, TemplateCategory } from '@/lib/templates';
 import type { TemplateAnswers } from '@/lib/v1FormSchema';
+import type { V1ContentOverrides } from '../../v1/composer/composeV1Template';
 
 export interface DesignInput {
   option: 'url' | 'description';
@@ -53,5 +54,13 @@ export interface GeneratedLandingPage {
   html: string;
   css: string;
   preview: string;
+
+  /** Present when the generated output was produced by the v1 composer. */
+  v1?: {
+    templateId: string;
+    overrides?: V1ContentOverrides;
+    /** Optional helper data for UI editors (does not affect composition). */
+    sectionTypes?: string[];
+  };
 }
 

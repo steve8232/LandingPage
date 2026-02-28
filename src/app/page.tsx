@@ -100,6 +100,7 @@ export default function Home() {
         html: result.html,
         css: result.css,
         preview: result.preview,
+	      v1: result.v1,
       });
       setAppState('preview');
     } catch (err) {

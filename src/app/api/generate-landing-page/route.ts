@@ -158,6 +158,7 @@ export async function POST(request: NextRequest) {
       // Load spec and generate AI content overrides
 	      const spec = getV1Spec(templateId);
 	      let overrides: V1ContentOverrides | undefined;
+	      const sectionTypes = spec?.sections?.map((s) => s.type) || undefined;
       if (spec) {
         overrides = await generateV1Content(v1Input, spec);
         console.log('[v1 adapter] Content overrides generated');
@@ -174,12 +175,17 @@ export async function POST(request: NextRequest) {
 	      // so pages look richly illustrated without requiring user uploads.
 	      // Previews/build artifacts can still opt to stay fully offline.
 	      const { html } = composeV1Template(templateId, overrides, { allowRemoteDemoImages: true });
-      return NextResponse.json({
-        html,
-        css: '',       // CSS is inlined in the v1 HTML
-        preview: html, // v1 output is already self-contained
-        content: null,
-      });
+	      return NextResponse.json({
+	        html,
+	        css: '',       // CSS is inlined in the v1 HTML
+	        preview: html, // v1 output is already self-contained
+	        content: null,
+	        v1: {
+	          templateId,
+	          overrides,
+	          sectionTypes,
+	        },
+	      });
     }
     // ── end v1 adapter ─────────────────────────────────────────────────────
 
