@@ -9,6 +9,7 @@ import {
   ChevronUp,
   Eye,
   Edit3,
+  Image as ImageIcon,
   Monitor,
   Smartphone,
   RotateCcw,
@@ -32,6 +33,32 @@ type V1SpecResponse = {
   theme?: string;
   metadata?: { name?: string; description?: string };
   sections: V1SpecSection[];
+  assets?: Record<string, string>;
+  resolvedAssets?: Record<string, string>;
+};
+
+type StockImageResult = {
+  id: string;
+  role: string;
+  url: string;
+  source_page_url: string;
+  provider: string;
+  license_summary: string;
+  attribution_text: string;
+  attribution_url: string;
+  notes?: string;
+};
+
+type V1ImageAttribution = {
+  text: string;
+  url: string;
+  provider?: string;
+  licenseSummary?: string;
+};
+
+type V1ImageSlot = {
+  assetKey: string;
+  label: string;
 };
 
 function asString(v: unknown): string {
@@ -86,7 +113,7 @@ export default function PreviewDownload({
   // or structured override edits that round-trip through the v1 composer endpoint).
   const [v1Mode, setV1Mode] = useState<'preview' | 'edit'>('preview');
   const [v1Device, setV1Device] = useState<'desktop' | 'mobile'>('desktop');
-  const [v1PanelTab, setV1PanelTab] = useState<'content' | 'seo' | 'advanced'>('content');
+  const [v1PanelTab, setV1PanelTab] = useState<'content' | 'images' | 'seo' | 'advanced'>('content');
   const [v1Overrides, setV1Overrides] = useState<V1ContentOverrides | undefined>(landingPage.v1?.overrides);
   const [v1OverridesJson, setV1OverridesJson] = useState(() =>
     JSON.stringify(landingPage.v1?.overrides ?? {}, null, 2)
@@ -109,6 +136,14 @@ export default function PreviewDownload({
   const [v1SelectedSectionIndex, setV1SelectedSectionIndex] = useState<number>(0);
   const [v1SectionJsonDrafts, setV1SectionJsonDrafts] = useState<Record<number, string>>({});
   const [v1SectionJsonErrors, setV1SectionJsonErrors] = useState<Record<number, string>>({});
+
+  // v1 Images workflow state
+  const [v1SelectedAssetKey, setV1SelectedAssetKey] = useState<string>('');
+  const [v1ImagesError, setV1ImagesError] = useState<string>('');
+  const [stockQuery, setStockQuery] = useState<string>('');
+  const [stockResults, setStockResults] = useState<StockImageResult[]>([]);
+  const [stockLoading, setStockLoading] = useState<boolean>(false);
+  const [stockError, setStockError] = useState<string>('');
 
   useEffect(() => {
     let cancelled = false;
@@ -276,6 +311,133 @@ export default function PreviewDownload({
         return type;
     }
   }
+
+  const v1ImageSlots: V1ImageSlot[] = useMemo(() => {
+    const spec = v1Spec;
+    const assetKeys = new Set(Object.keys(spec?.assets || {}));
+    if (!spec || assetKeys.size === 0) return [];
+
+    const slots: V1ImageSlot[] = [];
+    for (let i = 0; i < (spec.sections || []).length; i++) {
+      const sec = spec.sections[i];
+      const props = (sec && typeof sec.props === 'object' ? sec.props : {}) as Record<string, unknown>;
+
+      for (const [propName, propValue] of Object.entries(props)) {
+        if (typeof propValue !== 'string') continue;
+        const nameLc = propName.toLowerCase();
+        if (!nameLc.includes('asset')) continue;
+        if (nameLc.includes('fallback')) continue;
+        if (propName.startsWith('_')) continue;
+        if (!assetKeys.has(propValue)) continue;
+        const label = `${labelForSectionType(sec.type)} · ${propName}`;
+        slots.push({ assetKey: propValue, label });
+      }
+    }
+
+    // Deduplicate by assetKey: one override changes all usages.
+    const dedup = new Map<string, V1ImageSlot>();
+    for (const s of slots) {
+      if (!dedup.has(s.assetKey)) dedup.set(s.assetKey, s);
+    }
+    return Array.from(dedup.values());
+  }, [v1Spec]);
+
+  useEffect(() => {
+    if (!v1Spec) return;
+    if (v1ImageSlots.length === 0) return;
+    if (!v1SelectedAssetKey || !v1ImageSlots.some((s) => s.assetKey === v1SelectedAssetKey)) {
+      setV1SelectedAssetKey(v1ImageSlots[0].assetKey);
+    }
+  }, [v1Spec, v1ImageSlots, v1SelectedAssetKey]);
+
+  const setV1AssetOverride = useCallback((assetKey: string, src: string, attribution?: V1ImageAttribution) => {
+    setV1Overrides((prev) => {
+      const next: V1ContentOverrides = { ...(prev || {}) };
+      const assets = { ...(next.assets || {}) };
+      assets[assetKey] = src;
+      next.assets = assets;
+
+      // Keep attribution metadata (used for stock picks) in meta.imageAttributions.
+      const meta = { ...((next.meta || {}) as any) } as any;
+      const map = { ...((meta.imageAttributions || {}) as Record<string, V1ImageAttribution>) };
+      if (attribution) map[assetKey] = attribution;
+      else delete map[assetKey];
+      if (Object.keys(map).length > 0) meta.imageAttributions = map;
+      else delete meta.imageAttributions;
+      next.meta = meta;
+
+      return next;
+    });
+  }, []);
+
+  const resetV1AssetOverride = useCallback((assetKey: string) => {
+    setV1Overrides((prev) => {
+      const next: V1ContentOverrides = { ...(prev || {}) };
+      const assets = { ...(next.assets || {}) };
+      delete assets[assetKey];
+      next.assets = Object.keys(assets).length > 0 ? assets : undefined;
+
+      const meta = { ...((next.meta || {}) as any) } as any;
+      if (meta.imageAttributions && typeof meta.imageAttributions === 'object') {
+        const map = { ...(meta.imageAttributions as Record<string, V1ImageAttribution>) };
+        delete map[assetKey];
+        if (Object.keys(map).length > 0) meta.imageAttributions = map;
+        else delete meta.imageAttributions;
+      }
+      next.meta = Object.keys(meta).length > 0 ? meta : undefined;
+      return next;
+    });
+  }, []);
+
+  const readFileAsDataUrl = useCallback((file: File) => {
+    return new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.readAsDataURL(file);
+    });
+  }, []);
+
+  const handleUploadSelectedAsset = useCallback(
+    async (file: File) => {
+      const allowed = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml']);
+      const maxBytes = 5 * 1024 * 1024;
+      if (!v1SelectedAssetKey) {
+        setV1ImagesError('Select an image slot first.');
+        return;
+      }
+      if (!allowed.has(file.type)) {
+        setV1ImagesError('Unsupported file type. Please upload PNG, JPG, WebP, or SVG.');
+        return;
+      }
+      if (file.size > maxBytes) {
+        setV1ImagesError('File is too large. Please upload an image under 5MB.');
+        return;
+      }
+
+      setV1ImagesError('');
+      const dataUrl = await readFileAsDataUrl(file);
+      setV1AssetOverride(v1SelectedAssetKey, dataUrl, undefined);
+    },
+    [readFileAsDataUrl, setV1AssetOverride, v1SelectedAssetKey]
+  );
+
+  const runStockSearch = useCallback(async () => {
+    setStockError('');
+    setStockLoading(true);
+    try {
+      const res = await fetch(`/api/v1/stock-images?q=${encodeURIComponent(stockQuery.trim())}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || 'Failed to fetch stock images');
+      const results = Array.isArray(data?.results) ? (data.results as StockImageResult[]) : [];
+      setStockResults(results);
+    } catch (e) {
+      setStockResults([]);
+      setStockError(e instanceof Error ? e.message : 'Failed to fetch stock images');
+    } finally {
+      setStockLoading(false);
+    }
+  }, [stockQuery]);
 
   // Calculate conversion score based on current edited HTML
   const conversionScore: ConversionScore = useMemo(() => {
@@ -517,6 +679,14 @@ export default function PreviewDownload({
                       >
                         Content
                       </button>
+						<button
+						  onClick={() => setV1PanelTab('images')}
+						  className={`px-3 py-1.5 rounded-lg text-sm font-medium ${
+							v1PanelTab === 'images' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700'
+						  }`}
+						>
+						  Images
+						</button>
                       <button
                         onClick={() => setV1PanelTab('seo')}
                         className={`px-3 py-1.5 rounded-lg text-sm font-medium ${
@@ -1144,6 +1314,198 @@ export default function PreviewDownload({
                         </button>
                       </div>
                     )}
+
+					{v1PanelTab === 'images' && (
+					  <div className="space-y-4">
+						{!v1TemplateId && (
+						  <div className="text-sm text-gray-700">
+							Missing <code className="font-mono">templateId</code> for this v1 result.
+						  </div>
+						)}
+
+						{v1SpecError && (
+						  <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">{v1SpecError}</div>
+						)}
+
+						{v1TemplateId && !v1Spec && !v1SpecError && (
+						  <div className="text-sm text-gray-600">Loading template spec…</div>
+						)}
+
+						{v1ImagesError && (
+						  <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">{v1ImagesError}</div>
+						)}
+
+						{v1Spec && (
+						  <div className="flex gap-3">
+							{/* Image slot list */}
+							<div className="w-[170px] flex-shrink-0">
+							  <div className="text-xs font-semibold text-gray-700 mb-2">Image slots</div>
+							  <div className="border border-gray-200 rounded-lg overflow-hidden">
+								<div className="max-h-[320px] overflow-y-auto">
+								  {v1ImageSlots.length === 0 ? (
+									<div className="p-3 text-xs text-gray-600">No image slots detected in this template.</div>
+								  ) : (
+									v1ImageSlots.map((slot) => {
+									  const active = slot.assetKey === v1SelectedAssetKey;
+									  const src =
+										(v1Overrides?.assets && (v1Overrides.assets as any)[slot.assetKey]) ||
+										(v1Spec.resolvedAssets && (v1Spec.resolvedAssets as any)[slot.assetKey]) ||
+										'';
+									  return (
+										<button
+										  key={slot.assetKey}
+										  onClick={() => setV1SelectedAssetKey(slot.assetKey)}
+										  className={`w-full text-left px-2.5 py-2 border-b border-gray-100 text-xs flex items-center gap-2 ${
+											active ? 'bg-indigo-50 text-indigo-800' : 'hover:bg-gray-50 text-gray-700'
+										  }`}
+										>
+										  <div className="w-8 h-8 rounded bg-gray-100 overflow-hidden flex items-center justify-center flex-shrink-0">
+											{src ? (
+											  // eslint-disable-next-line @next/next/no-img-element
+											  <img src={src} alt="" className="w-full h-full object-cover" />
+											) : (
+											  <ImageIcon className="w-4 h-4 text-gray-400" />
+											)}
+										  </div>
+										  <div className="min-w-0">
+											<div className="truncate">{slot.label}</div>
+											<div className="truncate text-[10px] text-gray-500 font-mono">{slot.assetKey}</div>
+										  </div>
+										</button>
+									  );
+									})
+								  )}
+								</div>
+							  </div>
+							  <div className="mt-2 text-[11px] text-gray-500">Overrides write to <code className="font-mono">overrides.assets</code>.</div>
+							</div>
+
+							{/* Image editor */}
+							<div className="flex-1 min-w-0 space-y-3">
+							  {!v1SelectedAssetKey ? (
+								<div className="text-sm text-gray-600">Select an image slot to edit.</div>
+							  ) : (
+								(() => {
+								  const currentSrc =
+									(v1Overrides?.assets && (v1Overrides.assets as any)[v1SelectedAssetKey]) ||
+									(v1Spec.resolvedAssets && (v1Spec.resolvedAssets as any)[v1SelectedAssetKey]) ||
+									'';
+								  const isOverridden = Boolean(v1Overrides?.assets && (v1Overrides.assets as any)[v1SelectedAssetKey]);
+								  return (
+									<div className="space-y-3">
+									  <div className="flex items-start justify-between gap-3">
+										<div>
+										  <div className="text-sm font-semibold text-gray-900">Selected slot</div>
+										  <div className="text-xs text-gray-500 font-mono">{v1SelectedAssetKey}</div>
+										  <div className="text-[11px] text-gray-500">Status: {isOverridden ? 'overridden' : 'default'}</div>
+										</div>
+										<button
+										  type="button"
+										  onClick={() => {
+											if (!confirm('Reset this image override?')) return;
+											resetV1AssetOverride(v1SelectedAssetKey);
+										  }}
+										  className="px-3 py-2 bg-gray-100 rounded-lg text-sm font-medium hover:bg-gray-200"
+										>
+										  Reset
+										</button>
+									  </div>
+
+									  <div className="border border-gray-200 rounded-lg p-3">
+										<div className="text-xs font-medium text-gray-700 mb-2">Preview</div>
+										<div className="w-full h-[160px] rounded bg-gray-50 overflow-hidden flex items-center justify-center">
+										  {currentSrc ? (
+											// eslint-disable-next-line @next/next/no-img-element
+											<img src={currentSrc} alt="" className="w-full h-full object-cover" />
+										  ) : (
+											<div className="text-xs text-gray-500">No image</div>
+										  )}
+										</div>
+									  </div>
+
+									  <div className="space-y-2">
+										<div className="text-xs font-semibold text-gray-900">Upload your own image</div>
+										<input
+										  type="file"
+										  accept="image/png,image/jpeg,image/webp,image/svg+xml"
+										  onChange={(e) => {
+											const f = e.target.files && e.target.files[0];
+											if (!f) return;
+											handleUploadSelectedAsset(f).catch((err) =>
+											  setV1ImagesError(err instanceof Error ? err.message : 'Upload failed')
+											);
+											e.target.value = '';
+										  }}
+										  className="w-full text-sm"
+										/>
+										<div className="text-[11px] text-gray-500">PNG/JPG/WebP/SVG, up to 5MB. Uploads are stored as a data URL in overrides.</div>
+									  </div>
+
+									  <div className="border-t border-gray-200 pt-3 space-y-2">
+										<div className="text-xs font-semibold text-gray-900">Pick a free stock image</div>
+										<div className="flex gap-2">
+										  <input
+											value={stockQuery}
+											onChange={(e) => setStockQuery(e.target.value)}
+											placeholder="Search (e.g. software, team, cafe)"
+											className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm"
+										  />
+										  <button
+											onClick={runStockSearch}
+											disabled={stockLoading}
+											className="px-3 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium disabled:opacity-60"
+										  >
+											{stockLoading ? 'Searching…' : 'Search'}
+										  </button>
+										</div>
+										{stockError && <div className="text-xs text-red-700">{stockError}</div>}
+										{stockResults.length > 0 && (
+										  <div className="grid grid-cols-2 gap-2">
+											{stockResults.map((r) => (
+											  <button
+												key={r.id}
+												onClick={() => {
+												  if (!v1SelectedAssetKey) return;
+												  setV1AssetOverride(v1SelectedAssetKey, r.url, {
+													text: r.attribution_text,
+													url: r.attribution_url || r.source_page_url,
+													provider: r.provider,
+													licenseSummary: r.license_summary,
+												});
+												}}
+												className="border border-gray-200 rounded-lg overflow-hidden hover:border-indigo-300 text-left"
+											  >
+												<div className="w-full h-[90px] bg-gray-50">
+												  {/* eslint-disable-next-line @next/next/no-img-element */}
+												  <img src={r.url} alt="" className="w-full h-full object-cover" />
+												</div>
+												<div className="p-2">
+												  <div className="text-[11px] text-gray-700 truncate">{r.attribution_text}</div>
+												  <div className="text-[10px] text-gray-500 truncate">{r.provider} · {r.role}</div>
+												</div>
+											  </button>
+											))}
+										  </div>
+										)}
+									  </div>
+									</div>
+								  );
+								})()
+							  )}
+							</div>
+						  </div>
+						)}
+
+						<button
+						  onClick={handleComposeV1}
+						  disabled={!v1TemplateId || isComposing}
+						  className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+						>
+						  <RefreshCw className={`w-4 h-4 ${isComposing ? 'animate-spin' : ''}`} />
+						  {isComposing ? 'Re-rendering…' : 'Re-render from overrides'}
+						</button>
+					  </div>
+					)}
 
                     {v1PanelTab === 'seo' && (
                       <div className="space-y-3">

@@ -148,6 +148,15 @@ export interface V1MetaOverrides {
   metaDescription?: string;
   tagline?: string;
   imageAltTexts?: Record<string, string>;
+  /** Optional credits for user-selected (non-demo) images, keyed by assetKey. */
+  imageAttributions?: Record<string, V1ImageAttribution>;
+}
+
+export interface V1ImageAttribution {
+  text: string;
+  url: string;
+  provider?: string;
+  licenseSummary?: string;
 }
 
 export interface V1ContentOverrides {
@@ -327,8 +336,8 @@ export function composeV1Template(
     .join('\n');
 
   // 5b. Build attribution footer from demo assets
-  const attributions = getDemoAttributions(Array.from(usedDemoIds));
-  const attrHtml = renderAttributionFooter(attributions);
+  const demoAttributions = getDemoAttributions(Array.from(usedDemoIds));
+  const attrHtml = renderAttributionFooter(demoAttributions, overrides?.meta?.imageAttributions);
 
   // 6. Wrap in full HTML document
   const html = buildDocument(spec, tokensCss, themeCss, sectionsHtml, attrHtml, overrides?.meta);
@@ -388,15 +397,30 @@ ${attributionHtml}
 
 // ── Attribution footer ──────────────────────────────────────────────────────
 
-function renderAttributionFooter(attributions: DemoAssetEntry[]): string {
-  if (attributions.length === 0) return '';
-
-  const credits = attributions
+function renderAttributionFooter(
+  demoAttributions: DemoAssetEntry[],
+  imageAttributions?: Record<string, V1ImageAttribution>
+): string {
+  const demoCredits = demoAttributions
     .map(
       (a) =>
         `<a href="${escapeAttr(a.source_page_url)}" target="_blank" rel="noopener noreferrer" style="color: inherit; text-decoration: underline;">${escapeHtml(a.attribution_text)}</a>`
     )
     .join(' · ');
+
+  const customEntries = imageAttributions ? Object.values(imageAttributions) : [];
+  const customCredits = customEntries
+    .filter((a) => a && typeof a.text === 'string' && typeof a.url === 'string')
+    .map(
+      (a) =>
+        `<a href="${escapeAttr(a.url)}" target="_blank" rel="noopener noreferrer" style="color: inherit; text-decoration: underline;">${escapeHtml(a.text)}</a>`
+    )
+    .join(' · ');
+
+  if (!demoCredits && !customCredits) return '';
+
+  const demoLine = demoCredits ? `<div>Demo images: ${demoCredits}</div>` : '';
+  const customLine = customCredits ? `<div>Image credits: ${customCredits}</div>` : '';
 
   return `
 <footer class="v1-attribution" style="
@@ -407,7 +431,7 @@ function renderAttributionFooter(attributions: DemoAssetEntry[]): string {
   text-align: center;
   border-top: 1px solid #e0e0e0;
 ">
-  Demo images: ${credits}
+  ${demoLine}${customLine}
 </footer>`;
 }
 
