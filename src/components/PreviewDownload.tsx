@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   CheckCircle,
   AlertCircle,
@@ -18,6 +18,41 @@ import { GeneratedLandingPage, FormData } from '@/types';
 import { calculateConversionScore, extractScoreInput, ConversionScore } from '@/lib/conversionScore';
 import VisualEditor from '@/components/editor/VisualEditor';
 import type { V1ContentOverrides } from '../../v1/composer/composeV1Template';
+
+type V1SpecSection = {
+  type: string;
+  props: Record<string, unknown>;
+};
+
+type V1SpecResponse = {
+  templateId: string;
+  version: 'v1';
+  category?: string;
+  goal?: string;
+  theme?: string;
+  metadata?: { name?: string; description?: string };
+  sections: V1SpecSection[];
+};
+
+function asString(v: unknown): string {
+  return typeof v === 'string' ? v : '';
+}
+
+function asStringArray(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  return v.filter((x) => typeof x === 'string') as string[];
+}
+
+function asRecord(v: unknown): Record<string, unknown> {
+  return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+}
+
+function parseLinesToStringArray(text: string): string[] {
+  return text
+    .split('\n')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
 
 function isV1HtmlDocument(html: string): boolean {
   // v1 composer outputs a full HTML document and includes stable markers.
@@ -68,34 +103,47 @@ export default function PreviewDownload({
     return landingPage.v1?.templateId || formData?.selectedTemplate?.id;
   }, [isV1, landingPage.v1?.templateId, formData?.selectedTemplate?.id]);
 
-  function findOverrideSectionIndex(
-    overrides: V1ContentOverrides | undefined,
-    predicate: (section: Record<string, unknown>) => boolean
-  ): number {
-    const arr = overrides?.sections;
-    if (!Array.isArray(arr)) return -1;
-    for (let i = 0; i < arr.length; i++) {
-      const s = arr[i];
-      if (!s || typeof s !== 'object') continue;
-      if (predicate(s as Record<string, unknown>)) return i;
-    }
-    return -1;
-  }
+  // v1 spec defaults (for effective props = spec defaults + overrides)
+  const [v1Spec, setV1Spec] = useState<V1SpecResponse | null>(null);
+  const [v1SpecError, setV1SpecError] = useState<string>('');
+  const [v1SelectedSectionIndex, setV1SelectedSectionIndex] = useState<number>(0);
+  const [v1SectionJsonDrafts, setV1SectionJsonDrafts] = useState<Record<number, string>>({});
+  const [v1SectionJsonErrors, setV1SectionJsonErrors] = useState<Record<number, string>>({});
 
-  const heroIdx = useMemo(
-    () =>
-      findOverrideSectionIndex(v1Overrides, (s) =>
-        typeof s.headline === 'string' && typeof s.ctaLabel === 'string'
-      ),
-    [v1Overrides]
-  );
-  const finalCtaIdx = useMemo(
-    () =>
-      findOverrideSectionIndex(v1Overrides, (s) =>
-        typeof s.heading === 'string' && typeof s.ctaLabel === 'string'
-      ),
-    [v1Overrides]
-  );
+  useEffect(() => {
+    let cancelled = false;
+    async function run() {
+      if (!v1TemplateId) {
+        setV1Spec(null);
+        setV1SpecError('');
+        return;
+      }
+      setV1SpecError('');
+      try {
+        const res = await fetch(`/api/v1/spec?templateId=${encodeURIComponent(v1TemplateId)}`);
+        const data = (await res.json()) as unknown;
+        if (!res.ok) throw new Error((data as any)?.error || 'Failed to fetch v1 spec');
+        if (cancelled) return;
+        const spec = data as V1SpecResponse;
+        if (!spec || !Array.isArray(spec.sections)) {
+          throw new Error('Spec API returned invalid response');
+        }
+        setV1Spec(spec);
+        setV1SelectedSectionIndex((prev) => {
+          const max = Math.max(0, spec.sections.length - 1);
+          return Math.min(prev, max);
+        });
+      } catch (e) {
+        if (cancelled) return;
+        setV1Spec(null);
+        setV1SpecError(e instanceof Error ? e.message : 'Failed to fetch v1 spec');
+      }
+    }
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [v1TemplateId]);
 
   const updateV1Section = useCallback(
     (index: number, patch: Record<string, unknown>) => {
@@ -107,6 +155,21 @@ export default function PreviewDownload({
         const cur = sections[index];
         const base = cur && typeof cur === 'object' ? (cur as Record<string, unknown>) : {};
         sections[index] = { ...base, ...patch };
+        next.sections = sections;
+        return next;
+      });
+    },
+    []
+  );
+
+  const replaceV1SectionOverride = useCallback(
+    (index: number, nextValue: Record<string, unknown> | null) => {
+      if (index < 0) return;
+      setV1Overrides((prev) => {
+        const next: V1ContentOverrides = { ...(prev || {}) };
+        const sections = next.sections ? [...next.sections] : [];
+        while (sections.length <= index) sections.push(null);
+        sections[index] = nextValue;
         next.sections = sections;
         return next;
       });
@@ -167,6 +230,52 @@ export default function PreviewDownload({
       setV1OverridesJsonError(e instanceof Error ? e.message : 'Invalid JSON');
     }
   }, [v1OverridesJson]);
+
+  const effectiveV1Sections = useMemo(() => {
+    const specSections = v1Spec?.sections;
+    if (!Array.isArray(specSections)) return [] as Array<{
+      type: string;
+      defaultProps: Record<string, unknown>;
+      override: Record<string, unknown> | null;
+      effective: Record<string, unknown>;
+      omitted: boolean;
+    }>;
+
+    return specSections.map((s, i) => {
+      const ov = v1Overrides?.sections?.[i];
+      const override = ov && typeof ov === 'object' ? (ov as Record<string, unknown>) : null;
+      const omitted = override?._omit === true;
+      const effective = { ...(s.props || {}), ...(override || {}) };
+      return {
+        type: s.type,
+        defaultProps: s.props || {},
+        override,
+        effective,
+        omitted,
+      };
+    });
+  }, [v1Spec?.sections, v1Overrides?.sections]);
+
+  const selectedV1Section = effectiveV1Sections[v1SelectedSectionIndex];
+
+  function labelForSectionType(type: string): string {
+    switch (type) {
+      case 'HeroSplit':
+        return 'Hero';
+      case 'SocialProofLogos':
+        return 'Social proof';
+      case 'ServiceList':
+        return 'Services';
+      case 'ImagePair':
+        return 'Images';
+      case 'TestimonialsCards':
+        return 'Testimonials';
+      case 'FinalCTA':
+        return 'Final CTA';
+      default:
+        return type;
+    }
+  }
 
   // Calculate conversion score based on current edited HTML
   const conversionScore: ConversionScore = useMemo(() => {
@@ -433,102 +542,596 @@ export default function PreviewDownload({
                     )}
 
                     {v1PanelTab === 'content' && (
-                      <div className="space-y-6">
-                        <div>
-                          <div className="text-sm font-semibold text-gray-900 mb-2">Hero</div>
-                          {heroIdx < 0 ? (
-                            <div className="text-sm text-gray-600">Hero overrides not found for this template.</div>
-                          ) : (
-                            <div className="space-y-3">
-                              <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">Headline</label>
-                                <input
-                                  value={String((v1Overrides?.sections?.[heroIdx] as any)?.headline ?? '')}
-                                  onChange={(e) => updateV1Section(heroIdx, { headline: e.target.value })}
-                                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">Subheadline</label>
-                                <textarea
-                                  value={String((v1Overrides?.sections?.[heroIdx] as any)?.subheadline ?? '')}
-                                  onChange={(e) => updateV1Section(heroIdx, { subheadline: e.target.value })}
-                                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
-                                  rows={3}
-                                />
-                              </div>
-                              <div className="grid grid-cols-2 gap-2">
-                                <div>
-                                  <label className="block text-xs font-medium text-gray-700 mb-1">CTA label</label>
-                                  <input
-                                    value={String((v1Overrides?.sections?.[heroIdx] as any)?.ctaLabel ?? '')}
-                                    onChange={(e) => updateV1Section(heroIdx, { ctaLabel: e.target.value })}
-                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-medium text-gray-700 mb-1">Trust badge</label>
-                                  <input
-                                    value={String((v1Overrides?.sections?.[heroIdx] as any)?.trustBadge ?? '')}
-                                    onChange={(e) => updateV1Section(heroIdx, { trustBadge: e.target.value })}
-                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
+                      <div className="space-y-4">
+                        {!v1TemplateId && (
+                          <div className="text-sm text-gray-700">
+                            Missing <code className="font-mono">templateId</code> for this v1 result.
+                          </div>
+                        )}
 
-                        <div>
-                          <div className="text-sm font-semibold text-gray-900 mb-2">Final CTA</div>
-                          {finalCtaIdx < 0 ? (
-                            <div className="text-sm text-gray-600">Final CTA overrides not found for this template.</div>
-                          ) : (
-                            <div className="space-y-3">
-                              <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">Heading</label>
-                                <input
-                                  value={String((v1Overrides?.sections?.[finalCtaIdx] as any)?.heading ?? '')}
-                                  onChange={(e) => updateV1Section(finalCtaIdx, { heading: e.target.value })}
-                                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
-                                />
+                        {v1SpecError && (
+                          <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+                            {v1SpecError}
+                          </div>
+                        )}
+
+                        {v1TemplateId && !v1Spec && !v1SpecError && (
+                          <div className="text-sm text-gray-600">Loading template spec…</div>
+                        )}
+
+                        {v1Spec && (
+                          <div className="flex gap-3">
+                            {/* Section list (spec order) */}
+                            <div className="w-[150px] flex-shrink-0">
+                              <div className="text-xs font-semibold text-gray-700 mb-2">Sections</div>
+                              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                                <div className="max-h-[320px] overflow-y-auto">
+                                  {effectiveV1Sections.map((sec, i) => {
+                                    const active = i === v1SelectedSectionIndex;
+                                    return (
+                                      <button
+                                        key={`${sec.type}-${i}`}
+                                        onClick={() => setV1SelectedSectionIndex(i)}
+                                        className={`w-full text-left px-2.5 py-2 border-b border-gray-100 text-xs flex items-center justify-between gap-2 ${
+                                          active ? 'bg-indigo-50 text-indigo-800' : 'hover:bg-gray-50 text-gray-700'
+                                        }`}
+                                      >
+                                        <span className="truncate">
+                                          {i + 1}. {labelForSectionType(sec.type)}
+                                        </span>
+                                        {sec.omitted && (
+                                          <span className="px-1.5 py-0.5 rounded bg-gray-200 text-gray-700 text-[10px]">
+                                            omitted
+                                          </span>
+                                        )}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
                               </div>
-                              <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">Subheading</label>
-                                <textarea
-                                  value={String((v1Overrides?.sections?.[finalCtaIdx] as any)?.subheading ?? '')}
-                                  onChange={(e) => updateV1Section(finalCtaIdx, { subheading: e.target.value })}
-                                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
-                                  rows={2}
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">Button label</label>
-                                <input
-                                  value={String((v1Overrides?.sections?.[finalCtaIdx] as any)?.ctaLabel ?? '')}
-                                  onChange={(e) => updateV1Section(finalCtaIdx, { ctaLabel: e.target.value })}
-                                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">Urgency</label>
-                                <input
-                                  value={String((v1Overrides?.sections?.[finalCtaIdx] as any)?.urgency ?? '')}
-                                  onChange={(e) => updateV1Section(finalCtaIdx, { urgency: e.target.value })}
-                                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">Guarantee</label>
-                                <input
-                                  value={String((v1Overrides?.sections?.[finalCtaIdx] as any)?.guarantee ?? '')}
-                                  onChange={(e) => updateV1Section(finalCtaIdx, { guarantee: e.target.value })}
-                                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
-                                />
+                              <div className="mt-2 text-[11px] text-gray-500">
+                                In spec order. Inputs show defaults + overrides.
                               </div>
                             </div>
-                          )}
-                        </div>
+
+                            {/* Section editor */}
+                            <div className="flex-1 min-w-0">
+                              {!selectedV1Section ? (
+                                <div className="text-sm text-gray-600">Select a section to edit.</div>
+                              ) : (
+                                <div className="space-y-4">
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div>
+                                      <div className="text-sm font-semibold text-gray-900">
+                                        {v1SelectedSectionIndex + 1}. {labelForSectionType(selectedV1Section.type)}
+                                      </div>
+                                      <div className="text-xs text-gray-500 font-mono">{selectedV1Section.type}</div>
+                                    </div>
+                                    <label className="flex items-center gap-2 text-xs text-gray-700">
+                                      <input
+                                        type="checkbox"
+                                        checked={selectedV1Section.omitted}
+                                        onChange={(e) => updateV1Section(v1SelectedSectionIndex, { _omit: e.target.checked })}
+                                      />
+                                      Omit section
+                                    </label>
+                                  </div>
+
+                                  {/* Per-type editors */}
+                                  {selectedV1Section.type === 'HeroSplit' && (() => {
+                                    const eff = selectedV1Section.effective;
+                                    const bulletsText = asStringArray(eff.bullets).join('\n');
+                                    const proofText = asStringArray(eff.proofPoints).join('\n');
+                                    return (
+                                      <div className="space-y-3">
+                                        <div>
+                                          <label className="block text-xs font-medium text-gray-700 mb-1">Eyebrow</label>
+                                          <input
+                                            value={asString(eff.eyebrow)}
+                                            onChange={(e) => updateV1Section(v1SelectedSectionIndex, { eyebrow: e.target.value })}
+                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                          />
+                                        </div>
+                                        <div>
+                                          <label className="block text-xs font-medium text-gray-700 mb-1">Headline</label>
+                                          <input
+                                            value={asString(eff.headline)}
+                                            onChange={(e) => updateV1Section(v1SelectedSectionIndex, { headline: e.target.value })}
+                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                          />
+                                        </div>
+                                        <div>
+                                          <label className="block text-xs font-medium text-gray-700 mb-1">Subheadline</label>
+                                          <textarea
+                                            value={asString(eff.subheadline)}
+                                            onChange={(e) => updateV1Section(v1SelectedSectionIndex, { subheadline: e.target.value })}
+                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                            rows={3}
+                                          />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-2">
+                                          <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Primary CTA</label>
+                                            <input
+                                              value={asString(eff.ctaLabel)}
+                                              onChange={(e) => updateV1Section(v1SelectedSectionIndex, { ctaLabel: e.target.value })}
+                                              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                            />
+                                          </div>
+                                          <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Trust badge</label>
+                                            <input
+                                              value={asString(eff.trustBadge)}
+                                              onChange={(e) => updateV1Section(v1SelectedSectionIndex, { trustBadge: e.target.value })}
+                                              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                            />
+                                          </div>
+                                        </div>
+                                        <div>
+                                          <label className="block text-xs font-medium text-gray-700 mb-1">Bullets (one per line)</label>
+                                          <textarea
+                                            value={bulletsText}
+                                            onChange={(e) =>
+                                              updateV1Section(v1SelectedSectionIndex, { bullets: parseLinesToStringArray(e.target.value) })
+                                            }
+                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                            rows={3}
+                                          />
+                                        </div>
+                                        <div>
+                                          <label className="block text-xs font-medium text-gray-700 mb-1">Proof points (one per line)</label>
+                                          <textarea
+                                            value={proofText}
+                                            onChange={(e) =>
+                                              updateV1Section(v1SelectedSectionIndex, { proofPoints: parseLinesToStringArray(e.target.value) })
+                                            }
+                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                            rows={3}
+                                          />
+                                        </div>
+                                      </div>
+                                    );
+                                  })()}
+
+                                  {selectedV1Section.type === 'SocialProofLogos' && (() => {
+                                    const eff = selectedV1Section.effective;
+                                    const logosText = asStringArray(eff.logos).join('\n');
+                                    return (
+                                      <div className="space-y-3">
+                                        <div>
+                                          <label className="block text-xs font-medium text-gray-700 mb-1">Heading</label>
+                                          <input
+                                            value={asString(eff.heading)}
+                                            onChange={(e) => updateV1Section(v1SelectedSectionIndex, { heading: e.target.value })}
+                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                          />
+                                        </div>
+                                        <div>
+                                          <label className="block text-xs font-medium text-gray-700 mb-1">Supporting text</label>
+                                          <textarea
+                                            value={asString(eff.supportingText)}
+                                            onChange={(e) => updateV1Section(v1SelectedSectionIndex, { supportingText: e.target.value })}
+                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                            rows={2}
+                                          />
+                                        </div>
+                                        <div>
+                                          <label className="block text-xs font-medium text-gray-700 mb-1">Logos / badges (one per line)</label>
+                                          <textarea
+                                            value={logosText}
+                                            onChange={(e) => updateV1Section(v1SelectedSectionIndex, { logos: parseLinesToStringArray(e.target.value) })}
+                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm font-mono"
+                                            rows={5}
+                                          />
+                                          <div className="mt-1 text-[11px] text-gray-500">
+                                            Tip: use badge IDs (e.g. <code className="font-mono">google</code>) or plain text.
+                                          </div>
+                                        </div>
+                                      </div>
+                                    );
+                                  })()}
+
+                                  {selectedV1Section.type === 'ServiceList' && (() => {
+                                    const eff = selectedV1Section.effective;
+                                    const services = Array.isArray(eff.services) ? (eff.services as unknown[]) : [];
+                                    const servicesRec = services.map((s) => asRecord(s));
+
+                                    const updateService = (idx: number, patch: Record<string, unknown>) => {
+                                      const next = servicesRec.map((x) => ({ ...x }));
+                                      next[idx] = { ...(next[idx] || {}), ...patch };
+                                      updateV1Section(v1SelectedSectionIndex, { services: next });
+                                    };
+                                    const addService = () => {
+                                      const next = servicesRec.map((x) => ({ ...x }));
+                                      next.push({ title: 'New service', description: '' });
+                                      updateV1Section(v1SelectedSectionIndex, { services: next });
+                                    };
+                                    const removeService = (idx: number) => {
+                                      const next = servicesRec.filter((_, i) => i !== idx).map((x) => ({ ...x }));
+                                      updateV1Section(v1SelectedSectionIndex, { services: next });
+                                    };
+
+                                    return (
+                                      <div className="space-y-3">
+                                        <div>
+                                          <label className="block text-xs font-medium text-gray-700 mb-1">Heading</label>
+                                          <input
+                                            value={asString(eff.heading)}
+                                            onChange={(e) => updateV1Section(v1SelectedSectionIndex, { heading: e.target.value })}
+                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                          />
+                                        </div>
+                                        <div>
+                                          <label className="block text-xs font-medium text-gray-700 mb-1">Subheading</label>
+                                          <textarea
+                                            value={asString(eff.subheading)}
+                                            onChange={(e) => updateV1Section(v1SelectedSectionIndex, { subheading: e.target.value })}
+                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                            rows={2}
+                                          />
+                                        </div>
+
+                                        <div>
+                                          <div className="flex items-center justify-between">
+                                            <div className="text-xs font-semibold text-gray-700">Services</div>
+                                            <button
+                                              type="button"
+                                              onClick={addService}
+                                              className="text-xs px-2 py-1 bg-gray-100 rounded hover:bg-gray-200"
+                                            >
+                                              Add
+                                            </button>
+                                          </div>
+                                          <div className="mt-2 space-y-3">
+                                            {servicesRec.map((s, idx) => (
+                                              <div key={idx} className="border border-gray-200 rounded-lg p-2.5">
+                                                <div className="flex items-center justify-between gap-2 mb-2">
+                                                  <div className="text-xs font-semibold text-gray-800">Item {idx + 1}</div>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => removeService(idx)}
+                                                    className="text-xs text-red-600 hover:text-red-700"
+                                                  >
+                                                    Remove
+                                                  </button>
+                                                </div>
+                                                <div className="space-y-2">
+                                                  <input
+                                                    value={asString(s.title)}
+                                                    onChange={(e) => updateService(idx, { title: e.target.value })}
+                                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                                    placeholder="Title"
+                                                  />
+                                                  <textarea
+                                                    value={asString(s.description)}
+                                                    onChange={(e) => updateService(idx, { description: e.target.value })}
+                                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                                    placeholder="Description"
+                                                    rows={2}
+                                                  />
+                                                  <div className="grid grid-cols-2 gap-2">
+                                                    <select
+                                                      value={asString(s.icon) || 'tool'}
+                                                      onChange={(e) => updateService(idx, { icon: e.target.value })}
+                                                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                                      title="Icon"
+                                                    >
+                                                      <option value="tool">tool</option>
+                                                      <option value="wrench">wrench</option>
+                                                      <option value="shield">shield</option>
+                                                      <option value="search">search</option>
+                                                    </select>
+                                                    <input
+                                                      value={asString(s.benefit)}
+                                                      onChange={(e) => updateService(idx, { benefit: e.target.value })}
+                                                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                                      placeholder="Benefit (optional)"
+                                                    />
+                                                  </div>
+                                                </div>
+                                              </div>
+                                            ))}
+                                            {servicesRec.length === 0 && (
+                                              <div className="text-sm text-gray-600">No services. Add one to populate this section.</div>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    );
+                                  })()}
+
+                                  {selectedV1Section.type === 'ImagePair' && (() => {
+                                    const eff = selectedV1Section.effective;
+                                    return (
+                                      <div className="space-y-3">
+                                        <div>
+                                          <label className="block text-xs font-medium text-gray-700 mb-1">Heading</label>
+                                          <input
+                                            value={asString(eff.heading)}
+                                            onChange={(e) => updateV1Section(v1SelectedSectionIndex, { heading: e.target.value })}
+                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                          />
+                                        </div>
+                                        <div>
+                                          <label className="block text-xs font-medium text-gray-700 mb-1">Subheading</label>
+                                          <textarea
+                                            value={asString(eff.subheading)}
+                                            onChange={(e) => updateV1Section(v1SelectedSectionIndex, { subheading: e.target.value })}
+                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                            rows={2}
+                                          />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-2">
+                                          <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Caption 1</label>
+                                            <input
+                                              value={asString(eff.caption1)}
+                                              onChange={(e) => updateV1Section(v1SelectedSectionIndex, { caption1: e.target.value })}
+                                              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                            />
+                                          </div>
+                                          <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Caption 2</label>
+                                            <input
+                                              value={asString(eff.caption2)}
+                                              onChange={(e) => updateV1Section(v1SelectedSectionIndex, { caption2: e.target.value })}
+                                              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                            />
+                                          </div>
+                                        </div>
+                                        <div className="text-[11px] text-gray-500">
+                                          For image assets (image keys/URLs), use the Advanced JSON override below.
+                                        </div>
+                                      </div>
+                                    );
+                                  })()}
+
+                                  {selectedV1Section.type === 'TestimonialsCards' && (() => {
+                                    const eff = selectedV1Section.effective;
+                                    const testimonials = Array.isArray(eff.testimonials)
+                                      ? (eff.testimonials as unknown[])
+                                      : [];
+                                    const testiRec = testimonials.map((t) => asRecord(t));
+
+                                    const updateTestimonial = (idx: number, patch: Record<string, unknown>) => {
+                                      const next = testiRec.map((x) => ({ ...x }));
+                                      next[idx] = { ...(next[idx] || {}), ...patch };
+                                      updateV1Section(v1SelectedSectionIndex, { testimonials: next });
+                                    };
+                                    const addTestimonial = () => {
+                                      const next = testiRec.map((x) => ({ ...x }));
+                                      next.push({ quote: '', name: 'Name', title: '' });
+                                      updateV1Section(v1SelectedSectionIndex, { testimonials: next });
+                                    };
+                                    const removeTestimonial = (idx: number) => {
+                                      const next = testiRec.filter((_, i) => i !== idx).map((x) => ({ ...x }));
+                                      updateV1Section(v1SelectedSectionIndex, { testimonials: next });
+                                    };
+
+                                    return (
+                                      <div className="space-y-3">
+                                        <div>
+                                          <label className="block text-xs font-medium text-gray-700 mb-1">Heading</label>
+                                          <input
+                                            value={asString(eff.heading)}
+                                            onChange={(e) => updateV1Section(v1SelectedSectionIndex, { heading: e.target.value })}
+                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                          />
+                                        </div>
+                                        <div>
+                                          <label className="block text-xs font-medium text-gray-700 mb-1">Subheading</label>
+                                          <textarea
+                                            value={asString(eff.subheading)}
+                                            onChange={(e) => updateV1Section(v1SelectedSectionIndex, { subheading: e.target.value })}
+                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                            rows={2}
+                                          />
+                                        </div>
+
+                                        <div>
+                                          <div className="flex items-center justify-between">
+                                            <div className="text-xs font-semibold text-gray-700">Testimonials</div>
+                                            <button
+                                              type="button"
+                                              onClick={addTestimonial}
+                                              className="text-xs px-2 py-1 bg-gray-100 rounded hover:bg-gray-200"
+                                            >
+                                              Add
+                                            </button>
+                                          </div>
+                                          <div className="mt-2 space-y-3">
+                                            {testiRec.map((t, idx) => (
+                                              <div key={idx} className="border border-gray-200 rounded-lg p-2.5">
+                                                <div className="flex items-center justify-between gap-2 mb-2">
+                                                  <div className="text-xs font-semibold text-gray-800">Item {idx + 1}</div>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => removeTestimonial(idx)}
+                                                    className="text-xs text-red-600 hover:text-red-700"
+                                                  >
+                                                    Remove
+                                                  </button>
+                                                </div>
+                                                <div className="space-y-2">
+                                                  <textarea
+                                                    value={asString(t.quote)}
+                                                    onChange={(e) => updateTestimonial(idx, { quote: e.target.value })}
+                                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                                    placeholder="Quote"
+                                                    rows={3}
+                                                  />
+                                                  <div className="grid grid-cols-2 gap-2">
+                                                    <input
+                                                      value={asString(t.name)}
+                                                      onChange={(e) => updateTestimonial(idx, { name: e.target.value })}
+                                                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                                      placeholder="Name"
+                                                    />
+                                                    <input
+                                                      value={asString(t.title)}
+                                                      onChange={(e) => updateTestimonial(idx, { title: e.target.value })}
+                                                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                                      placeholder="Title"
+                                                    />
+                                                  </div>
+                                                </div>
+                                              </div>
+                                            ))}
+                                            {testiRec.length === 0 && (
+                                              <div className="text-sm text-gray-600">No testimonials. Add one to populate this section.</div>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    );
+                                  })()}
+
+                                  {selectedV1Section.type === 'FinalCTA' && (() => {
+                                    const eff = selectedV1Section.effective;
+                                    const nextStepsText = asStringArray(eff.nextSteps).join('\n');
+                                    return (
+                                      <div className="space-y-3">
+                                        <div>
+                                          <label className="block text-xs font-medium text-gray-700 mb-1">Heading</label>
+                                          <input
+                                            value={asString(eff.heading)}
+                                            onChange={(e) => updateV1Section(v1SelectedSectionIndex, { heading: e.target.value })}
+                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                          />
+                                        </div>
+                                        <div>
+                                          <label className="block text-xs font-medium text-gray-700 mb-1">Subheading</label>
+                                          <textarea
+                                            value={asString(eff.subheading)}
+                                            onChange={(e) => updateV1Section(v1SelectedSectionIndex, { subheading: e.target.value })}
+                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                            rows={2}
+                                          />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-2">
+                                          <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Button label</label>
+                                            <input
+                                              value={asString(eff.ctaLabel)}
+                                              onChange={(e) => updateV1Section(v1SelectedSectionIndex, { ctaLabel: e.target.value })}
+                                              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                            />
+                                          </div>
+                                          <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Urgency</label>
+                                            <input
+                                              value={asString(eff.urgency)}
+                                              onChange={(e) => updateV1Section(v1SelectedSectionIndex, { urgency: e.target.value })}
+                                              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                            />
+                                          </div>
+                                        </div>
+                                        <div>
+                                          <label className="block text-xs font-medium text-gray-700 mb-1">Next steps (one per line)</label>
+                                          <textarea
+                                            value={nextStepsText}
+                                            onChange={(e) =>
+                                              updateV1Section(v1SelectedSectionIndex, { nextSteps: parseLinesToStringArray(e.target.value) })
+                                            }
+                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                            rows={3}
+                                          />
+                                        </div>
+                                        <div>
+                                          <label className="block text-xs font-medium text-gray-700 mb-1">Guarantee</label>
+                                          <input
+                                            value={asString(eff.guarantee)}
+                                            onChange={(e) => updateV1Section(v1SelectedSectionIndex, { guarantee: e.target.value })}
+                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                          />
+                                        </div>
+                                        <div>
+                                          <label className="block text-xs font-medium text-gray-700 mb-1">Privacy note</label>
+                                          <input
+                                            value={asString(eff.privacyNote)}
+                                            onChange={(e) => updateV1Section(v1SelectedSectionIndex, { privacyNote: e.target.value })}
+                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                          />
+                                        </div>
+                                      </div>
+                                    );
+                                  })()}
+
+                                  {/* Fallback + per-section Advanced JSON override */}
+                                  <div className="pt-3 border-t border-gray-200">
+                                    <div className="text-xs font-semibold text-gray-700 mb-1">Advanced JSON override (this section)</div>
+                                    <div className="text-[11px] text-gray-500 mb-2">
+                                      Use this for complex nested props or unknown section types. This edits the override only (not the spec defaults).
+                                    </div>
+                                    <textarea
+                                      value={
+                                        v1SectionJsonDrafts[v1SelectedSectionIndex] ??
+                                        JSON.stringify(selectedV1Section.override ?? {}, null, 2)
+                                      }
+                                      onChange={(e) => {
+                                        const text = e.target.value;
+                                        setV1SectionJsonDrafts((prev) => ({ ...prev, [v1SelectedSectionIndex]: text }));
+                                      }}
+                                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs font-mono"
+                                      rows={8}
+                                    />
+                                    {v1SectionJsonErrors[v1SelectedSectionIndex] && (
+                                      <div className="mt-1 text-xs text-red-600">
+                                        {v1SectionJsonErrors[v1SelectedSectionIndex]}
+                                      </div>
+                                    )}
+                                    <div className="mt-2 flex gap-2">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setV1SectionJsonErrors((prev) => ({ ...prev, [v1SelectedSectionIndex]: '' }));
+                                          try {
+                                            const text =
+                                              v1SectionJsonDrafts[v1SelectedSectionIndex] ??
+                                              JSON.stringify(selectedV1Section.override ?? {}, null, 2);
+                                            const parsed = JSON.parse(text) as Record<string, unknown>;
+                                            replaceV1SectionOverride(v1SelectedSectionIndex, parsed);
+                                          } catch (e) {
+                                            const msg = e instanceof Error ? e.message : 'Invalid JSON';
+                                            setV1SectionJsonErrors((prev) => ({ ...prev, [v1SelectedSectionIndex]: msg }));
+                                          }
+                                        }}
+                                        className="flex-1 px-3 py-2 bg-gray-100 rounded-lg text-sm font-medium hover:bg-gray-200"
+                                      >
+                                        Apply override JSON
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setV1SectionJsonDrafts((prev) => ({
+                                            ...prev,
+                                            [v1SelectedSectionIndex]: JSON.stringify(selectedV1Section.override ?? {}, null, 2),
+                                          }));
+                                          setV1SectionJsonErrors((prev) => ({ ...prev, [v1SelectedSectionIndex]: '' }));
+                                        }}
+                                        className="px-3 py-2 bg-gray-100 rounded-lg text-sm font-medium hover:bg-gray-200"
+                                      >
+                                        Load current
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          if (!confirm('Clear this section override? This will revert to spec defaults.')) return;
+                                          replaceV1SectionOverride(v1SelectedSectionIndex, null);
+                                          setV1SectionJsonDrafts((prev) => ({ ...prev, [v1SelectedSectionIndex]: '{}' }));
+                                          setV1SectionJsonErrors((prev) => ({ ...prev, [v1SelectedSectionIndex]: '' }));
+                                        }}
+                                        className="px-3 py-2 bg-red-50 text-red-700 rounded-lg text-sm font-medium hover:bg-red-100"
+                                      >
+                                        Clear
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
 
                         <button
                           onClick={handleComposeV1}
@@ -548,7 +1151,7 @@ export default function PreviewDownload({
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">Page title</label>
                           <input
-                            value={String((v1Overrides as any)?.meta?.pageTitle ?? '')}
+                            value={String((v1Overrides as any)?.meta?.pageTitle ?? v1Spec?.metadata?.name ?? '')}
                             onChange={(e) => updateV1Meta({ pageTitle: e.target.value })}
                             className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
                           />
@@ -556,7 +1159,7 @@ export default function PreviewDownload({
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">Meta description</label>
                           <textarea
-                            value={String((v1Overrides as any)?.meta?.metaDescription ?? '')}
+                            value={String((v1Overrides as any)?.meta?.metaDescription ?? v1Spec?.metadata?.description ?? '')}
                             onChange={(e) => updateV1Meta({ metaDescription: e.target.value })}
                             className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
                             rows={3}
@@ -619,6 +1222,13 @@ export default function PreviewDownload({
                               className="flex-1 px-3 py-2 bg-gray-100 rounded-lg text-sm font-medium hover:bg-gray-200"
                             >
                               Apply JSON to state
+                            </button>
+                            <button
+                              onClick={() => setV1OverridesJson(JSON.stringify(v1Overrides ?? {}, null, 2))}
+                              className="px-3 py-2 bg-gray-100 rounded-lg text-sm font-medium hover:bg-gray-200"
+                              title="Replace the JSON editor contents with the current in-memory override state"
+                            >
+                              Load from state
                             </button>
                             <button
                               onClick={handleComposeV1}
