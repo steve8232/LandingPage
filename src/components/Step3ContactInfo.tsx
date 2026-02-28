@@ -3,17 +3,22 @@
 import { useState } from 'react';
 import { Mail, Phone } from 'lucide-react';
 import { ContactInfo } from '@/types';
+import { getV1FormArchetype, isPhoneRequired } from '@/lib/v1FormSchema';
 
 interface Step3Props {
   data: ContactInfo;
+  templateId?: string;
   onUpdate: (data: ContactInfo) => void;
   onSubmit: () => void;
   onBack: () => void;
   isGenerating: boolean;
 }
 
-export default function Step3ContactInfo({ data, onUpdate, onSubmit, onBack, isGenerating }: Step3Props) {
+export default function Step3ContactInfo({ data, templateId, onUpdate, onSubmit, onBack, isGenerating }: Step3Props) {
   const [error, setError] = useState('');
+
+  const archetype = getV1FormArchetype(templateId);
+  const phoneRequired = isPhoneRequired(archetype);
 
   const validateEmail = (email: string) => {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -33,8 +38,8 @@ export default function Step3ContactInfo({ data, onUpdate, onSubmit, onBack, isG
   };
 
   const handleSubmit = () => {
-    if (!data.email || !data.phone) {
-      setError('Please fill in all fields');
+    if (!data.email || (phoneRequired && !data.phone)) {
+      setError('Please fill in the required fields');
       return;
     }
 
@@ -43,9 +48,18 @@ export default function Step3ContactInfo({ data, onUpdate, onSubmit, onBack, isG
       return;
     }
 
-    if (data.phone.length < 10) {
-      setError('Please enter a valid phone number');
-      return;
+    // Phone is only required for certain template archetypes (e.g. local service).
+    if (phoneRequired) {
+      if (data.phone.length < 10) {
+        setError('Please enter a valid phone number');
+        return;
+      }
+    } else {
+      // If provided, validate it; otherwise allow it to be blank.
+      if (data.phone && data.phone.length > 0 && data.phone.length < 10) {
+        setError('Please enter a valid phone number (or leave it blank)');
+        return;
+      }
     }
 
     setError('');
@@ -85,7 +99,7 @@ export default function Step3ContactInfo({ data, onUpdate, onSubmit, onBack, isG
           <label className="block text-sm font-medium text-gray-700 mb-2">
             <span className="flex items-center gap-2">
               <Phone className="w-4 h-4" />
-              Phone Number *
+	              Phone Number {phoneRequired ? '*' : <span className="text-gray-400">(optional)</span>}
             </span>
           </label>
           <input
@@ -95,9 +109,11 @@ export default function Step3ContactInfo({ data, onUpdate, onSubmit, onBack, isG
             placeholder="(555) 123-4567"
             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
-          <p className="text-xs text-gray-500 mt-1">
-            This will appear as a clickable phone number on your landing page.
-          </p>
+		          <p className="text-xs text-gray-500 mt-1">
+		            {phoneRequired
+		              ? 'This will appear as a clickable phone number on your landing page.'
+		              : 'Optional — include this if you want a clickable phone number on the page.'}
+		          </p>
         </div>
       </div>
 

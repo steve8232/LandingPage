@@ -1,4 +1,5 @@
 import { Template, TemplateCategory } from '@/lib/templates';
+import type { TemplateAnswers } from '@/lib/v1FormSchema';
 
 export interface DesignInput {
   option: 'url' | 'description';
@@ -19,6 +20,8 @@ export interface BusinessInfo {
   customerLove: string;
   images: string[]; // base64 encoded images
   logo?: string; // base64 encoded logo image
+  /** Optional template/category-specific answers (kept flexible on purpose). */
+  templateAnswers?: TemplateAnswers;
 }
 
 export interface ContactInfo {

@@ -8,8 +8,44 @@ import { generateFullCSS } from '@/lib/generateCss';
 // legacy pipeline.  The legacy code below remains completely untouched.
 import { isV1Template, getV1Spec } from '../../../../v1/specs/index';
 import { composeV1Template } from '../../../../v1/composer/composeV1Template';
+import type { V1ContentOverrides } from '../../../../v1/composer/composeV1Template';
 import { generateV1Content, V1FormInput } from '../../../../v1/composer/generateV1Content';
 import { enhanceV1Content } from '../../../../v1/composer/enhanceV1Content';
+import type { TemplateSpec } from '../../../../v1/specs/schema';
+
+function applyV1SectionOmissions(
+  spec: TemplateSpec,
+  overrides: V1ContentOverrides | undefined,
+  templateAnswers?: Record<string, unknown>
+): V1ContentOverrides | undefined {
+  const hideTestimonials = Boolean(templateAnswers?.hideTestimonials);
+  const hideImages = Boolean(templateAnswers?.hideImages);
+  if (!hideTestimonials && !hideImages) return overrides;
+
+  const next: V1ContentOverrides = { ...(overrides || {}) };
+  const sections = next.sections
+    ? [...next.sections]
+    : Array.from({ length: spec.sections.length }, () => null);
+
+  // Ensure the override array is at least the length of spec.sections
+  while (sections.length < spec.sections.length) sections.push(null);
+
+  spec.sections.forEach((entry, i) => {
+    if (hideTestimonials && entry.type === 'TestimonialsCards') {
+      const cur = sections[i];
+      const base = cur && typeof cur === 'object' ? (cur as Record<string, unknown>) : {};
+      sections[i] = { ...base, _omit: true };
+    }
+    if (hideImages && entry.type === 'ImagePair') {
+      const cur = sections[i];
+      const base = cur && typeof cur === 'object' ? (cur as Record<string, unknown>) : {};
+      sections[i] = { ...base, _omit: true };
+    }
+  });
+
+  next.sections = sections;
+  return next;
+}
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
@@ -111,6 +147,7 @@ export async function POST(request: NextRequest) {
           uniqueValue: formData.business.uniqueValue || '',
           customerLove: formData.business.customerLove || '',
           images: formData.business.images || [],
+	          templateAnswers: formData.business.templateAnswers,
         },
         contact: {
           email: formData.contact?.email || '',
@@ -119,8 +156,8 @@ export async function POST(request: NextRequest) {
       };
 
       // Load spec and generate AI content overrides
-      const spec = getV1Spec(templateId);
-      let overrides;
+	      const spec = getV1Spec(templateId);
+	      let overrides: V1ContentOverrides | undefined;
       if (spec) {
         overrides = await generateV1Content(v1Input, spec);
         console.log('[v1 adapter] Content overrides generated');
@@ -128,6 +165,9 @@ export async function POST(request: NextRequest) {
         // Second pass: polish copy + generate SEO metadata, alt texts, form labels
         overrides = await enhanceV1Content(v1Input, spec, overrides);
         console.log('[v1 adapter] Enhancement pass complete');
+
+	        // Apply any template-driven visibility toggles (e.g. hideTestimonials)
+	        overrides = applyV1SectionOmissions(spec, overrides, v1Input.business.templateAnswers);
       }
 
 	      // For the interactive app output we allow remote demo images (when used)

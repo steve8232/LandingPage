@@ -237,6 +237,13 @@ export function composeV1Template(
 
       // Prepare props — merge spec defaults with content overrides
       const sectionOverride = overrides?.sections?.[sectionIndex];
+	    if (
+	      sectionOverride &&
+	      typeof sectionOverride === 'object' &&
+	      (sectionOverride as Record<string, unknown>)._omit === true
+	    ) {
+	      return `<!-- omitted section: ${entry.type} -->`;
+	    }
       const props = sectionOverride
         ? { ...entry.props, ...sectionOverride }
         : { ...entry.props };

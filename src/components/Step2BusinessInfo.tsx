@@ -3,18 +3,39 @@
 import { useState, useRef } from 'react';
 import { Upload, X, Image as ImageIcon } from 'lucide-react';
 import { BusinessInfo } from '@/types';
+import {
+  getOptionalFields,
+  getV1FormArchetype,
+  type TemplateAnswers,
+  type TemplateAnswerValue,
+} from '@/lib/v1FormSchema';
 
 interface Step2Props {
   data: BusinessInfo;
+  templateId?: string;
   onUpdate: (data: BusinessInfo) => void;
   onNext: () => void;
   onBack: () => void;
 }
 
-export default function Step2BusinessInfo({ data, onUpdate, onNext, onBack }: Step2Props) {
+export default function Step2BusinessInfo({ data, templateId, onUpdate, onNext, onBack }: Step2Props) {
   const [error, setError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
+
+  const archetype = getV1FormArchetype(templateId);
+  const optionalFields = getOptionalFields(archetype);
+  const templateAnswers: TemplateAnswers = data.templateAnswers || {};
+
+  const setTemplateAnswer = (key: string, value: TemplateAnswerValue) => {
+    onUpdate({
+      ...data,
+      templateAnswers: {
+        ...templateAnswers,
+        [key]: value,
+      },
+    });
+  };
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -74,8 +95,9 @@ export default function Step2BusinessInfo({ data, onUpdate, onNext, onBack }: St
   };
 
   const handleSubmit = () => {
-    if (!data.productService || !data.offer || !data.pricing || !data.cta || !data.uniqueValue || !data.customerLove) {
-      setError('Please fill in all required fields');
+    // Keep the core flow lightweight; template-specific details are optional.
+    if (!data.productService || !data.cta) {
+      setError('Please fill in the required fields');
       return;
     }
     setError('');
@@ -89,17 +111,33 @@ export default function Step2BusinessInfo({ data, onUpdate, onNext, onBack }: St
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Business Information</h2>
-        <p className="text-gray-600">Tell us about your business and offer.</p>
+        <p className="text-gray-600">Tell us about your business — we’ll tailor the copy to this template.</p>
       </div>
 
       <div className="space-y-5">
         <div>
-          <label className={labelClass}>What product or service do you sell? *</label>
+          <label className={labelClass}>
+            {archetype === 'event'
+              ? 'What is your event about? *'
+              : archetype === 'waitlist'
+                ? 'What are you launching? *'
+                : archetype === 'local-service'
+                  ? 'What service do you offer? *'
+                  : 'What product or service do you sell? *'}
+          </label>
           <input
             type="text"
             value={data.productService}
             onChange={(e) => onUpdate({ ...data, productService: e.target.value })}
-            placeholder="e.g., Online fitness coaching, Handmade jewelry, SaaS software"
+            placeholder={
+              archetype === 'local-service'
+                ? 'e.g., Plumbing repair, House cleaning, Mobile detailing'
+                : archetype === 'event'
+                  ? 'e.g., Live webinar on demand gen for B2B SaaS'
+                  : archetype === 'waitlist'
+                    ? 'e.g., A new AI scheduling app for clinics'
+                    : 'e.g., Online fitness coaching, Handmade jewelry, SaaS software'
+            }
             className={inputClass}
           />
         </div>
@@ -144,7 +182,7 @@ export default function Step2BusinessInfo({ data, onUpdate, onNext, onBack }: St
         </div>
 
         <div>
-          <label className={labelClass}>What is the singular offer you want to promote? *</label>
+          <label className={labelClass}>What is the offer you want to promote? <span className="text-gray-400">(optional)</span></label>
           <input
             type="text"
             value={data.offer}
@@ -155,7 +193,7 @@ export default function Step2BusinessInfo({ data, onUpdate, onNext, onBack }: St
         </div>
 
         <div>
-          <label className={labelClass}>What is the pricing for this offer? *</label>
+          <label className={labelClass}>What is the pricing for this offer? <span className="text-gray-400">(optional)</span></label>
           <input
             type="text"
             value={data.pricing}
@@ -177,7 +215,7 @@ export default function Step2BusinessInfo({ data, onUpdate, onNext, onBack }: St
         </div>
 
         <div>
-          <label className={labelClass}>What makes your business unique? *</label>
+          <label className={labelClass}>What makes you unique? <span className="text-gray-400">(optional)</span></label>
           <textarea
             value={data.uniqueValue}
             onChange={(e) => onUpdate({ ...data, uniqueValue: e.target.value })}
@@ -188,7 +226,7 @@ export default function Step2BusinessInfo({ data, onUpdate, onNext, onBack }: St
         </div>
 
         <div>
-          <label className={labelClass}>Why do your customers love you? *</label>
+          <label className={labelClass}>Why do customers love you? <span className="text-gray-400">(optional)</span></label>
           <textarea
             value={data.customerLove}
             onChange={(e) => onUpdate({ ...data, customerLove: e.target.value })}
@@ -197,6 +235,93 @@ export default function Step2BusinessInfo({ data, onUpdate, onNext, onBack }: St
             className={inputClass + " resize-none"}
           />
         </div>
+
+        {optionalFields.length > 0 && (
+          <details className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+            <summary className="cursor-pointer select-none font-semibold text-gray-800">
+              Optional: template-specific details
+              <span className="ml-2 text-sm font-normal text-gray-500">
+                (helps the AI tailor sections)
+              </span>
+            </summary>
+            <div className="mt-4 space-y-4">
+              {optionalFields.map((f) => {
+                const current = templateAnswers[f.key];
+                if (f.type === 'checkbox') {
+                  return (
+                    <div key={f.key} className="flex items-start gap-3">
+                      <input
+                        id={`opt-${f.key}`}
+                        type="checkbox"
+                        checked={Boolean(current)}
+                        onChange={(e) => setTemplateAnswer(f.key, e.target.checked)}
+                        className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <div>
+                        <label htmlFor={`opt-${f.key}`} className="text-sm font-medium text-gray-800">
+                          {f.label}
+                        </label>
+                        {f.helpText && <p className="text-xs text-gray-500 mt-1">{f.helpText}</p>}
+                      </div>
+                    </div>
+                  );
+                }
+
+                if (f.type === 'select') {
+                  return (
+                    <div key={f.key}>
+                      <label className={labelClass}>{f.label}</label>
+                      <select
+                        value={typeof current === 'string' ? current : ''}
+                        onChange={(e) => setTemplateAnswer(f.key, e.target.value)}
+                        className={inputClass}
+                      >
+	                        <option value="">Select…</option>
+                        {(f.options || []).map((o) => (
+                          <option key={o} value={o}>
+                            {o}
+                          </option>
+                        ))}
+                      </select>
+                      {f.helpText && <p className="text-xs text-gray-500 mt-1">{f.helpText}</p>}
+                    </div>
+                  );
+                }
+
+                if (f.type === 'textarea') {
+                  return (
+                    <div key={f.key}>
+                      <label className={labelClass}>{f.label}</label>
+                      <textarea
+                        value={typeof current === 'string' ? current : ''}
+                        onChange={(e) => setTemplateAnswer(f.key, e.target.value)}
+                        placeholder={f.placeholder}
+                        rows={3}
+                        className={inputClass + ' resize-none'}
+                      />
+                      {f.helpText && <p className="text-xs text-gray-500 mt-1">{f.helpText}</p>}
+                    </div>
+                  );
+                }
+
+                // text
+                return (
+                  <div key={f.key}>
+                    <label className={labelClass}>{f.label}</label>
+                    <input
+                      type="text"
+                      value={typeof current === 'string' ? current : ''}
+                      onChange={(e) => setTemplateAnswer(f.key, e.target.value)}
+                      placeholder={f.placeholder}
+                      className={inputClass}
+                    />
+                    {f.helpText && <p className="text-xs text-gray-500 mt-1">{f.helpText}</p>}
+                  </div>
+                );
+              })}
+            </div>
+          </details>
+        )}
 
         <div>
           <label className={labelClass}>Product/Service Images (optional)</label>

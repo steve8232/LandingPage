@@ -164,6 +164,7 @@ export default function Home() {
       if (currentStep === 2) {
         return (
           <Step2BusinessInfo
+	            templateId={formData.selectedTemplate?.id}
             data={formData.business}
             onUpdate={updateBusiness}
             onNext={() => setCurrentStep(3)}
@@ -175,6 +176,7 @@ export default function Home() {
       if (currentStep === 3) {
         return (
           <Step3ContactInfo
+	            templateId={formData.selectedTemplate?.id}
             data={formData.contact}
             onUpdate={updateContact}
             onSubmit={generateLandingPage}
@@ -189,6 +191,7 @@ export default function Home() {
       if (currentStep === 1) {
         return (
           <Step2BusinessInfo
+	            templateId={formData.selectedTemplate?.id}
             data={formData.business}
             onUpdate={updateBusiness}
             onNext={() => setCurrentStep(2)}
@@ -200,6 +203,7 @@ export default function Home() {
       if (currentStep === 2) {
         return (
           <Step3ContactInfo
+	            templateId={formData.selectedTemplate?.id}
             data={formData.contact}
             onUpdate={updateContact}
             onSubmit={generateLandingPage}

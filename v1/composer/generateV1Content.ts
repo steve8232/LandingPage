@@ -21,11 +21,22 @@ export interface V1FormInput {
     uniqueValue: string;
     customerLove: string;
     images: string[];
+
+    /** Optional template/category-specific answers coming from the wizard. */
+    templateAnswers?: Record<string, string | boolean>;
   };
   contact: {
     email: string;
     phone: string;
   };
+}
+
+function formatTemplateAnswers(answers?: Record<string, string | boolean>): string {
+  if (!answers || typeof answers !== 'object') return 'None provided.';
+  const lines = Object.entries(answers)
+    .filter(([_, v]) => (typeof v === 'string' ? v.trim().length > 0 : v === true))
+    .map(([k, v]) => `- ${k}: ${typeof v === 'boolean' ? String(v) : v}`);
+  return lines.length ? lines.join('\n') : 'None provided.';
 }
 
 interface AIGeneratedContent {
@@ -87,6 +98,9 @@ BUSINESS BRIEF:
 - What makes them different: ${input.business.uniqueValue}
 - Why customers love them: ${input.business.customerLove}
 - Contact: ${input.contact.email}, ${input.contact.phone}
+
+OPTIONAL TEMPLATE DETAILS (may be empty):
+${formatTemplateAnswers(input.business.templateAnswers)}
 
 LANDING PAGE BLUEPRINT:
 - Template: ${spec.metadata.name}

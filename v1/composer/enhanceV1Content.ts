@@ -54,6 +54,14 @@ interface AIEnhanceResponse {
   formFields?: Record<string, { placeholder?: string; label?: string }>;
 }
 
+function formatTemplateAnswers(answers?: Record<string, string | boolean>): string {
+  if (!answers || typeof answers !== 'object') return 'None provided.';
+  const lines = Object.entries(answers)
+    .filter(([_, v]) => (typeof v === 'string' ? v.trim().length > 0 : v === true))
+    .map(([k, v]) => `- ${k}: ${typeof v === 'boolean' ? String(v) : v}`);
+  return lines.length ? lines.join('\n') : 'None provided.';
+}
+
 // ── Prompt ──────────────────────────────────────────────────────────────────────
 
 function buildEnhancePrompt(
@@ -94,6 +102,9 @@ BUSINESS:
 - CTA intent: ${input.business.cta}
 - Unique value: ${input.business.uniqueValue}
 - Why customers love them: ${input.business.customerLove}
+
+OPTIONAL TEMPLATE DETAILS (may be empty):
+${formatTemplateAnswers(input.business.templateAnswers)}
 
 TEMPLATE: ${spec.metadata.name} (${spec.category}, goal: ${spec.goal})
 
