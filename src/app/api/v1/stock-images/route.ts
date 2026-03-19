@@ -1,91 +1,134 @@
 import { NextRequest, NextResponse } from 'next/server';
+import type { UnsplashOrientation, UnsplashSearchResponse } from '@/lib/unsplash/types';
+import { normalizeUnsplashPhoto } from '@/lib/unsplash/normalizeUnsplash';
+import { getUnsplashAccessKey, UnsplashError, unsplashFetchJson } from '@/lib/unsplash/unsplashFetch';
 
 export const runtime = 'nodejs';
 
-export type StockImageResult = {
-  id: string;
-  role: string;
-  url: string;
-  source_page_url: string;
-  provider: string;
-  license_summary: string;
-  attribution_text: string;
-  attribution_url: string;
-  notes?: string;
-};
+function parsePositiveInt(value: string | null, fallback: number): number {
+  if (!value) return fallback;
+  const n = Number.parseInt(value, 10);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
 
-let _cache: StockImageResult[] | null = null;
+function clamp(n: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, n));
+}
 
-function loadAllStockImages(): StockImageResult[] {
-  if (_cache) return _cache;
+function isOrientation(v: string | null): v is UnsplashOrientation {
+  return v === 'landscape' || v === 'portrait' || v === 'squarish';
+}
 
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const fs = require('fs') as typeof import('fs');
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const path = require('path') as typeof import('path');
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
 
-  const dir = path.resolve(process.cwd(), 'v1/assets/manifests');
-  const files = fs
-    .readdirSync(dir)
-    .filter((f: string) => f.endsWith('.demo.json'))
-    .sort();
-
-  const results: StockImageResult[] = [];
-  for (const file of files) {
-    try {
-      const raw = fs.readFileSync(path.join(dir, file), 'utf-8');
-      const parsed = JSON.parse(raw) as Record<string, StockImageResult>;
-      for (const entry of Object.values(parsed)) {
-        if (!entry || typeof entry !== 'object') continue;
-        if (typeof entry.url !== 'string' || typeof entry.id !== 'string') continue;
-        results.push(entry);
-      }
-    } catch {
-      // Ignore malformed manifest files to keep endpoint robust.
-    }
+function addUtm(url: string): string {
+  try {
+    const u = new URL(url);
+    // Safe default; can be overridden on the server.
+    const source = process.env.UNSPLASH_UTM_SOURCE || 'landing-page-designer';
+    if (!u.searchParams.has('utm_source')) u.searchParams.set('utm_source', source);
+    if (!u.searchParams.has('utm_medium')) u.searchParams.set('utm_medium', 'referral');
+    return u.toString();
+  } catch {
+    return url;
   }
-
-  _cache = results;
-  return results;
 }
 
 export async function GET(request: NextRequest) {
   try {
-    const q = (request.nextUrl.searchParams.get('q') || '').trim().toLowerCase();
-    const role = (request.nextUrl.searchParams.get('role') || '').trim().toLowerCase();
-
-    let results = loadAllStockImages();
-
-    if (role) {
-      results = results.filter((r) => (r.role || '').toLowerCase() === role);
+    const params = request.nextUrl.searchParams;
+    const q = (params.get('q') || '').trim();
+    if (!q) {
+      return NextResponse.json({ error: 'Search query (q) is required.' }, { status: 400 });
+    }
+    if (q.length < 2) {
+      return NextResponse.json({ error: 'Search query must be at least 2 characters.' }, { status: 400 });
     }
 
-    if (q) {
-      results = results.filter((r) => {
-        const hay = [
-          r.id,
-          r.role,
-          r.provider,
-          r.license_summary,
-          r.attribution_text,
-          r.source_page_url,
-          r.notes || '',
-        ]
-          .join(' ')
-          .toLowerCase();
-        return hay.includes(q);
-      });
+    const page = parsePositiveInt(params.get('page'), 1);
+    const perPage = clamp(parsePositiveInt(params.get('perPage'), 12), 1, 30);
+
+    const orientationParam = params.get('orientation');
+    if (orientationParam && !isOrientation(orientationParam)) {
+      return NextResponse.json(
+        { error: 'Invalid orientation. Use landscape, portrait, or squarish.' },
+        { status: 400 }
+      );
     }
 
-    // Keep payloads reasonable.
-    const limited = results.slice(0, 60);
+    const url = new URL('https://api.unsplash.com/search/photos');
+    url.searchParams.set('query', q);
+    url.searchParams.set('page', String(page));
+    url.searchParams.set('per_page', String(perPage));
+    url.searchParams.set('content_filter', 'high');
+    if (orientationParam) url.searchParams.set('orientation', orientationParam);
 
-    return NextResponse.json({ results: limited });
-  } catch (error) {
-    console.error('[api/v1/stock-images] Error:', error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to fetch stock images' },
-      { status: 500 }
-    );
+    const { json, response } = await unsplashFetchJson(url.toString(), {
+      method: 'GET',
+      headers: {
+        'Accept-Version': 'v1',
+        'Authorization': `Client-ID ${getUnsplashAccessKey()}`,
+      },
+    });
+
+    if (!response.ok) {
+      // Unsplash may return 403 or 429 for rate limiting depending on context.
+      const remaining = response.headers.get('x-ratelimit-remaining');
+      if (response.status === 429 || (response.status === 403 && remaining === '0')) {
+        return NextResponse.json(
+          { error: 'Image search is temporarily rate-limited. Please try again shortly.' },
+          { status: 429 }
+        );
+      }
+
+      const generic =
+        response.status === 401 || response.status === 403
+          ? 'Unsplash authentication failed. Check server configuration.'
+          : 'Unsplash request failed. Please try again.';
+
+      return NextResponse.json({ error: generic }, { status: 502 });
+    }
+
+    if (!isRecord(json)) {
+      throw new UnsplashError('Unexpected Unsplash response.', 502);
+    }
+
+    const results = Array.isArray(json.results) ? json.results : [];
+    const total = typeof json.total === 'number' ? json.total : 0;
+    const totalPages = typeof json.total_pages === 'number' ? json.total_pages : 0;
+
+    const images = results
+      .map((p) => {
+        try {
+          const normalized = normalizeUnsplashPhoto(p);
+          return {
+            ...normalized,
+            photographerProfileUrl: addUtm(normalized.photographerProfileUrl),
+            unsplashPageUrl: addUtm(normalized.unsplashPageUrl),
+          };
+        } catch {
+          return null;
+        }
+      })
+      .filter((x): x is NonNullable<typeof x> => Boolean(x));
+
+    const body: UnsplashSearchResponse = {
+      images,
+      page,
+      perPage,
+      total,
+      totalPages,
+    };
+
+    return NextResponse.json(body, { status: 200 });
+  } catch (err) {
+    if (err instanceof UnsplashError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
+    console.error('Unsplash search error:', err);
+    return NextResponse.json({ error: 'Failed to search images. Please try again.' }, { status: 500 });
   }
 }
+

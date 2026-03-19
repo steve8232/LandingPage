@@ -19,6 +19,7 @@ import { GeneratedLandingPage, FormData } from '@/types';
 import { calculateConversionScore, extractScoreInput, ConversionScore } from '@/lib/conversionScore';
 import VisualEditor from '@/components/editor/VisualEditor';
 import type { V1ContentOverrides } from '../../v1/composer/composeV1Template';
+import type { UnsplashNormalizedImage } from '@/lib/unsplash/types';
 
 type V1SpecSection = {
   type: string;
@@ -37,17 +38,7 @@ type V1SpecResponse = {
   resolvedAssets?: Record<string, string>;
 };
 
-type StockImageResult = {
-  id: string;
-  role: string;
-  url: string;
-  source_page_url: string;
-  provider: string;
-  license_summary: string;
-  attribution_text: string;
-  attribution_url: string;
-  notes?: string;
-};
+type StockImageResult = UnsplashNormalizedImage;
 
 type V1ImageAttribution = {
   text: string;
@@ -426,10 +417,16 @@ export default function PreviewDownload({
     setStockError('');
     setStockLoading(true);
     try {
-      const res = await fetch(`/api/v1/stock-images?q=${encodeURIComponent(stockQuery.trim())}`);
+	      const q = stockQuery.trim();
+	      if (q.length < 2) {
+	        setStockResults([]);
+	        setStockError('Search query must be at least 2 characters.');
+	        return;
+	      }
+	      const res = await fetch(`/api/v1/stock-images?q=${encodeURIComponent(q)}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || 'Failed to fetch stock images');
-      const results = Array.isArray(data?.results) ? (data.results as StockImageResult[]) : [];
+	      const results = Array.isArray(data?.images) ? (data.images as StockImageResult[]) : [];
       setStockResults(results);
     } catch (e) {
       setStockResults([]);
@@ -1466,22 +1463,31 @@ export default function PreviewDownload({
 												key={r.id}
 												onClick={() => {
 												  if (!v1SelectedAssetKey) return;
-												  setV1AssetOverride(v1SelectedAssetKey, r.url, {
-													text: r.attribution_text,
-													url: r.attribution_url || r.source_page_url,
-													provider: r.provider,
-													licenseSummary: r.license_summary,
+												  // Fire-and-forget: comply with Unsplash download tracking guidelines.
+												  fetch('/api/v1/stock-images/track-download', {
+													method: 'POST',
+													headers: { 'content-type': 'application/json' },
+													body: JSON.stringify({ photoId: r.id, downloadLocation: r.downloadLocation }),
+												  }).catch(() => {
+													// Ignore tracking errors in the UI.
+												  });
+
+												  setV1AssetOverride(v1SelectedAssetKey, r.urls.regular, {
+													text: `Photo by ${r.photographerName} on Unsplash`,
+													url: r.unsplashPageUrl,
+													provider: 'unsplash',
+													licenseSummary: 'Unsplash License',
 												});
 												}}
 												className="border border-gray-200 rounded-lg overflow-hidden hover:border-indigo-300 text-left"
 											  >
 												<div className="w-full h-[90px] bg-gray-50">
 												  {/* eslint-disable-next-line @next/next/no-img-element */}
-												  <img src={r.url} alt="" className="w-full h-full object-cover" />
+												  <img src={r.urls.thumb} alt={r.description || ''} className="w-full h-full object-cover" />
 												</div>
 												<div className="p-2">
-												  <div className="text-[11px] text-gray-700 truncate">{r.attribution_text}</div>
-												  <div className="text-[10px] text-gray-500 truncate">{r.provider} · {r.role}</div>
+												  <div className="text-[11px] text-gray-700 truncate">{r.photographerName}</div>
+												  <div className="text-[10px] text-gray-500 truncate">Unsplash</div>
 												</div>
 											  </button>
 											))}
