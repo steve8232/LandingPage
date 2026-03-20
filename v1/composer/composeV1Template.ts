@@ -168,6 +168,19 @@ export interface V1ContentOverrides {
   formOverrides?: Record<string, { placeholder?: string; label?: string }>;
   /** AI-generated stock photo search terms keyed by section role */
   imageSearchTerms?: Record<string, string>;
+  /**
+   * Custom display order for sections. Each entry is an index into the
+   * spec.sections array (for original sections) or a string key prefixed
+   * with "added:" for user-added sections.  When absent the spec order is
+   * used.
+   */
+  sectionOrder?: (number | string)[];
+  /**
+   * User-added sections not present in the original spec.  Keyed by a
+   * stable id (e.g. "added:1679012345678").  The value contains the section
+   * type and initial props.
+   */
+  addedSections?: Record<string, { type: string; props: Record<string, unknown> }>;
 }
 
 export interface ComposeV1Options {
@@ -232,9 +245,39 @@ export function composeV1Template(
     resolvedAssets[key] = inlineLocalSvgIfPossible(resolvedAssets[key]);
   }
 
-  // 5. Render each section
-  const sectionsHtml = spec.sections
-    .map((entry, sectionIndex) => {
+  // 5. Build the ordered list of sections to render.
+  //    If sectionOrder is provided, use it; otherwise use spec order.
+  //    Each item is { id: string, entry: V1SectionEntry, overrideProps }
+  type RenderItem = {
+    id: string;                              // e.g. "0", "1", or "added:xxxxx"
+    entry: { type: string; props: Record<string, unknown> };
+    overrideProps: Record<string, unknown> | null;
+  };
+
+  const renderOrder: RenderItem[] = [];
+  const order = overrides?.sectionOrder;
+  if (Array.isArray(order) && order.length > 0) {
+    for (const key of order) {
+      if (typeof key === 'number') {
+        const entry = spec.sections[key];
+        if (!entry) continue;
+        renderOrder.push({ id: String(key), entry, overrideProps: overrides?.sections?.[key] as Record<string, unknown> | null ?? null });
+      } else if (typeof key === 'string' && key.startsWith('added:')) {
+        const added = overrides?.addedSections?.[key];
+        if (!added) continue;
+        renderOrder.push({ id: key, entry: added, overrideProps: null });
+      }
+    }
+  } else {
+    // Default: spec order
+    spec.sections.forEach((entry, i) => {
+      renderOrder.push({ id: String(i), entry, overrideProps: overrides?.sections?.[i] as Record<string, unknown> | null ?? null });
+    });
+  }
+
+  const sectionsHtml = renderOrder
+    .map((item) => {
+      const { id: sectionId, entry, overrideProps: sectionOverride } = item;
       const renderer = sectionRegistry[entry.type];
       if (!renderer) {
         console.warn(`[v1 composer] Unknown section type: ${entry.type}`);
@@ -242,14 +285,13 @@ export function composeV1Template(
       }
 
       // Prepare props — merge spec defaults with content overrides
-      const sectionOverride = overrides?.sections?.[sectionIndex];
-	    if (
-	      sectionOverride &&
-	      typeof sectionOverride === 'object' &&
-	      (sectionOverride as Record<string, unknown>)._omit === true
-	    ) {
-	      return `<!-- omitted section: ${entry.type} -->`;
-	    }
+      if (
+        sectionOverride &&
+        typeof sectionOverride === 'object' &&
+        (sectionOverride as Record<string, unknown>)._omit === true
+      ) {
+        return `<!-- omitted section: ${entry.type} -->`;
+      }
       const props = sectionOverride
         ? { ...entry.props, ...sectionOverride }
         : { ...entry.props };
@@ -322,7 +364,9 @@ export function composeV1Template(
         props._formHtml = formHtml;
       }
 
-      return renderer(props);
+      const innerHtml = renderer(props);
+      // Wrap in a section-id container so the iframe click handler can identify it
+      return `<div data-v1-section-id="${escapeAttr(sectionId)}" data-v1-section-type="${escapeAttr(entry.type)}">${innerHtml}</div>`;
     })
     .join('\n');
 
@@ -375,6 +419,10 @@ function buildDocument(
 ${tokensCss}
 /* === v1 theme: ${spec.theme} === */
 ${themeCss}
+/* === v1 section interaction highlights === */
+[data-v1-section-id] { transition: outline 0.15s ease, outline-offset 0.15s ease; outline: 2px solid transparent; outline-offset: -2px; }
+[data-v1-section-id]:hover { outline: 2px dashed rgba(99,102,241,0.45); outline-offset: -2px; cursor: pointer; }
+[data-v1-section-id].v1-section-selected { outline: 2px solid rgba(99,102,241,0.8); outline-offset: -2px; }
   </style>
 </head>
 <body>

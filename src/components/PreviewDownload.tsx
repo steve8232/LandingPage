@@ -15,6 +15,9 @@ import {
   RotateCcw,
   RefreshCw,
   Save,
+  GripVertical,
+  Trash2,
+  Plus,
 } from 'lucide-react';
 import { GeneratedLandingPage, FormData } from '@/types';
 import { calculateConversionScore, extractScoreInput, ConversionScore } from '@/lib/conversionScore';
@@ -271,6 +274,8 @@ export default function PreviewDownload({
   const [v1SelectedSectionIndex, setV1SelectedSectionIndex] = useState<number>(0);
   const [v1SectionJsonDrafts, setV1SectionJsonDrafts] = useState<Record<number, string>>({});
   const [v1SectionJsonErrors, setV1SectionJsonErrors] = useState<Record<number, string>>({});
+  const [v1DragIndex, setV1DragIndex] = useState<number | null>(null);
+  const [v1DragOverIndex, setV1DragOverIndex] = useState<number | null>(null);
 
   // v1 Images workflow state
   const [v1SelectedAssetKey, setV1SelectedAssetKey] = useState<string>('');
@@ -401,32 +406,167 @@ export default function PreviewDownload({
     }
   }, [v1OverridesJson]);
 
-  const effectiveV1Sections = useMemo(() => {
-    const specSections = v1Spec?.sections;
-    if (!Array.isArray(specSections)) return [] as Array<{
-      type: string;
-      defaultProps: Record<string, unknown>;
-      override: Record<string, unknown> | null;
-      effective: Record<string, unknown>;
-      omitted: boolean;
-    }>;
+  type V1DisplayItem = {
+    /** Stable id: string index for spec sections ("0", "1"…) or "added:xxx" for user-added */
+    id: string;
+    type: string;
+    defaultProps: Record<string, unknown>;
+    override: Record<string, unknown> | null;
+    effective: Record<string, unknown>;
+    omitted: boolean;
+    /** Whether this is a user-added section (not in the original spec) */
+    isAdded: boolean;
+  };
 
-    return specSections.map((s, i) => {
+  /** Ordered list of sections as they should appear in preview & sidebar. */
+  const v1DisplayOrder: V1DisplayItem[] = useMemo(() => {
+    const specSections = v1Spec?.sections;
+    if (!Array.isArray(specSections)) return [];
+
+    // Helper to build an item from a spec section
+    const buildSpecItem = (i: number): V1DisplayItem => {
+      const s = specSections[i];
       const ov = v1Overrides?.sections?.[i];
       const override = ov && typeof ov === 'object' ? (ov as Record<string, unknown>) : null;
       const omitted = override?._omit === true;
       const effective = { ...(s.props || {}), ...(override || {}) };
-      return {
-        type: s.type,
-        defaultProps: s.props || {},
-        override,
-        effective,
-        omitted,
-      };
-    });
-  }, [v1Spec?.sections, v1Overrides?.sections]);
+      return { id: String(i), type: s.type, defaultProps: s.props || {}, override, effective, omitted, isAdded: false };
+    };
 
+    // Helper to build an item from an added section
+    const buildAddedItem = (key: string, added: { type: string; props: Record<string, unknown> }): V1DisplayItem => {
+      return { id: key, type: added.type, defaultProps: added.props, override: null, effective: { ...added.props }, omitted: false, isAdded: true };
+    };
+
+    const order = v1Overrides?.sectionOrder;
+    if (Array.isArray(order) && order.length > 0) {
+      const items: V1DisplayItem[] = [];
+      for (const key of order) {
+        if (typeof key === 'number' && key >= 0 && key < specSections.length) {
+          items.push(buildSpecItem(key));
+        } else if (typeof key === 'string' && key.startsWith('added:')) {
+          const added = v1Overrides?.addedSections?.[key];
+          if (added) items.push(buildAddedItem(key, added));
+        }
+      }
+      return items;
+    }
+
+    // Default: spec order, no added sections shown (they only appear once sectionOrder is set)
+    return specSections.map((_, i) => buildSpecItem(i));
+  }, [v1Spec?.sections, v1Overrides?.sections, v1Overrides?.sectionOrder, v1Overrides?.addedSections]);
+
+  // Keep the old alias for the selected section
+  const effectiveV1Sections = v1DisplayOrder;
   const selectedV1Section = effectiveV1Sections[v1SelectedSectionIndex];
+
+  /** Map display-order index → spec index (or -1 for added sections). */
+  const v1SelectedSpecIndex = useMemo(() => {
+    const item = v1DisplayOrder[v1SelectedSectionIndex];
+    if (!item) return -1;
+    if (item.isAdded) return -1;
+    const n = parseInt(item.id, 10);
+    return Number.isFinite(n) ? n : -1;
+  }, [v1DisplayOrder, v1SelectedSectionIndex]);
+
+  /** Reorder sections by moving item at `from` to `to` in the display order. */
+  const reorderV1Sections = useCallback(
+    (from: number, to: number) => {
+      if (from === to) return;
+      setV1Overrides((prev) => {
+        const next: V1ContentOverrides = { ...(prev || {}) };
+        // Build current order keys from v1DisplayOrder
+        const specSections = v1Spec?.sections;
+        if (!specSections) return next;
+
+        // Get current order as array of keys (number for spec sections, string for added)
+        let orderKeys: (number | string)[];
+        if (Array.isArray(next.sectionOrder) && next.sectionOrder.length > 0) {
+          orderKeys = [...next.sectionOrder];
+        } else {
+          orderKeys = specSections.map((_, i) => i);
+        }
+
+        // Move
+        const [moved] = orderKeys.splice(from, 1);
+        orderKeys.splice(to, 0, moved);
+        next.sectionOrder = orderKeys;
+        return next;
+      });
+
+      // Update selection to follow the moved item
+      setV1SelectedSectionIndex(to);
+    },
+    [v1Spec?.sections]
+  );
+
+  /** Delete a section from the display order by index. */
+  const deleteV1Section = useCallback(
+    (displayIndex: number) => {
+      setV1Overrides((prev) => {
+        const next: V1ContentOverrides = { ...(prev || {}) };
+        const specSections = v1Spec?.sections;
+        if (!specSections) return next;
+
+        let orderKeys: (number | string)[];
+        if (Array.isArray(next.sectionOrder) && next.sectionOrder.length > 0) {
+          orderKeys = [...next.sectionOrder];
+        } else {
+          orderKeys = specSections.map((_, i) => i);
+        }
+
+        const removedKey = orderKeys[displayIndex];
+        orderKeys.splice(displayIndex, 1);
+        next.sectionOrder = orderKeys;
+
+        // If it's an added section, also remove from addedSections
+        if (typeof removedKey === 'string' && removedKey.startsWith('added:') && next.addedSections) {
+          const added = { ...next.addedSections };
+          delete added[removedKey];
+          next.addedSections = added;
+        }
+
+        return next;
+      });
+
+      // Adjust selection
+      setV1SelectedSectionIndex((prev) => {
+        if (prev === displayIndex) return Math.max(0, prev - 1);
+        if (prev > displayIndex) return prev - 1;
+        return prev;
+      });
+    },
+    [v1Spec?.sections]
+  );
+
+  /** Add a new section of a given type at the end of the display order. */
+  const addV1Section = useCallback(
+    (sectionType: string, defaultProps: Record<string, unknown>) => {
+      const addedKey = `added:${Date.now()}`;
+      setV1Overrides((prev) => {
+        const next: V1ContentOverrides = { ...(prev || {}) };
+        const specSections = v1Spec?.sections;
+        if (!specSections) return next;
+
+        // Ensure sectionOrder exists
+        let orderKeys: (number | string)[];
+        if (Array.isArray(next.sectionOrder) && next.sectionOrder.length > 0) {
+          orderKeys = [...next.sectionOrder];
+        } else {
+          orderKeys = specSections.map((_, i) => i);
+        }
+        orderKeys.push(addedKey);
+        next.sectionOrder = orderKeys;
+
+        // Add to addedSections
+        const added = { ...(next.addedSections || {}) };
+        added[addedKey] = { type: sectionType, props: { ...defaultProps } };
+        next.addedSections = added;
+        return next;
+      });
+    },
+    [v1Spec?.sections]
+  );
 
   function labelForSectionType(type: string): string {
     switch (type) {
@@ -491,17 +631,14 @@ export default function PreviewDownload({
   }, [v1Spec, v1ImageSlots, v1SelectedAssetKey]);
 
 
-  // v1 click-to-edit (images): when in Edit mode, clicking an image in the iframe
-  // that is backed by a v1 assetKey should open the Images workflow for that slot.
+  // v1 click-to-edit (images + sections): when in Edit mode, clicking elements
+  // in the iframe triggers:  images → Images tab, sections → Content tab.
   useEffect(() => {
     if (!isV1) return;
     if (v1Mode !== 'edit') return;
     const iframe = v1PreviewIframeRef.current;
     if (!iframe) return;
 
-    // Prefer the slot list derived from the v1 spec, but don't block click-to-edit
-    // if the spec hasn't loaded yet (or templateId is missing). In those cases we
-    // still want the click to switch the panel to Images and surface a useful error.
     const slotKeys = new Set(v1ImageSlots.map((s) => s.assetKey));
 
 	    let detach: (() => void) | null = null;
@@ -510,51 +647,76 @@ export default function PreviewDownload({
 	    const handler = (e: MouseEvent) => {
 	      const t = e.target;
 	      if (!(t instanceof Element)) return;
-	      const el = t.closest('[data-v1-asset-key]');
-	      if (!el) {
+
+	      // Priority 1: image click-to-edit (asset key)
+	      const assetEl = t.closest('[data-v1-asset-key]');
+	      if (assetEl) {
+	        const assetKey = assetEl.getAttribute('data-v1-asset-key') || '';
+	        if (assetKey) {
+	          e.preventDefault();
+	          e.stopPropagation();
+
+	          if (slotKeys.size > 0 && !slotKeys.has(assetKey)) {
+	            setV1ImagesError(
+	              `Clicked image slot "${assetKey}" is not recognised for this template. ` +
+	                `Try re-generating the page, or ensure the v1 template spec is available.`
+	            );
+	          } else {
+	            setV1ImagesError('');
+	          }
+	          setV1PanelTab('images');
+	          setV1SelectedAssetKey(assetKey);
+
+	          if (v1Debug) {
+	            setV1ClickDebugInfo((prev) => ({
+	              ...prev,
+	              lastClickTarget: `<${t.tagName.toLowerCase()}>`,
+	              lastClickedAssetKey: assetKey,
+	            }));
+	            console.log('[v1 click-to-edit] clicked assetKey:', assetKey);
+	          }
+	          return;
+	        }
+	      }
+
+	      // Priority 2: section click-to-edit
+	      const sectionEl = t.closest('[data-v1-section-id]');
+	      if (sectionEl) {
+	        e.preventDefault();
+	        e.stopPropagation();
+	        const sectionId = sectionEl.getAttribute('data-v1-section-id') || '';
+
+	        // Remove previous selection highlight
+	        const doc = iframe.contentDocument || iframe.contentWindow?.document;
+	        if (doc) {
+	          doc.querySelectorAll('[data-v1-section-id].v1-section-selected').forEach((el) =>
+	            el.classList.remove('v1-section-selected')
+	          );
+	          sectionEl.classList.add('v1-section-selected');
+	        }
+
+	        // Map sectionId back to the sidebar index
+	        const idx = v1DisplayOrder.findIndex((item) => item.id === sectionId);
+	        if (idx >= 0) {
+	          setV1SelectedSectionIndex(idx);
+	          setV1PanelTab('content');
+	        }
+
 	        if (v1Debug) {
 	          setV1ClickDebugInfo((prev) => ({
 	            ...prev,
-	            lastClickTarget: `<${t.tagName.toLowerCase()}> (no asset key)`,
+	            lastClickTarget: `<${t.tagName.toLowerCase()}> section:${sectionId}`,
 	          }));
+	          console.log('[v1 click-to-edit] clicked section:', sectionId);
 	        }
 	        return;
 	      }
-	      const assetKey = el.getAttribute('data-v1-asset-key') || '';
-	      if (!assetKey) {
-	        if (v1Debug) {
-	          setV1ClickDebugInfo((prev) => ({
-	            ...prev,
-	            lastClickTarget: `<${t.tagName.toLowerCase()}> (empty asset key)`,
-	            lastClickedAssetKey: '',
-	          }));
-	        }
-	        return;
-	      }
-
-	      // Treat this as an edit intent: prevent navigation if the image is inside a link.
-	      e.preventDefault();
-	      e.stopPropagation();
-
-	      if (slotKeys.size > 0 && !slotKeys.has(assetKey)) {
-	        setV1ImagesError(
-	          `Clicked image slot "${assetKey}" is not recognised for this template. ` +
-	            `Try re-generating the page, or ensure the v1 template spec is available.`
-	        );
-	      } else {
-	        setV1ImagesError('');
-	      }
-	      setV1PanelTab('images');
-	      setV1SelectedAssetKey(assetKey);
 
 	      if (v1Debug) {
 	        setV1ClickDebugInfo((prev) => ({
 	          ...prev,
-	          lastClickTarget: `<${t.tagName.toLowerCase()}>`,
-	          lastClickedAssetKey: assetKey,
+	          lastClickTarget: `<${t.tagName.toLowerCase()}> (no match)`,
 	        }));
-	        // eslint-disable-next-line no-console
-	        console.log('[v1 click-to-edit] clicked assetKey:', assetKey);
 	      }
 	    };
 
@@ -620,7 +782,8 @@ export default function PreviewDownload({
 	      detach = null;
 	      iframe.removeEventListener('load', onLoad);
 	    };
-	  }, [isV1, v1Mode, v1ImageSlots, editedHtml, v1Debug]);
+	  // eslint-disable-next-line react-hooks/exhaustive-deps
+	  }, [isV1, v1Mode, v1ImageSlots, editedHtml, v1Debug, v1DisplayOrder]);
 
   const setV1AssetOverride = useCallback((assetKey: string, src: string, attribution?: V1ImageAttribution) => {
     setV1Overrides((prev) => {
@@ -1070,36 +1233,90 @@ export default function PreviewDownload({
 
                         {v1Spec && (
                           <div className="flex gap-3">
-                            {/* Section list (spec order) */}
-                            <div className="w-[150px] flex-shrink-0">
+                            {/* Section list (draggable) */}
+                            <div className="w-[180px] flex-shrink-0">
                               <div className="text-xs font-semibold text-gray-700 mb-2">Sections</div>
                               <div className="border border-gray-200 rounded-lg overflow-hidden">
                                 <div className="max-h-[320px] overflow-y-auto">
                                   {effectiveV1Sections.map((sec, i) => {
                                     const active = i === v1SelectedSectionIndex;
+                                    const isDragging = v1DragIndex === i;
+                                    const isDragOver = v1DragOverIndex === i;
                                     return (
-                                      <button
-                                        key={`${sec.type}-${i}`}
+                                      <div
+                                        key={`${sec.id}-${i}`}
+                                        draggable
+                                        onDragStart={(e) => {
+                                          setV1DragIndex(i);
+                                          e.dataTransfer.effectAllowed = 'move';
+                                          e.dataTransfer.setData('text/plain', String(i));
+                                        }}
+                                        onDragOver={(e) => {
+                                          e.preventDefault();
+                                          e.dataTransfer.dropEffect = 'move';
+                                          setV1DragOverIndex(i);
+                                        }}
+                                        onDragLeave={() => setV1DragOverIndex(null)}
+                                        onDrop={(e) => {
+                                          e.preventDefault();
+                                          const from = v1DragIndex;
+                                          if (from !== null && from !== i) reorderV1Sections(from, i);
+                                          setV1DragIndex(null);
+                                          setV1DragOverIndex(null);
+                                        }}
+                                        onDragEnd={() => { setV1DragIndex(null); setV1DragOverIndex(null); }}
                                         onClick={() => setV1SelectedSectionIndex(i)}
-                                        className={`w-full text-left px-2.5 py-2 border-b border-gray-100 text-xs flex items-center justify-between gap-2 ${
+                                        className={`w-full text-left px-1.5 py-1.5 border-b border-gray-100 text-xs flex items-center gap-1 cursor-grab select-none ${
                                           active ? 'bg-indigo-50 text-indigo-800' : 'hover:bg-gray-50 text-gray-700'
-                                        }`}
+                                        } ${isDragging ? 'opacity-40' : ''} ${isDragOver ? 'border-t-2 border-t-indigo-400' : ''}`}
                                       >
-                                        <span className="truncate">
+                                        <GripVertical className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                                        <span className="truncate flex-1">
                                           {i + 1}. {labelForSectionType(sec.type)}
                                         </span>
                                         {sec.omitted && (
-                                          <span className="px-1.5 py-0.5 rounded bg-gray-200 text-gray-700 text-[10px]">
-                                            omitted
+                                          <span className="px-1 py-0.5 rounded bg-gray-200 text-gray-700 text-[10px] flex-shrink-0">
+                                            off
                                           </span>
                                         )}
-                                      </button>
+                                        {sec.isAdded && (
+                                          <span className="px-1 py-0.5 rounded bg-blue-100 text-blue-700 text-[10px] flex-shrink-0">
+                                            +
+                                          </span>
+                                        )}
+                                        <button
+                                          onClick={(e) => { e.stopPropagation(); deleteV1Section(i); }}
+                                          className="p-0.5 rounded hover:bg-red-100 text-gray-400 hover:text-red-600 flex-shrink-0"
+                                          title="Remove section"
+                                        >
+                                          <Trash2 className="w-3 h-3" />
+                                        </button>
+                                      </div>
                                     );
                                   })}
                                 </div>
                               </div>
-                              <div className="mt-2 text-[11px] text-gray-500">
-                                In spec order. Inputs show defaults + overrides.
+                              {/* Add section dropdown */}
+                              <div className="mt-2">
+                                <select
+                                  className="w-full text-xs border border-gray-200 rounded px-2 py-1 text-gray-700"
+                                  value=""
+                                  onChange={(e) => {
+                                    const sType = e.target.value;
+                                    if (!sType) return;
+                                    // Find default props from an existing spec section of the same type
+                                    const existing = v1Spec.sections.find((s) => s.type === sType);
+                                    addV1Section(sType, existing?.props || {});
+                                  }}
+                                >
+                                  <option value="">+ Add section…</option>
+                                  {Array.from(new Set(v1Spec.sections.map((s) => s.type))).map((sType) => (
+                                    <option key={sType} value={sType}>{labelForSectionType(sType)}</option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div className="mt-1 text-[11px] text-gray-500">
+                                Drag to reorder. Click to edit.
                               </div>
                             </div>
 
@@ -1120,7 +1337,7 @@ export default function PreviewDownload({
                                       <input
                                         type="checkbox"
                                         checked={selectedV1Section.omitted}
-                                        onChange={(e) => updateV1Section(v1SelectedSectionIndex, { _omit: e.target.checked })}
+                                        onChange={(e) => updateV1Section(v1SelectedSpecIndex, { _omit: e.target.checked })}
                                       />
                                       Omit section
                                     </label>
@@ -1137,7 +1354,7 @@ export default function PreviewDownload({
                                           <label className="block text-xs font-medium text-gray-700 mb-1">Eyebrow</label>
                                           <input
                                             value={asString(eff.eyebrow)}
-                                            onChange={(e) => updateV1Section(v1SelectedSectionIndex, { eyebrow: e.target.value })}
+                                            onChange={(e) => updateV1Section(v1SelectedSpecIndex, { eyebrow: e.target.value })}
                                             className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
                                           />
                                         </div>
@@ -1145,7 +1362,7 @@ export default function PreviewDownload({
                                           <label className="block text-xs font-medium text-gray-700 mb-1">Headline</label>
                                           <input
                                             value={asString(eff.headline)}
-                                            onChange={(e) => updateV1Section(v1SelectedSectionIndex, { headline: e.target.value })}
+                                            onChange={(e) => updateV1Section(v1SelectedSpecIndex, { headline: e.target.value })}
                                             className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
                                           />
                                         </div>
@@ -1153,7 +1370,7 @@ export default function PreviewDownload({
                                           <label className="block text-xs font-medium text-gray-700 mb-1">Subheadline</label>
                                           <textarea
                                             value={asString(eff.subheadline)}
-                                            onChange={(e) => updateV1Section(v1SelectedSectionIndex, { subheadline: e.target.value })}
+                                            onChange={(e) => updateV1Section(v1SelectedSpecIndex, { subheadline: e.target.value })}
                                             className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
                                             rows={3}
                                           />
@@ -1163,7 +1380,7 @@ export default function PreviewDownload({
                                             <label className="block text-xs font-medium text-gray-700 mb-1">Primary CTA</label>
                                             <input
                                               value={asString(eff.ctaLabel)}
-                                              onChange={(e) => updateV1Section(v1SelectedSectionIndex, { ctaLabel: e.target.value })}
+                                              onChange={(e) => updateV1Section(v1SelectedSpecIndex, { ctaLabel: e.target.value })}
                                               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
                                             />
                                           </div>
@@ -1171,7 +1388,7 @@ export default function PreviewDownload({
                                             <label className="block text-xs font-medium text-gray-700 mb-1">Trust badge</label>
                                             <input
                                               value={asString(eff.trustBadge)}
-                                              onChange={(e) => updateV1Section(v1SelectedSectionIndex, { trustBadge: e.target.value })}
+                                              onChange={(e) => updateV1Section(v1SelectedSpecIndex, { trustBadge: e.target.value })}
                                               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
                                             />
                                           </div>
@@ -1181,7 +1398,7 @@ export default function PreviewDownload({
                                           <textarea
                                             value={bulletsText}
                                             onChange={(e) =>
-                                              updateV1Section(v1SelectedSectionIndex, { bullets: parseLinesToStringArray(e.target.value) })
+                                              updateV1Section(v1SelectedSpecIndex, { bullets: parseLinesToStringArray(e.target.value) })
                                             }
                                             className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
                                             rows={3}
@@ -1192,7 +1409,7 @@ export default function PreviewDownload({
                                           <textarea
                                             value={proofText}
                                             onChange={(e) =>
-                                              updateV1Section(v1SelectedSectionIndex, { proofPoints: parseLinesToStringArray(e.target.value) })
+                                              updateV1Section(v1SelectedSpecIndex, { proofPoints: parseLinesToStringArray(e.target.value) })
                                             }
                                             className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
                                             rows={3}
@@ -1211,7 +1428,7 @@ export default function PreviewDownload({
                                           <label className="block text-xs font-medium text-gray-700 mb-1">Heading</label>
                                           <input
                                             value={asString(eff.heading)}
-                                            onChange={(e) => updateV1Section(v1SelectedSectionIndex, { heading: e.target.value })}
+                                            onChange={(e) => updateV1Section(v1SelectedSpecIndex, { heading: e.target.value })}
                                             className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
                                           />
                                         </div>
@@ -1219,7 +1436,7 @@ export default function PreviewDownload({
                                           <label className="block text-xs font-medium text-gray-700 mb-1">Supporting text</label>
                                           <textarea
                                             value={asString(eff.supportingText)}
-                                            onChange={(e) => updateV1Section(v1SelectedSectionIndex, { supportingText: e.target.value })}
+                                            onChange={(e) => updateV1Section(v1SelectedSpecIndex, { supportingText: e.target.value })}
                                             className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
                                             rows={2}
                                           />
@@ -1228,7 +1445,7 @@ export default function PreviewDownload({
                                           <label className="block text-xs font-medium text-gray-700 mb-1">Logos / badges (one per line)</label>
                                           <textarea
                                             value={logosText}
-                                            onChange={(e) => updateV1Section(v1SelectedSectionIndex, { logos: parseLinesToStringArray(e.target.value) })}
+                                            onChange={(e) => updateV1Section(v1SelectedSpecIndex, { logos: parseLinesToStringArray(e.target.value) })}
                                             className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm font-mono"
                                             rows={5}
                                           />
@@ -1248,16 +1465,16 @@ export default function PreviewDownload({
                                     const updateService = (idx: number, patch: Record<string, unknown>) => {
                                       const next = servicesRec.map((x) => ({ ...x }));
                                       next[idx] = { ...(next[idx] || {}), ...patch };
-                                      updateV1Section(v1SelectedSectionIndex, { services: next });
+                                      updateV1Section(v1SelectedSpecIndex, { services: next });
                                     };
                                     const addService = () => {
                                       const next = servicesRec.map((x) => ({ ...x }));
                                       next.push({ title: 'New service', description: '' });
-                                      updateV1Section(v1SelectedSectionIndex, { services: next });
+                                      updateV1Section(v1SelectedSpecIndex, { services: next });
                                     };
                                     const removeService = (idx: number) => {
                                       const next = servicesRec.filter((_, i) => i !== idx).map((x) => ({ ...x }));
-                                      updateV1Section(v1SelectedSectionIndex, { services: next });
+                                      updateV1Section(v1SelectedSpecIndex, { services: next });
                                     };
 
                                     return (
@@ -1266,7 +1483,7 @@ export default function PreviewDownload({
                                           <label className="block text-xs font-medium text-gray-700 mb-1">Heading</label>
                                           <input
                                             value={asString(eff.heading)}
-                                            onChange={(e) => updateV1Section(v1SelectedSectionIndex, { heading: e.target.value })}
+                                            onChange={(e) => updateV1Section(v1SelectedSpecIndex, { heading: e.target.value })}
                                             className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
                                           />
                                         </div>
@@ -1274,7 +1491,7 @@ export default function PreviewDownload({
                                           <label className="block text-xs font-medium text-gray-700 mb-1">Subheading</label>
                                           <textarea
                                             value={asString(eff.subheading)}
-                                            onChange={(e) => updateV1Section(v1SelectedSectionIndex, { subheading: e.target.value })}
+                                            onChange={(e) => updateV1Section(v1SelectedSpecIndex, { subheading: e.target.value })}
                                             className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
                                             rows={2}
                                           />
@@ -1357,7 +1574,7 @@ export default function PreviewDownload({
                                           <label className="block text-xs font-medium text-gray-700 mb-1">Heading</label>
                                           <input
                                             value={asString(eff.heading)}
-                                            onChange={(e) => updateV1Section(v1SelectedSectionIndex, { heading: e.target.value })}
+                                            onChange={(e) => updateV1Section(v1SelectedSpecIndex, { heading: e.target.value })}
                                             className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
                                           />
                                         </div>
@@ -1365,7 +1582,7 @@ export default function PreviewDownload({
                                           <label className="block text-xs font-medium text-gray-700 mb-1">Subheading</label>
                                           <textarea
                                             value={asString(eff.subheading)}
-                                            onChange={(e) => updateV1Section(v1SelectedSectionIndex, { subheading: e.target.value })}
+                                            onChange={(e) => updateV1Section(v1SelectedSpecIndex, { subheading: e.target.value })}
                                             className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
                                             rows={2}
                                           />
@@ -1375,7 +1592,7 @@ export default function PreviewDownload({
                                             <label className="block text-xs font-medium text-gray-700 mb-1">Caption 1</label>
                                             <input
                                               value={asString(eff.caption1)}
-                                              onChange={(e) => updateV1Section(v1SelectedSectionIndex, { caption1: e.target.value })}
+                                              onChange={(e) => updateV1Section(v1SelectedSpecIndex, { caption1: e.target.value })}
                                               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
                                             />
                                           </div>
@@ -1383,7 +1600,7 @@ export default function PreviewDownload({
                                             <label className="block text-xs font-medium text-gray-700 mb-1">Caption 2</label>
                                             <input
                                               value={asString(eff.caption2)}
-                                              onChange={(e) => updateV1Section(v1SelectedSectionIndex, { caption2: e.target.value })}
+                                              onChange={(e) => updateV1Section(v1SelectedSpecIndex, { caption2: e.target.value })}
                                               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
                                             />
                                           </div>
@@ -1405,16 +1622,16 @@ export default function PreviewDownload({
                                     const updateTestimonial = (idx: number, patch: Record<string, unknown>) => {
                                       const next = testiRec.map((x) => ({ ...x }));
                                       next[idx] = { ...(next[idx] || {}), ...patch };
-                                      updateV1Section(v1SelectedSectionIndex, { testimonials: next });
+                                      updateV1Section(v1SelectedSpecIndex, { testimonials: next });
                                     };
                                     const addTestimonial = () => {
                                       const next = testiRec.map((x) => ({ ...x }));
                                       next.push({ quote: '', name: 'Name', title: '' });
-                                      updateV1Section(v1SelectedSectionIndex, { testimonials: next });
+                                      updateV1Section(v1SelectedSpecIndex, { testimonials: next });
                                     };
                                     const removeTestimonial = (idx: number) => {
                                       const next = testiRec.filter((_, i) => i !== idx).map((x) => ({ ...x }));
-                                      updateV1Section(v1SelectedSectionIndex, { testimonials: next });
+                                      updateV1Section(v1SelectedSpecIndex, { testimonials: next });
                                     };
 
                                     return (
@@ -1423,7 +1640,7 @@ export default function PreviewDownload({
                                           <label className="block text-xs font-medium text-gray-700 mb-1">Heading</label>
                                           <input
                                             value={asString(eff.heading)}
-                                            onChange={(e) => updateV1Section(v1SelectedSectionIndex, { heading: e.target.value })}
+                                            onChange={(e) => updateV1Section(v1SelectedSpecIndex, { heading: e.target.value })}
                                             className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
                                           />
                                         </div>
@@ -1431,7 +1648,7 @@ export default function PreviewDownload({
                                           <label className="block text-xs font-medium text-gray-700 mb-1">Subheading</label>
                                           <textarea
                                             value={asString(eff.subheading)}
-                                            onChange={(e) => updateV1Section(v1SelectedSectionIndex, { subheading: e.target.value })}
+                                            onChange={(e) => updateV1Section(v1SelectedSpecIndex, { subheading: e.target.value })}
                                             className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
                                             rows={2}
                                           />
@@ -1504,7 +1721,7 @@ export default function PreviewDownload({
                                           <label className="block text-xs font-medium text-gray-700 mb-1">Heading</label>
                                           <input
                                             value={asString(eff.heading)}
-                                            onChange={(e) => updateV1Section(v1SelectedSectionIndex, { heading: e.target.value })}
+                                            onChange={(e) => updateV1Section(v1SelectedSpecIndex, { heading: e.target.value })}
                                             className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
                                           />
                                         </div>
@@ -1512,7 +1729,7 @@ export default function PreviewDownload({
                                           <label className="block text-xs font-medium text-gray-700 mb-1">Subheading</label>
                                           <textarea
                                             value={asString(eff.subheading)}
-                                            onChange={(e) => updateV1Section(v1SelectedSectionIndex, { subheading: e.target.value })}
+                                            onChange={(e) => updateV1Section(v1SelectedSpecIndex, { subheading: e.target.value })}
                                             className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
                                             rows={2}
                                           />
@@ -1522,7 +1739,7 @@ export default function PreviewDownload({
                                             <label className="block text-xs font-medium text-gray-700 mb-1">Button label</label>
                                             <input
                                               value={asString(eff.ctaLabel)}
-                                              onChange={(e) => updateV1Section(v1SelectedSectionIndex, { ctaLabel: e.target.value })}
+                                              onChange={(e) => updateV1Section(v1SelectedSpecIndex, { ctaLabel: e.target.value })}
                                               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
                                             />
                                           </div>
@@ -1530,7 +1747,7 @@ export default function PreviewDownload({
                                             <label className="block text-xs font-medium text-gray-700 mb-1">Urgency</label>
                                             <input
                                               value={asString(eff.urgency)}
-                                              onChange={(e) => updateV1Section(v1SelectedSectionIndex, { urgency: e.target.value })}
+                                              onChange={(e) => updateV1Section(v1SelectedSpecIndex, { urgency: e.target.value })}
                                               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
                                             />
                                           </div>
@@ -1540,7 +1757,7 @@ export default function PreviewDownload({
                                           <textarea
                                             value={nextStepsText}
                                             onChange={(e) =>
-                                              updateV1Section(v1SelectedSectionIndex, { nextSteps: parseLinesToStringArray(e.target.value) })
+                                              updateV1Section(v1SelectedSpecIndex, { nextSteps: parseLinesToStringArray(e.target.value) })
                                             }
                                             className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
                                             rows={3}
@@ -1550,7 +1767,7 @@ export default function PreviewDownload({
                                           <label className="block text-xs font-medium text-gray-700 mb-1">Guarantee</label>
                                           <input
                                             value={asString(eff.guarantee)}
-                                            onChange={(e) => updateV1Section(v1SelectedSectionIndex, { guarantee: e.target.value })}
+                                            onChange={(e) => updateV1Section(v1SelectedSpecIndex, { guarantee: e.target.value })}
                                             className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
                                           />
                                         </div>
@@ -1558,7 +1775,7 @@ export default function PreviewDownload({
                                           <label className="block text-xs font-medium text-gray-700 mb-1">Privacy note</label>
                                           <input
                                             value={asString(eff.privacyNote)}
-                                            onChange={(e) => updateV1Section(v1SelectedSectionIndex, { privacyNote: e.target.value })}
+                                            onChange={(e) => updateV1Section(v1SelectedSpecIndex, { privacyNote: e.target.value })}
                                             className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
                                           />
                                         </div>
@@ -1599,7 +1816,7 @@ export default function PreviewDownload({
                                               v1SectionJsonDrafts[v1SelectedSectionIndex] ??
                                               JSON.stringify(selectedV1Section.override ?? {}, null, 2);
                                             const parsed = JSON.parse(text) as Record<string, unknown>;
-                                            replaceV1SectionOverride(v1SelectedSectionIndex, parsed);
+                                            replaceV1SectionOverride(v1SelectedSpecIndex, parsed);
                                           } catch (e) {
                                             const msg = e instanceof Error ? e.message : 'Invalid JSON';
                                             setV1SectionJsonErrors((prev) => ({ ...prev, [v1SelectedSectionIndex]: msg }));
@@ -1626,7 +1843,7 @@ export default function PreviewDownload({
                                         type="button"
                                         onClick={() => {
                                           if (!confirm('Clear this section override? This will revert to spec defaults.')) return;
-                                          replaceV1SectionOverride(v1SelectedSectionIndex, null);
+                                          replaceV1SectionOverride(v1SelectedSpecIndex, null);
                                           setV1SectionJsonDrafts((prev) => ({ ...prev, [v1SelectedSectionIndex]: '{}' }));
                                           setV1SectionJsonErrors((prev) => ({ ...prev, [v1SelectedSectionIndex]: '' }));
                                         }}
