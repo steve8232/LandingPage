@@ -645,6 +645,10 @@ export default function PreviewDownload({
 	    let cancelled = false;
 
 	    const handler = (e: MouseEvent) => {
+	      // In edit mode, never allow default click behavior (link navigation,
+	      // form submission, etc.) — the iframe is for editing, not browsing.
+	      e.preventDefault();
+
 	      const t = e.target;
 	      if (!(t instanceof Element)) return;
 
