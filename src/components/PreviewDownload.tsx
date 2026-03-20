@@ -126,6 +126,36 @@ export default function PreviewDownload({
 	// aligned with what the user is actually previewing.
 	const isV1 = useMemo(() => isV1HtmlDocument(editedHtml), [editedHtml]);
 
+		// Optional debug mode for diagnosing deployed click-to-edit regressions.
+		// Enable by appending `?v1debug=1` to the URL.
+		const [v1Debug, setV1Debug] = useState(false);
+		const [v1ClickDebugInfo, setV1ClickDebugInfo] = useState<{
+			attached: boolean;
+			lastAttachReason: string;
+			docReadyState: string;
+			assetKeyElementCount: number;
+			lastClickTarget: string;
+			lastClickedAssetKey: string;
+			lastError: string;
+		}>({
+			attached: false,
+			lastAttachReason: '',
+			docReadyState: '',
+			assetKeyElementCount: 0,
+			lastClickTarget: '',
+			lastClickedAssetKey: '',
+			lastError: '',
+		});
+
+		useEffect(() => {
+			try {
+				const q = new URLSearchParams(window.location.search);
+				setV1Debug(q.get('v1debug') === '1');
+			} catch {
+				setV1Debug(false);
+			}
+		}, []);
+
   const v1TemplateId = useMemo(() => {
     if (!isV1) return undefined;
     return landingPage.v1?.templateId || formData?.selectedTemplate?.id;
@@ -474,51 +504,123 @@ export default function PreviewDownload({
     // still want the click to switch the panel to Images and surface a useful error.
     const slotKeys = new Set(v1ImageSlots.map((s) => s.assetKey));
 
-    const attach = (): (() => void) => {
-      const doc = iframe.contentDocument;
-      if (!doc) return () => {};
+	    let detach: (() => void) | null = null;
+	    let cancelled = false;
 
-      const handler = (e: MouseEvent) => {
-        const t = e.target;
-        if (!(t instanceof Element)) return;
-        const el = t.closest('[data-v1-asset-key]');
-        if (!el) return;
-        const assetKey = el.getAttribute('data-v1-asset-key') || '';
-        if (!assetKey) return;
+	    const handler = (e: MouseEvent) => {
+	      const t = e.target;
+	      if (!(t instanceof Element)) return;
+	      const el = t.closest('[data-v1-asset-key]');
+	      if (!el) {
+	        if (v1Debug) {
+	          setV1ClickDebugInfo((prev) => ({
+	            ...prev,
+	            lastClickTarget: `<${t.tagName.toLowerCase()}> (no asset key)`,
+	          }));
+	        }
+	        return;
+	      }
+	      const assetKey = el.getAttribute('data-v1-asset-key') || '';
+	      if (!assetKey) {
+	        if (v1Debug) {
+	          setV1ClickDebugInfo((prev) => ({
+	            ...prev,
+	            lastClickTarget: `<${t.tagName.toLowerCase()}> (empty asset key)`,
+	            lastClickedAssetKey: '',
+	          }));
+	        }
+	        return;
+	      }
 
-        // Treat this as an edit intent: prevent navigation if the image is inside a link.
-        e.preventDefault();
-        e.stopPropagation();
+	      // Treat this as an edit intent: prevent navigation if the image is inside a link.
+	      e.preventDefault();
+	      e.stopPropagation();
 
-        if (slotKeys.size > 0 && !slotKeys.has(assetKey)) {
-          setV1ImagesError(
-            `Clicked image slot "${assetKey}" is not recognised for this template. ` +
-              `Try re-generating the page, or ensure the v1 template spec is available.`
-          );
-        } else {
-          setV1ImagesError('');
-        }
-        setV1PanelTab('images');
-        setV1SelectedAssetKey(assetKey);
-      };
+	      if (slotKeys.size > 0 && !slotKeys.has(assetKey)) {
+	        setV1ImagesError(
+	          `Clicked image slot "${assetKey}" is not recognised for this template. ` +
+	            `Try re-generating the page, or ensure the v1 template spec is available.`
+	        );
+	      } else {
+	        setV1ImagesError('');
+	      }
+	      setV1PanelTab('images');
+	      setV1SelectedAssetKey(assetKey);
 
-      doc.addEventListener('click', handler, true);
-      return () => doc.removeEventListener('click', handler, true);
-    };
+	      if (v1Debug) {
+	        setV1ClickDebugInfo((prev) => ({
+	          ...prev,
+	          lastClickTarget: `<${t.tagName.toLowerCase()}>`,
+	          lastClickedAssetKey: assetKey,
+	        }));
+	        // eslint-disable-next-line no-console
+	        console.log('[v1 click-to-edit] clicked assetKey:', assetKey);
+	      }
+	    };
 
-    let detach = attach();
-    const onLoad = () => {
-      // srcDoc updates replace the document; re-attach to the new one.
-      detach();
-      detach = attach();
-    };
-    iframe.addEventListener('load', onLoad);
+	    const attachToCurrentDocument = (reason: string): boolean => {
+	      const doc = iframe.contentDocument || iframe.contentWindow?.document || null;
+	      if (!doc) {
+	        if (v1Debug) {
+	          setV1ClickDebugInfo((prev) => ({
+	            ...prev,
+	            attached: false,
+	            lastAttachReason: reason,
+	            lastError: 'iframe.contentDocument unavailable',
+	          }));
+	        }
+	        return false;
+	      }
 
-    return () => {
-      detach();
-      iframe.removeEventListener('load', onLoad);
-    };
-  }, [isV1, v1Mode, v1ImageSlots]);
+	      detach?.();
+	      doc.addEventListener('click', handler, true);
+	      detach = () => doc.removeEventListener('click', handler, true);
+
+	      if (v1Debug) {
+	        setV1ClickDebugInfo((prev) => ({
+	          ...prev,
+	          attached: true,
+	          lastAttachReason: reason,
+	          docReadyState: doc.readyState || '',
+	          assetKeyElementCount: doc.querySelectorAll('[data-v1-asset-key]').length,
+	          lastError: '',
+	        }));
+	        // eslint-disable-next-line no-console
+	        console.log('[v1 click-to-edit] listener attached:', { reason, readyState: doc.readyState });
+	      }
+	      return true;
+	    };
+
+	    // 1) Try immediately.
+	    attachToCurrentDocument('effect');
+
+	    // 2) Re-attach after iframe load (srcDoc updates can replace the document).
+	    const onLoad = () => {
+	      attachToCurrentDocument('iframe.load');
+	    };
+	    iframe.addEventListener('load', onLoad);
+
+	    // 3) Defensive retry: if the iframe is already loaded before this effect runs,
+	    // the load event may not fire. Retry briefly until contentDocument is available.
+	    let tries = 0;
+	    const maxTries = 40; // ~2s at 50ms
+	    const retryTimer = window.setInterval(() => {
+	      if (cancelled) return;
+	      tries += 1;
+	      const ok = attachToCurrentDocument('retry');
+	      if (ok || tries >= maxTries) {
+	        window.clearInterval(retryTimer);
+	      }
+	    }, 50);
+
+	    return () => {
+	      cancelled = true;
+	      window.clearInterval(retryTimer);
+	      detach?.();
+	      detach = null;
+	      iframe.removeEventListener('load', onLoad);
+	    };
+	  }, [isV1, v1Mode, v1ImageSlots, editedHtml, v1Debug]);
 
   const setV1AssetOverride = useCallback((assetKey: string, src: string, attribution?: V1ImageAttribution) => {
     setV1Overrides((prev) => {
@@ -887,6 +989,26 @@ export default function PreviewDownload({
 						className="bg-white border-l border-gray-200 flex-none overflow-y-auto"
 					>
                   <div className="p-4">
+						{v1Debug && (
+							<div className="mb-3 p-3 bg-gray-50 border border-gray-200 text-gray-800 rounded-lg text-xs">
+								<div className="font-semibold mb-1">v1 debug (disable by removing <span className="font-mono">?v1debug=1</span>)</div>
+								<div className="grid grid-cols-2 gap-x-4 gap-y-1">
+									<div><span className="font-mono">v1Mode</span>: {v1Mode}</div>
+									<div><span className="font-mono">isV1</span>: {String(isV1)}</div>
+									<div><span className="font-mono">v1TemplateId</span>: {v1TemplateId || '(missing)'}</div>
+									<div><span className="font-mono">v1Spec</span>: {v1Spec ? 'loaded' : v1SpecError ? 'error' : v1TemplateId ? 'loading' : 'n/a'}</div>
+									<div><span className="font-mono">v1ImageSlots</span>: {v1ImageSlots.length}</div>
+									<div><span className="font-mono">clickListener</span>: {v1ClickDebugInfo.attached ? 'attached' : 'not attached'} ({v1ClickDebugInfo.lastAttachReason || '—'})</div>
+									<div><span className="font-mono">docReadyState</span>: {v1ClickDebugInfo.docReadyState || '—'}</div>
+									<div><span className="font-mono">assetKeyEls</span>: {v1ClickDebugInfo.assetKeyElementCount}</div>
+									<div className="col-span-2"><span className="font-mono">lastClickTarget</span>: {v1ClickDebugInfo.lastClickTarget || '—'}</div>
+									<div className="col-span-2"><span className="font-mono">lastClickedAssetKey</span>: {v1ClickDebugInfo.lastClickedAssetKey || '—'}</div>
+									{v1ClickDebugInfo.lastError && (
+										<div className="col-span-2 text-red-700"><span className="font-mono">error</span>: {v1ClickDebugInfo.lastError}</div>
+									)}
+								</div>
+							</div>
+						)}
                     <div className="flex items-center gap-2 mb-3">
                       <button
                         onClick={() => setV1PanelTab('content')}
