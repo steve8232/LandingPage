@@ -645,10 +645,6 @@ export default function PreviewDownload({
 	    let cancelled = false;
 
 	    const handler = (e: MouseEvent) => {
-	      // In edit mode, never allow default click behavior (link navigation,
-	      // form submission, etc.) — the iframe is for editing, not browsing.
-	      e.preventDefault();
-
 	      const t = e.target;
 	      if (!(t instanceof Element)) return;
 
@@ -684,7 +680,10 @@ export default function PreviewDownload({
 	      }
 
 	      // Priority 2: inline text editing (field key)
+	      // Do NOT preventDefault here — contentEditable needs native focus/click behaviour.
 	      const fieldEl = t.closest('[data-v1-field-key]') as HTMLElement | null;
+	      // If already editing this element, let the click through for cursor positioning
+	      if (fieldEl && fieldEl.isContentEditable) return;
 	      if (fieldEl && !fieldEl.isContentEditable) {
 	        const fieldKey = fieldEl.getAttribute('data-v1-field-key') || '';
 	        const sectionWrapper = fieldEl.closest('[data-v1-section-id]');
@@ -777,10 +776,12 @@ export default function PreviewDownload({
 	        }
 	      }
 
+	      // For all remaining clicks, prevent default (link navigation, etc.)
+	      e.preventDefault();
+
 	      // Priority 3: section click-to-edit
 	      const sectionEl = t.closest('[data-v1-section-id]');
 	      if (sectionEl) {
-	        e.preventDefault();
 	        e.stopPropagation();
 	        const sectionId = sectionEl.getAttribute('data-v1-section-id') || '';
 
