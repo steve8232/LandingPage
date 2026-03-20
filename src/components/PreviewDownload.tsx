@@ -121,7 +121,10 @@ export default function PreviewDownload({
   const [isComposing, setIsComposing] = useState(false);
   const [composeError, setComposeError] = useState('');
 
-  const isV1 = useMemo(() => isV1HtmlDocument(landingPage.html), [landingPage.html]);
+	// Detect v1 based on the HTML currently shown in the iframe (editedHtml), not just
+	// the original generated HTML. This keeps v1 behaviours (like click-to-edit)
+	// aligned with what the user is actually previewing.
+	const isV1 = useMemo(() => isV1HtmlDocument(editedHtml), [editedHtml]);
 
   const v1TemplateId = useMemo(() => {
     if (!isV1) return undefined;
@@ -447,60 +450,75 @@ export default function PreviewDownload({
   useEffect(() => {
     if (!v1Spec) return;
     if (v1ImageSlots.length === 0) return;
-    if (!v1SelectedAssetKey || !v1ImageSlots.some((s) => s.assetKey === v1SelectedAssetKey)) {
+
+    // Only auto-select a default slot when nothing is selected yet.
+    // If the user selected a slot via click-to-edit (or typed one manually),
+    // don't override their choice just because it isn't currently in the
+    // computed slot list.
+    if (!v1SelectedAssetKey) {
       setV1SelectedAssetKey(v1ImageSlots[0].assetKey);
     }
   }, [v1Spec, v1ImageSlots, v1SelectedAssetKey]);
 
-	  // v1 click-to-edit (images): when in Edit mode, clicking an image in the iframe
-	  // that is backed by a v1 assetKey should open the Images workflow for that slot.
-	  useEffect(() => {
-	    if (!isV1) return;
-	    if (v1Mode !== 'edit') return;
-	    if (v1ImageSlots.length === 0) return;
-	    const iframe = v1PreviewIframeRef.current;
-	    if (!iframe) return;
 
-	    const slotKeys = new Set(v1ImageSlots.map((s) => s.assetKey));
+  // v1 click-to-edit (images): when in Edit mode, clicking an image in the iframe
+  // that is backed by a v1 assetKey should open the Images workflow for that slot.
+  useEffect(() => {
+    if (!isV1) return;
+    if (v1Mode !== 'edit') return;
+    const iframe = v1PreviewIframeRef.current;
+    if (!iframe) return;
 
-	    const attach = (): (() => void) => {
-	      const doc = iframe.contentDocument;
-	      if (!doc) return () => {};
+    // Prefer the slot list derived from the v1 spec, but don't block click-to-edit
+    // if the spec hasn't loaded yet (or templateId is missing). In those cases we
+    // still want the click to switch the panel to Images and surface a useful error.
+    const slotKeys = new Set(v1ImageSlots.map((s) => s.assetKey));
 
-	      const handler = (e: MouseEvent) => {
-	        const t = e.target;
-	        if (!(t instanceof Element)) return;
-	        const el = t.closest('[data-v1-asset-key]');
-	        if (!el) return;
-	        const assetKey = el.getAttribute('data-v1-asset-key') || '';
-	        if (!assetKey) return;
-	        if (!slotKeys.has(assetKey)) return;
+    const attach = (): (() => void) => {
+      const doc = iframe.contentDocument;
+      if (!doc) return () => {};
 
-	        // Treat this as an edit intent: prevent navigation if the image is inside a link.
-	        e.preventDefault();
-	        e.stopPropagation();
-	        setV1ImagesError('');
-	        setV1PanelTab('images');
-	        setV1SelectedAssetKey(assetKey);
-	      };
+      const handler = (e: MouseEvent) => {
+        const t = e.target;
+        if (!(t instanceof Element)) return;
+        const el = t.closest('[data-v1-asset-key]');
+        if (!el) return;
+        const assetKey = el.getAttribute('data-v1-asset-key') || '';
+        if (!assetKey) return;
 
-	      doc.addEventListener('click', handler, true);
-	      return () => doc.removeEventListener('click', handler, true);
-	    };
+        // Treat this as an edit intent: prevent navigation if the image is inside a link.
+        e.preventDefault();
+        e.stopPropagation();
 
-	    let detach = attach();
-	    const onLoad = () => {
-	      // srcDoc updates replace the document; re-attach to the new one.
-	      detach();
-	      detach = attach();
-	    };
-	    iframe.addEventListener('load', onLoad);
+        if (slotKeys.size > 0 && !slotKeys.has(assetKey)) {
+          setV1ImagesError(
+            `Clicked image slot "${assetKey}" is not recognised for this template. ` +
+              `Try re-generating the page, or ensure the v1 template spec is available.`
+          );
+        } else {
+          setV1ImagesError('');
+        }
+        setV1PanelTab('images');
+        setV1SelectedAssetKey(assetKey);
+      };
 
-	    return () => {
-	      detach();
-	      iframe.removeEventListener('load', onLoad);
-	    };
-	  }, [isV1, v1Mode, v1ImageSlots]);
+      doc.addEventListener('click', handler, true);
+      return () => doc.removeEventListener('click', handler, true);
+    };
+
+    let detach = attach();
+    const onLoad = () => {
+      // srcDoc updates replace the document; re-attach to the new one.
+      detach();
+      detach = attach();
+    };
+    iframe.addEventListener('load', onLoad);
+
+    return () => {
+      detach();
+      iframe.removeEventListener('load', onLoad);
+    };
+  }, [isV1, v1Mode, v1ImageSlots]);
 
   const setV1AssetOverride = useCallback((assetKey: string, src: string, attribution?: V1ImageAttribution) => {
     setV1Overrides((prev) => {
