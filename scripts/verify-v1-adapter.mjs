@@ -37,6 +37,12 @@ const formData = {
     uniqueValue: 'Ship faster with fewer meetings.',
     customerLove: 'Simple setup and great support.',
     images: [],
+    // Ensure the v1 adapter accepts template-specific answers (used by the
+    // generator UI for toggles like hiding testimonial/image sections).
+    templateAnswers: {
+      hideTestimonials: false,
+      hideImages: false,
+    },
   },
   contact: { email: 'test@example.com', phone: '555-555-5555' },
 };

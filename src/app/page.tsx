@@ -11,6 +11,16 @@ import GeneratingScreen from '@/components/GeneratingScreen';
 import PreviewDownload from '@/components/PreviewDownload';
 import { FormData, GeneratedLandingPage, DesignInput, BusinessInfo, ContactInfo, Template } from '@/types';
 import {
+  DUMMY_PRESETS,
+  getDummyPreset,
+  isDummyPresetId,
+  type DummyPresetId,
+} from '@/lib/dummyPresets';
+import {
+  loadLastDummyPresetId,
+  saveLastDummyPresetId,
+} from '@/lib/dummyPresetStorage';
+import {
   clearActiveV1EditorSession,
   loadActiveV1EditorSession,
   makeClientResultId,
@@ -45,6 +55,7 @@ export default function Home() {
   const [appState, setAppState] = useState<AppState>('welcome');
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState<FormData>(initialFormData);
+  const [dummyPresetId, setDummyPresetId] = useState<DummyPresetId>('saas');
   const [generatingStage, setGeneratingStage] = useState('');
   const [landingPage, setLandingPage] = useState<GeneratedLandingPage | null>(null);
   const [error, setError] = useState('');
@@ -118,6 +129,12 @@ export default function Home() {
     };
   }, []);
 
+  // Load last used dummy preset selection (client-only).
+  useEffect(() => {
+    const last = loadLastDummyPresetId();
+    if (last) setDummyPresetId(last);
+  }, []);
+
   // Determine which steps to show based on whether user wants to customize with URL
   const steps = formData.customizeWithUrl ? STEPS_WITH_DESIGN : STEPS_NO_DESIGN;
 
@@ -128,6 +145,27 @@ export default function Home() {
   const updateDesign = (design: DesignInput) => setFormData(prev => ({ ...prev, design }));
   const updateBusiness = (business: BusinessInfo) => setFormData(prev => ({ ...prev, business }));
   const updateContact = (contact: ContactInfo) => setFormData(prev => ({ ...prev, contact }));
+
+  const handleFillWithDummyData = () => {
+    const preset = getDummyPreset(dummyPresetId);
+    saveLastDummyPresetId(preset.id);
+    setError('');
+    setFormData(preset.formData);
+
+    // Step 0 (template picker) has internal selection state, so moving forward
+    // is the least surprising way to ensure the filled template is actually used.
+    const nextSteps = preset.formData.customizeWithUrl ? STEPS_WITH_DESIGN : STEPS_NO_DESIGN;
+    setCurrentStep((prev) => {
+      if (prev === 0) return 1;
+      return Math.min(prev, nextSteps.length - 1);
+    });
+  };
+
+  const handleDummyPresetChange = (value: string) => {
+    if (!isDummyPresetId(value)) return;
+    setDummyPresetId(value);
+    saveLastDummyPresetId(value);
+  };
 
   const generateLandingPage = async () => {
     setIsSubmitting(true);
@@ -305,6 +343,42 @@ export default function Home() {
       <div className={currentStep === 0 ? "max-w-5xl mx-auto" : "max-w-2xl mx-auto"}>
         <div className="bg-white rounded-2xl shadow-xl p-6 md:p-8">
           <ProgressIndicator currentStep={currentStep} steps={steps} />
+
+            {/* Quick start: dummy presets */}
+            <div className="mt-6 mb-6 rounded-xl border border-indigo-100 bg-indigo-50 p-4">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                <div>
+                  <div className="font-semibold text-indigo-900">Use dummy data</div>
+                  <div className="text-sm text-indigo-800">
+                    Fill the form with realistic example values (you can edit everything after).
+                  </div>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+                  <select
+                    value={dummyPresetId}
+                    onChange={(e) => handleDummyPresetChange(e.target.value)}
+                    className="w-full sm:w-auto px-3 py-2 border border-indigo-200 rounded-lg bg-white text-gray-900"
+                  >
+                    {DUMMY_PRESETS.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.label}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={handleFillWithDummyData}
+                    className="w-full sm:w-auto px-4 py-2 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition-colors"
+                  >
+                    Fill with dummy data
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-2 text-xs text-indigo-900/80">
+                {DUMMY_PRESETS.find((p) => p.id === dummyPresetId)?.description}
+              </div>
+            </div>
 
           {error && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
