@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef, type PointerEvent } from 'react';
 import {
   CheckCircle,
   AlertCircle,
@@ -14,12 +14,19 @@ import {
   Smartphone,
   RotateCcw,
   RefreshCw,
+  Save,
 } from 'lucide-react';
 import { GeneratedLandingPage, FormData } from '@/types';
 import { calculateConversionScore, extractScoreInput, ConversionScore } from '@/lib/conversionScore';
 import VisualEditor from '@/components/editor/VisualEditor';
 import type { V1ContentOverrides } from '../../v1/composer/composeV1Template';
 import type { UnsplashNormalizedImage } from '@/lib/unsplash/types';
+import {
+  loadV1PanelWidthPx,
+  makeClientResultId,
+  saveActiveV1EditorSession,
+  saveV1PanelWidthPx,
+} from '@/lib/v1EditorStorage';
 
 type V1SpecSection = {
   type: string;
@@ -120,6 +127,109 @@ export default function PreviewDownload({
     if (!isV1) return undefined;
     return landingPage.v1?.templateId || formData?.selectedTemplate?.id;
   }, [isV1, landingPage.v1?.templateId, formData?.selectedTemplate?.id]);
+
+  // v1 local persistence
+  const v1ResultId = useMemo(
+    () => landingPage.v1?.resultId ?? makeClientResultId(),
+    [landingPage.v1?.resultId]
+  );
+  const [v1SaveStatus, setV1SaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [v1SaveError, setV1SaveError] = useState<string>('');
+  const lastSavedOverridesJsonRef = useRef<string>(JSON.stringify(landingPage.v1?.overrides ?? {}, null, 0));
+  const currentOverridesJson = useMemo(
+    () => JSON.stringify(v1Overrides ?? {}, null, 0),
+    [v1Overrides]
+  );
+  const hasUnsavedOverrides = currentOverridesJson !== lastSavedOverridesJsonRef.current;
+
+  // v1 resizable panel
+  const [v1PanelWidthPx, setV1PanelWidthPx] = useState<number>(() => loadV1PanelWidthPx() ?? 420);
+  const resizeStartRef = useRef<{ x: number; width: number } | null>(null);
+
+  const clampPanelWidth = useCallback((w: number) => {
+    const min = 320;
+    const max = Math.min(720, typeof window !== 'undefined' ? window.innerWidth - 320 : 720);
+    return Math.max(min, Math.min(max, w));
+  }, []);
+
+  const handlePanelResizePointerDown = useCallback(
+    (e: PointerEvent<HTMLDivElement>) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      resizeStartRef.current = { x: e.clientX, width: v1PanelWidthPx };
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } catch {
+        // ignore
+      }
+    },
+    [v1PanelWidthPx]
+  );
+
+  const handlePanelResizePointerMove = useCallback(
+    (e: PointerEvent<HTMLDivElement>) => {
+      if (!resizeStartRef.current) return;
+      const delta = resizeStartRef.current.x - e.clientX;
+      const next = clampPanelWidth(resizeStartRef.current.width + delta);
+      setV1PanelWidthPx(next);
+    },
+    [clampPanelWidth]
+  );
+
+  const handlePanelResizePointerUp = useCallback(() => {
+    if (!resizeStartRef.current) return;
+    resizeStartRef.current = null;
+    saveV1PanelWidthPx(v1PanelWidthPx);
+  }, [v1PanelWidthPx]);
+
+  const handleSaveV1Overrides = useCallback(async () => {
+    if (!isV1) return;
+    if (!v1TemplateId) {
+      setV1SaveStatus('error');
+      setV1SaveError('Missing templateId for this v1 result.');
+      return;
+    }
+
+    setV1SaveStatus('saving');
+    setV1SaveError('');
+    setComposeError('');
+    setIsComposing(true);
+
+    try {
+      // 1) Compose the latest HTML from overrides so the preview + download match.
+      const res = await fetch('/api/v1/compose', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          templateId: v1TemplateId,
+          overrides: v1Overrides,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error((data as any)?.error || 'Failed to compose v1 HTML');
+      const html = typeof (data as any)?.html === 'string' ? (data as any).html : '';
+      if (!html) throw new Error('Compose API returned invalid response');
+      setEditedHtml(html);
+
+      // 2) Persist overrides for refresh/auto-resume.
+      saveActiveV1EditorSession({
+        version: 1,
+        id: v1ResultId,
+        templateId: v1TemplateId,
+        overrides: v1Overrides,
+        savedAt: Date.now(),
+      });
+
+      lastSavedOverridesJsonRef.current = currentOverridesJson;
+      setV1SaveStatus('saved');
+      window.setTimeout(() => setV1SaveStatus('idle'), 1500);
+    } catch (err) {
+      setV1SaveStatus('error');
+      setV1SaveError(err instanceof Error ? err.message : 'Failed to save changes');
+    } finally {
+      setIsComposing(false);
+    }
+  }, [currentOverridesJson, isV1, v1Overrides, v1ResultId, v1TemplateId, setComposeError, setIsComposing]);
 
   // v1 spec defaults (for effective props = spec defaults + overrides)
   const [v1Spec, setV1Spec] = useState<V1SpecResponse | null>(null);
@@ -629,6 +739,30 @@ export default function PreviewDownload({
                   <RotateCcw className="w-4 h-4" />
                   Reset
                 </button>
+					{v1SaveStatus === 'error' && (
+					  <div
+						className="text-xs text-red-600 max-w-[260px] truncate"
+						title={v1SaveError}
+					  >
+						{v1SaveError}
+					  </div>
+					)}
+					<button
+					  onClick={handleSaveV1Overrides}
+					  disabled={!v1TemplateId || v1SaveStatus === 'saving' || isComposing}
+					  className="px-3 py-1.5 bg-gray-900 text-white rounded-lg hover:bg-black text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-1.5"
+					  title={!v1TemplateId ? 'Missing templateId for v1 persistence' : 'Save v1 overrides so they persist across refresh'}
+					>
+					  <Save className="w-4 h-4" />
+					  {v1SaveStatus === 'saving'
+						? 'Saving…'
+						: v1SaveStatus === 'saved'
+							? 'Saved'
+							: 'Save changes'}
+					</button>
+					{hasUnsavedOverrides && (
+					  <span className="text-xs text-amber-700">Unsaved</span>
+					)}
                 <button
                   onClick={onStartOver}
                   className="px-3 py-1.5 text-gray-600 hover:text-gray-900 text-sm"
@@ -663,9 +797,25 @@ export default function PreviewDownload({
                 </div>
               </div>
 
+				  {v1Mode === 'edit' && (
+					<div
+					  role="separator"
+					  aria-orientation="vertical"
+					  title="Drag to resize the editor panel"
+					  className="w-2 flex-none cursor-col-resize bg-gray-100 hover:bg-indigo-200 active:bg-indigo-300 touch-none select-none"
+					  onPointerDown={handlePanelResizePointerDown}
+					  onPointerMove={handlePanelResizePointerMove}
+					  onPointerUp={handlePanelResizePointerUp}
+					  onPointerCancel={handlePanelResizePointerUp}
+					/>
+				  )}
+
               {/* Edit Panel */}
               {v1Mode === 'edit' && (
-                <div className="w-[420px] bg-white border-l border-gray-200 flex-shrink-0 overflow-y-auto">
+	                <div
+						style={{ width: v1PanelWidthPx }}
+						className="bg-white border-l border-gray-200 flex-none overflow-y-auto"
+					>
                   <div className="p-4">
                     <div className="flex items-center gap-2 mb-3">
                       <button

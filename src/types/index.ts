@@ -57,6 +57,8 @@ export interface GeneratedLandingPage {
 
   /** Present when the generated output was produced by the v1 composer. */
   v1?: {
+    /** Stable (client-generated) id for this generated result; used for local persistence. */
+    resultId?: string;
     templateId: string;
     overrides?: V1ContentOverrides;
     /** Optional helper data for UI editors (does not affect composition). */

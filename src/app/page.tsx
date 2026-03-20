@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import WelcomeScreen from '@/components/WelcomeScreen';
 import ProgressIndicator from '@/components/ProgressIndicator';
 import Step0TemplateSelect from '@/components/Step0TemplateSelect';
@@ -10,6 +10,11 @@ import Step3ContactInfo from '@/components/Step3ContactInfo';
 import GeneratingScreen from '@/components/GeneratingScreen';
 import PreviewDownload from '@/components/PreviewDownload';
 import { FormData, GeneratedLandingPage, DesignInput, BusinessInfo, ContactInfo, Template } from '@/types';
+import {
+  clearActiveV1EditorSession,
+  loadActiveV1EditorSession,
+  makeClientResultId,
+} from '@/lib/v1EditorStorage';
 
 type AppState = 'welcome' | 'form' | 'generating' | 'preview';
 
@@ -36,6 +41,7 @@ const initialFormData: FormData = {
 };
 
 export default function Home() {
+  const [bootStatus, setBootStatus] = useState<'checking' | 'restoring' | 'done'>('checking');
   const [appState, setAppState] = useState<AppState>('welcome');
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState<FormData>(initialFormData);
@@ -43,6 +49,74 @@ export default function Home() {
   const [landingPage, setLandingPage] = useState<GeneratedLandingPage | null>(null);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // A1: Auto-resume last *saved* v1 session (Option 2: localStorage).
+  // We gate initial render to avoid a brief flash of the welcome screen.
+  useEffect(() => {
+    let cancelled = false;
+
+    const restore = async () => {
+      const session = loadActiveV1EditorSession();
+      if (!session) {
+        if (!cancelled) setBootStatus('done');
+        return;
+      }
+
+      if (cancelled) return;
+      setBootStatus('restoring');
+      setGeneratingStage('Restoring your last session…');
+      setAppState('generating');
+
+      try {
+        const res = await fetch('/api/v1/compose', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            templateId: session.templateId,
+            overrides: session.overrides,
+          }),
+        });
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => null);
+          const msg = (data as any)?.error || `Failed to restore saved session (${res.status})`;
+          throw new Error(msg);
+        }
+
+        const data = (await res.json()) as { html?: unknown };
+        const html = typeof data.html === 'string' ? data.html : '';
+        if (!html) throw new Error('Failed to restore saved session: missing HTML');
+
+        if (cancelled) return;
+        setLandingPage({
+          html,
+          css: '',
+          preview: html,
+          v1: {
+            templateId: session.templateId,
+            overrides: session.overrides,
+            resultId: session.id,
+          },
+        });
+        setAppState('preview');
+      } catch (err) {
+        console.error('[v1 restore] Failed:', err);
+        if (cancelled) return;
+        clearActiveV1EditorSession();
+        setError(err instanceof Error ? err.message : 'Failed to restore saved session');
+        setCurrentStep(0);
+        setLandingPage(null);
+        setAppState('form');
+      } finally {
+        if (!cancelled) setBootStatus('done');
+      }
+    };
+
+    restore();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Determine which steps to show based on whether user wants to customize with URL
   const steps = formData.customizeWithUrl ? STEPS_WITH_DESIGN : STEPS_NO_DESIGN;
@@ -95,13 +169,14 @@ export default function Home() {
         throw new Error(data.error || 'Failed to generate landing page');
       }
 
-      const result = await response.json();
-      setLandingPage({
-        html: result.html,
-        css: result.css,
-        preview: result.preview,
-	      v1: result.v1,
-      });
+	      const result = await response.json();
+	      const v1ResultId = result?.v1 ? makeClientResultId() : undefined;
+	      setLandingPage({
+	        html: result.html,
+	        css: result.css,
+	        preview: result.preview,
+		      v1: result?.v1 ? { ...result.v1, resultId: v1ResultId } : undefined,
+	      });
       setAppState('preview');
     } catch (err) {
       clearInterval(stageInterval);
@@ -113,11 +188,20 @@ export default function Home() {
   };
 
   const startOver = () => {
+	    clearActiveV1EditorSession();
     setFormData(initialFormData);
     setCurrentStep(0);
     setLandingPage(null);
     setAppState('welcome');
   };
+
+	  if (bootStatus !== 'done') {
+	    return (
+	      <GeneratingScreen
+	        stage={bootStatus === 'restoring' ? 'Restoring your last session…' : 'Loading…'}
+	      />
+	    );
+	  }
 
   if (appState === 'welcome') {
     return <WelcomeScreen onStart={() => setAppState('form')} />;
