@@ -76,6 +76,7 @@ export function renderImagePair(props: ImagePairProps): string {
         <img
           src="${escapeAttr(src1)}"
           alt="${escapeAttr(props._altText1 || '')}"
+	          data-v1-asset-key="${escapeAttr(props.imageAsset1 || '')}"
           data-fallback="${escapeAttr(fb1)}"
           onerror="if(this.dataset.fallback&&this.src!==this.dataset.fallback){this.src=this.dataset.fallback;}"
           style="${escapeAttr(imgStyle)}"
@@ -92,6 +93,7 @@ export function renderImagePair(props: ImagePairProps): string {
         <img
           src="${escapeAttr(src2)}"
           alt="${escapeAttr(props._altText2 || '')}"
+	          data-v1-asset-key="${escapeAttr(props.imageAsset2 || '')}"
           data-fallback="${escapeAttr(fb2)}"
           onerror="if(this.dataset.fallback&&this.src!==this.dataset.fallback){this.src=this.dataset.fallback;}"
           style="${escapeAttr(imgStyle)}"

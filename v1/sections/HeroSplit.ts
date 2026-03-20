@@ -106,6 +106,7 @@ export function renderHeroSplit(props: HeroSplitProps): string {
       <img
         src="${escapeAttr(imgUrl)}"
         alt="${escapeAttr(props._altText || '')}"
+	        data-v1-asset-key="${escapeAttr(props.imageAsset || '')}"
         data-fallback="${escapeAttr(fallback)}"
         onerror="if(this.dataset.fallback&&this.src!==this.dataset.fallback){this.src=this.dataset.fallback;}"
         style="

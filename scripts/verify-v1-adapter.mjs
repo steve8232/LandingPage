@@ -85,5 +85,20 @@ const hasV1Markers =
   /\/\*\s*===\s*v1 tokens\s*===\s*\*\//.test(data.html);
 assert(hasV1Markers, 'Expected v1 HTML markers (v1-page class or v1 tokens comment)');
 
+	// v1 click-to-edit contract: v1-rendered images must include stable assetKey
+	// attributes so the client can map DOM clicks back to overrides.assets keys.
+	assert(
+	  /data-v1-asset-key=["']heroImageId["']/.test(data.html),
+	  'Expected v1 hero image to include data-v1-asset-key="heroImageId"'
+	);
+	assert(
+	  /data-v1-asset-key=["']supportImage1["']/.test(data.html),
+	  'Expected v1 support image to include data-v1-asset-key="supportImage1"'
+	);
+	assert(
+	  /data-v1-asset-key=["']supportImage2["']/.test(data.html),
+	  'Expected v1 support image to include data-v1-asset-key="supportImage2"'
+	);
+
 ok('v1 adapter returned v1 HTML + v1 metadata with expected markers and response shape');
 

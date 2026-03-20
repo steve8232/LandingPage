@@ -136,6 +136,7 @@ export default function PreviewDownload({
   const [v1SaveStatus, setV1SaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [v1SaveError, setV1SaveError] = useState<string>('');
   const lastSavedOverridesJsonRef = useRef<string>(JSON.stringify(landingPage.v1?.overrides ?? {}, null, 0));
+	  const v1PreviewIframeRef = useRef<HTMLIFrameElement | null>(null);
   const currentOverridesJson = useMemo(
     () => JSON.stringify(v1Overrides ?? {}, null, 0),
     [v1Overrides]
@@ -450,6 +451,56 @@ export default function PreviewDownload({
       setV1SelectedAssetKey(v1ImageSlots[0].assetKey);
     }
   }, [v1Spec, v1ImageSlots, v1SelectedAssetKey]);
+
+	  // v1 click-to-edit (images): when in Edit mode, clicking an image in the iframe
+	  // that is backed by a v1 assetKey should open the Images workflow for that slot.
+	  useEffect(() => {
+	    if (!isV1) return;
+	    if (v1Mode !== 'edit') return;
+	    if (v1ImageSlots.length === 0) return;
+	    const iframe = v1PreviewIframeRef.current;
+	    if (!iframe) return;
+
+	    const slotKeys = new Set(v1ImageSlots.map((s) => s.assetKey));
+
+	    const attach = (): (() => void) => {
+	      const doc = iframe.contentDocument;
+	      if (!doc) return () => {};
+
+	      const handler = (e: MouseEvent) => {
+	        const t = e.target;
+	        if (!(t instanceof Element)) return;
+	        const el = t.closest('[data-v1-asset-key]');
+	        if (!el) return;
+	        const assetKey = el.getAttribute('data-v1-asset-key') || '';
+	        if (!assetKey) return;
+	        if (!slotKeys.has(assetKey)) return;
+
+	        // Treat this as an edit intent: prevent navigation if the image is inside a link.
+	        e.preventDefault();
+	        e.stopPropagation();
+	        setV1ImagesError('');
+	        setV1PanelTab('images');
+	        setV1SelectedAssetKey(assetKey);
+	      };
+
+	      doc.addEventListener('click', handler, true);
+	      return () => doc.removeEventListener('click', handler, true);
+	    };
+
+	    let detach = attach();
+	    const onLoad = () => {
+	      // srcDoc updates replace the document; re-attach to the new one.
+	      detach();
+	      detach = attach();
+	    };
+	    iframe.addEventListener('load', onLoad);
+
+	    return () => {
+	      detach();
+	      iframe.removeEventListener('load', onLoad);
+	    };
+	  }, [isV1, v1Mode, v1ImageSlots]);
 
   const setV1AssetOverride = useCallback((assetKey: string, src: string, attribution?: V1ImageAttribution) => {
     setV1Overrides((prev) => {
@@ -790,6 +841,7 @@ export default function PreviewDownload({
                   >
                     <iframe
                       title="v1 preview"
+						  ref={v1PreviewIframeRef}
                       srcDoc={editedHtml}
                       className="w-full h-full border-0"
                     />
