@@ -48,12 +48,12 @@ export function renderFinalCTA(props: FinalCTAProps): string {
     ? `
     <form class="v1-contact-form" onsubmit="return false;" style="text-align: left;">
       ${props._formHtml}
-      <button type="submit" class="v1-btn v1-btn--primary" style="width: 100%; font-size: var(--v1-font-size-lg); padding: var(--v1-space-4) var(--v1-space-8);">
+      <button type="submit" class="v1-btn v1-btn--primary" data-v1-field-key="ctaLabel" style="width: 100%; font-size: var(--v1-font-size-lg); padding: var(--v1-space-4) var(--v1-space-8);">
         ${escapeHtml(ctaLabel)}
       </button>
     </form>`
     : `
-    <a href="#contact" class="v1-btn v1-btn--primary" style="font-size: var(--v1-font-size-lg); padding: var(--v1-space-4) var(--v1-space-8);">
+    <a href="#contact" class="v1-btn v1-btn--primary" data-v1-field-key="ctaLabel" style="font-size: var(--v1-font-size-lg); padding: var(--v1-space-4) var(--v1-space-8);">
       ${escapeHtml(ctaLabel)}
     </a>`;
 
@@ -71,8 +71,8 @@ export function renderFinalCTA(props: FinalCTAProps): string {
           font-weight: var(--v1-font-weight-bold);
           margin: 0 0 var(--v1-space-4) 0;
           color: var(--v1-color-cta-text);
-        ">${escapeHtml(heading)}</h2>
-        <p style="
+        "><span data-v1-field-key="heading">${escapeHtml(heading)}</span></h2>
+        <p data-v1-field-key="subheading" style="
           font-size: var(--v1-font-size-lg);
           opacity: 0.92;
           margin: 0;
@@ -88,7 +88,7 @@ export function renderFinalCTA(props: FinalCTAProps): string {
           color: var(--v1-color-cta-text);
           opacity: 0.92;
           margin: var(--v1-space-6) 0 0;
-        ">${clockSvg}<span>${escapeHtml(props.urgency)}</span></p>` : ''}
+        ">${clockSvg}<span data-v1-field-key="urgency">${escapeHtml(props.urgency)}</span></p>` : ''}
         ${nextStepsHtml}
       </div>
 
@@ -101,9 +101,9 @@ export function renderFinalCTA(props: FinalCTAProps): string {
           color: var(--v1-color-text);
           opacity: 0.8;
           margin-top: var(--v1-space-5);
-        ">${shieldSvg}<span>${escapeHtml(props.guarantee)}</span></p>` : ''}
+        ">${shieldSvg}<span data-v1-field-key="guarantee">${escapeHtml(props.guarantee)}</span></p>` : ''}
         ${props.privacyNote ? `
-        <p style="
+        <p data-v1-field-key="privacyNote" style="
           font-size: var(--v1-font-size-sm);
           color: var(--v1-color-text-muted);
           margin-top: var(--v1-space-3);

@@ -70,15 +70,15 @@ export function renderHeroSplit(props: HeroSplitProps): string {
   ">
     <!-- Text column -->
     <div style="flex: 1 1 400px; min-width: 0;">
-	      ${props.eyebrow ? `<p class="v1-eyebrow" style="color: var(--v1-color-hero-text);">${escapeHtml(props.eyebrow)}</p>` : ''}
-      <h1 style="
+	      ${props.eyebrow ? `<p class="v1-eyebrow" data-v1-field-key="eyebrow" style="color: var(--v1-color-hero-text);">${escapeHtml(props.eyebrow)}</p>` : ''}
+      <h1 data-v1-field-key="headline" style="
         font-size: var(--v1-font-size-5xl);
         font-weight: var(--v1-font-weight-bold);
         line-height: var(--v1-line-height-tight);
         margin-bottom: var(--v1-space-6);
         color: var(--v1-color-hero-text);
       ">${escapeHtml(props.headline)}</h1>
-      <p style="
+      <p data-v1-field-key="subheadline" style="
         font-size: var(--v1-font-size-lg);
         color: var(--v1-color-hero-text);
         opacity: 0.9;
@@ -87,13 +87,13 @@ export function renderHeroSplit(props: HeroSplitProps): string {
       ">${escapeHtml(props.subheadline)}</p>
 	      ${bulletsHtml}
 	      <div style="display:flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: var(--v1-space-2);">
-	        <a href="${escapeAttr(href)}" class="v1-btn v1-btn--primary" style="font-size: var(--v1-font-size-lg); padding: var(--v1-space-4) var(--v1-space-8);">
+	        <a href="${escapeAttr(href)}" class="v1-btn v1-btn--primary" data-v1-field-key="ctaLabel" style="font-size: var(--v1-font-size-lg); padding: var(--v1-space-4) var(--v1-space-8);">
 	          ${escapeHtml(props.ctaLabel)}
 	        </a>
-	        ${props.secondaryCtaLabel ? `<a href="${escapeAttr(href2)}" class="v1-btn v1-btn--ghost v1-btn--on-hero" style="font-size: var(--v1-font-size-base); padding: 12px 16px;">${escapeHtml(props.secondaryCtaLabel)}</a>` : ''}
+	        ${props.secondaryCtaLabel ? `<a href="${escapeAttr(href2)}" class="v1-btn v1-btn--ghost v1-btn--on-hero" data-v1-field-key="secondaryCtaLabel" style="font-size: var(--v1-font-size-base); padding: 12px 16px;">${escapeHtml(props.secondaryCtaLabel)}</a>` : ''}
 	      </div>
 	      ${props.trustBadge ? `
-	      <p style="
+	      <p data-v1-field-key="trustBadge" style="
 	        margin-top: var(--v1-space-4);
 	        font-size: var(--v1-font-size-sm);
 	        color: var(--v1-color-hero-text);

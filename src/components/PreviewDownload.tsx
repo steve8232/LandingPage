@@ -683,7 +683,101 @@ export default function PreviewDownload({
 	        }
 	      }
 
-	      // Priority 2: section click-to-edit
+	      // Priority 2: inline text editing (field key)
+	      const fieldEl = t.closest('[data-v1-field-key]') as HTMLElement | null;
+	      if (fieldEl && !fieldEl.isContentEditable) {
+	        const fieldKey = fieldEl.getAttribute('data-v1-field-key') || '';
+	        const sectionWrapper = fieldEl.closest('[data-v1-section-id]');
+	        const sectionId = sectionWrapper?.getAttribute('data-v1-section-id') || '';
+
+	        if (fieldKey && sectionId) {
+	          e.stopPropagation();
+
+	          // Select the parent section in the sidebar
+	          const displayIdx = v1DisplayOrder.findIndex((item) => item.id === sectionId);
+	          if (displayIdx >= 0) {
+	            setV1SelectedSectionIndex(displayIdx);
+	            setV1PanelTab('content');
+	          }
+
+	          // Make the element contentEditable
+	          fieldEl.contentEditable = 'true';
+	          fieldEl.focus();
+
+	          // Select all text for easy replacement
+	          const range = (iframe.contentDocument || iframe.contentWindow?.document)?.createRange();
+	          const sel = (iframe.contentWindow)?.getSelection();
+	          if (range && sel) {
+	            range.selectNodeContents(fieldEl);
+	            sel.removeAllRanges();
+	            sel.addRange(range);
+	          }
+
+	          // On blur, sync changes back to v1Overrides
+	          const onBlur = () => {
+	            fieldEl.removeEventListener('blur', onBlur);
+	            fieldEl.removeEventListener('keydown', onKeydown);
+	            fieldEl.contentEditable = 'false';
+	            const newText = (fieldEl.innerText || fieldEl.textContent || '').trim();
+	            if (!newText) return; // Don't save empty text
+
+	            // Find the spec index for this section
+	            const item = v1DisplayOrder.find((d) => d.id === sectionId);
+	            if (!item || item.isAdded) return;
+	            const specIdx = parseInt(item.id, 10);
+	            if (isNaN(specIdx) || specIdx < 0) return;
+
+	            // Parse dot-path keys like "services.0.title"
+	            const parts = fieldKey.split('.');
+	            if (parts.length === 1) {
+	              // Simple top-level field
+	              updateV1Section(specIdx, { [fieldKey]: newText });
+	            } else if (parts.length === 3) {
+	              // Array item: e.g. "services.0.title"
+	              const [arrKey, idxStr, prop] = parts;
+	              const arrIdx = parseInt(idxStr, 10);
+	              if (isNaN(arrIdx)) return;
+	              // Get current array from effective props
+	              const currentItem = v1DisplayOrder.find((d) => d.id === sectionId);
+	              const currentArr = currentItem?.effective?.[arrKey];
+	              if (Array.isArray(currentArr)) {
+	                const next = currentArr.map((x: any) => ({ ...x }));
+	                if (next[arrIdx]) {
+	                  next[arrIdx] = { ...next[arrIdx], [prop]: newText };
+	                  updateV1Section(specIdx, { [arrKey]: next });
+	                }
+	              }
+	            }
+
+	            if (v1Debug) {
+	              console.log('[v1 inline-edit] saved field:', fieldKey, '→', newText);
+	            }
+	          };
+
+	          const onKeydown = (ke: KeyboardEvent) => {
+	            if (ke.key === 'Enter' && !ke.shiftKey) {
+	              ke.preventDefault();
+	              fieldEl.blur();
+	            }
+	            if (ke.key === 'Escape') {
+	              // Cancel editing — restore original text
+	              fieldEl.contentEditable = 'false';
+	              fieldEl.removeEventListener('blur', onBlur);
+	              fieldEl.removeEventListener('keydown', onKeydown);
+	            }
+	          };
+
+	          fieldEl.addEventListener('blur', onBlur);
+	          fieldEl.addEventListener('keydown', onKeydown);
+
+	          if (v1Debug) {
+	            console.log('[v1 inline-edit] editing field:', fieldKey, 'in section:', sectionId);
+	          }
+	          return;
+	        }
+	      }
+
+	      // Priority 3: section click-to-edit
 	      const sectionEl = t.closest('[data-v1-section-id]');
 	      if (sectionEl) {
 	        e.preventDefault();
@@ -787,7 +881,7 @@ export default function PreviewDownload({
 	      iframe.removeEventListener('load', onLoad);
 	    };
 	  // eslint-disable-next-line react-hooks/exhaustive-deps
-	  }, [isV1, v1Mode, v1ImageSlots, editedHtml, v1Debug, v1DisplayOrder]);
+	  }, [isV1, v1Mode, v1ImageSlots, editedHtml, v1Debug, v1DisplayOrder, updateV1Section]);
 
   const setV1AssetOverride = useCallback((assetKey: string, src: string, attribution?: V1ImageAttribution) => {
     setV1Overrides((prev) => {

@@ -151,8 +151,8 @@ ${t.rating ? `      ${renderStars(t.rating)}` : ''}
       text-align: center;
       margin-bottom: ${props.subheading ? 'var(--v1-space-4)' : 'var(--v1-space-12)'};
       color: var(--v1-color-text);
-    ">${escapeHtml(heading)}</h2>${props.subheading ? `
-    <p style="
+    "><span data-v1-field-key="heading">${escapeHtml(heading)}</span></h2>${props.subheading ? `
+    <p data-v1-field-key="subheading" style="
       font-size: var(--v1-font-size-lg);
       color: var(--v1-color-text-muted);
       text-align: center;

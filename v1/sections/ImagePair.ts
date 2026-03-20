@@ -56,8 +56,8 @@ export function renderImagePair(props: ImagePairProps): string {
       text-align: center;
       margin-bottom: ${props.subheading ? 'var(--v1-space-4)' : 'var(--v1-space-10)'};
       color: var(--v1-color-text);
-    ">${escapeHtml(heading)}</h2>${props.subheading ? `
-    <p style="
+    "><span data-v1-field-key="heading">${escapeHtml(heading)}</span></h2>${props.subheading ? `
+    <p data-v1-field-key="subheading" style="
       font-size: var(--v1-font-size-lg);
       color: var(--v1-color-text-muted);
       text-align: center;
@@ -81,7 +81,7 @@ export function renderImagePair(props: ImagePairProps): string {
           onerror="if(this.dataset.fallback&&this.src!==this.dataset.fallback){this.src=this.dataset.fallback;}"
           style="${escapeAttr(imgStyle)}"
 	        />${props.caption1 ? `
-        <figcaption style="
+        <figcaption data-v1-field-key="caption1" style="
 	          text-align: left;
           font-size: var(--v1-font-size-sm);
           color: var(--v1-color-text-muted);
@@ -98,7 +98,7 @@ export function renderImagePair(props: ImagePairProps): string {
           onerror="if(this.dataset.fallback&&this.src!==this.dataset.fallback){this.src=this.dataset.fallback;}"
           style="${escapeAttr(imgStyle)}"
 	        />${props.caption2 ? `
-        <figcaption style="
+        <figcaption data-v1-field-key="caption2" style="
 	          text-align: left;
           font-size: var(--v1-font-size-sm);
           color: var(--v1-color-text-muted);

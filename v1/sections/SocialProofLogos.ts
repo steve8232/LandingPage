@@ -210,8 +210,8 @@ export function renderSocialProofLogos(props: SocialProofLogosProps): string {
       letter-spacing: 0.08em;
 	      margin-bottom: ${props.supportingText ? 'var(--v1-space-3)' : 'var(--v1-space-6)'};
       font-weight: var(--v1-font-weight-semibold);
-    ">${escapeHtml(heading)}</p>
-	    ${props.supportingText ? `<p style="font-size: var(--v1-font-size-base); color: var(--v1-color-text-muted); margin-bottom: var(--v1-space-6);">${escapeHtml(props.supportingText)}</p>` : ''}
+    "><span data-v1-field-key="heading">${escapeHtml(heading)}</span></p>
+	    ${props.supportingText ? `<p data-v1-field-key="supportingText" style="font-size: var(--v1-font-size-base); color: var(--v1-color-text-muted); margin-bottom: var(--v1-space-6);">${escapeHtml(props.supportingText)}</p>` : ''}
     <div style="
       display: flex; flex-wrap: wrap; justify-content: center;
       gap: var(--v1-space-5);

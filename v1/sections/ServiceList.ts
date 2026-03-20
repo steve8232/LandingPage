@@ -46,7 +46,7 @@ export function renderServiceList(props: ServiceListProps): string {
 
   const cardsHtml = props.services
     .map(
-      (svc) => `
+      (svc, svcIdx) => `
     <div class="v1-card" style="padding: var(--v1-space-8);">
       <div style="display:flex; gap: 14px; align-items:flex-start;">
         <div style="
@@ -58,19 +58,19 @@ export function renderServiceList(props: ServiceListProps): string {
           flex-shrink: 0;
         ">${iconSvg(svc.icon)}</div>
         <div style="min-width: 0;">
-          <h3 style="
+          <h3 data-v1-field-key="services.${svcIdx}.title" style="
             font-size: var(--v1-font-size-xl);
             font-weight: var(--v1-font-weight-semibold);
             margin: 0 0 var(--v1-space-2) 0;
             color: var(--v1-color-text);
           ">${escapeHtml(svc.title)}</h3>
-          <p class="v1-muted" style="
+          <p data-v1-field-key="services.${svcIdx}.description" class="v1-muted" style="
             font-size: var(--v1-font-size-base);
             line-height: var(--v1-line-height-relaxed);
             margin: 0;
           ">${escapeHtml(svc.description)}</p>
           ${svc.benefit ? `
-          <p style="
+          <p data-v1-field-key="services.${svcIdx}.benefit" style="
             font-size: var(--v1-font-size-sm);
             font-weight: var(--v1-font-weight-semibold);
             color: var(--v1-color-accent);
@@ -94,8 +94,8 @@ export function renderServiceList(props: ServiceListProps): string {
       text-align: center;
       margin-bottom: ${props.subheading ? 'var(--v1-space-4)' : 'var(--v1-space-12)'};
       color: var(--v1-color-text);
-    ">${escapeHtml(heading)}</h2>${props.subheading ? `
-    <p style="
+    "><span data-v1-field-key="heading">${escapeHtml(heading)}</span></h2>${props.subheading ? `
+    <p data-v1-field-key="subheading" style="
       font-size: var(--v1-font-size-lg);
       color: var(--v1-color-text-muted);
       text-align: center;
