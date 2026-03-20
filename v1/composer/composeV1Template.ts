@@ -232,9 +232,6 @@ export function composeV1Template(
     resolvedAssets[key] = inlineLocalSvgIfPossible(resolvedAssets[key]);
   }
 
-  // Track which demo IDs are actually used by rendered sections
-  const usedDemoIds = new Set<string>();
-
   // 5. Render each section
   const sectionsHtml = spec.sections
     .map((entry, sectionIndex) => {
@@ -262,8 +259,6 @@ export function composeV1Template(
       if (typeof props.imageAsset === 'string' && resolvedAssets[props.imageAsset as string]) {
         const assetKey = props.imageAsset as string;
         props._resolvedImageUrl = resolvedAssets[assetKey];
-        const id = spec.assets[assetKey];
-        if (allowRemoteDemoImages && typeof id === 'string' && id.startsWith('demo-')) usedDemoIds.add(id);
       }
       if (typeof (props as Record<string, unknown>).fallbackAsset === 'string') {
         const fbKey = (props as Record<string, unknown>).fallbackAsset as string;
@@ -275,8 +270,6 @@ export function composeV1Template(
         const k = (props as Record<string, unknown>).imageAsset1 as string;
         if (resolvedAssets[k]) {
           (props as Record<string, unknown>)._resolvedImageUrl1 = resolvedAssets[k];
-          const id = spec.assets[k];
-          if (allowRemoteDemoImages && typeof id === 'string' && id.startsWith('demo-')) usedDemoIds.add(id);
         }
       }
       if (typeof (props as Record<string, unknown>).fallbackAsset1 === 'string') {
@@ -287,8 +280,6 @@ export function composeV1Template(
         const k = (props as Record<string, unknown>).imageAsset2 as string;
         if (resolvedAssets[k]) {
           (props as Record<string, unknown>)._resolvedImageUrl2 = resolvedAssets[k];
-          const id = spec.assets[k];
-          if (allowRemoteDemoImages && typeof id === 'string' && id.startsWith('demo-')) usedDemoIds.add(id);
         }
       }
       if (typeof (props as Record<string, unknown>).fallbackAsset2 === 'string') {
@@ -335,9 +326,9 @@ export function composeV1Template(
     })
     .join('\n');
 
-  // 5b. Build attribution footer from demo assets
-  const demoAttributions = getDemoAttributions(Array.from(usedDemoIds));
-  const attrHtml = renderAttributionFooter(demoAttributions, overrides?.meta?.imageAttributions);
+  // 5b. Attribution footer: only render user-selected image credits.
+  // (We intentionally do not render demo image attributions/links.)
+  const attrHtml = renderAttributionFooter([], overrides?.meta?.imageAttributions);
 
   // 6. Wrap in full HTML document
   const html = buildDocument(spec, tokensCss, themeCss, sectionsHtml, attrHtml, overrides?.meta);
@@ -401,13 +392,6 @@ function renderAttributionFooter(
   demoAttributions: DemoAssetEntry[],
   imageAttributions?: Record<string, V1ImageAttribution>
 ): string {
-  const demoCredits = demoAttributions
-    .map(
-      (a) =>
-        `<a href="${escapeAttr(a.source_page_url)}" target="_blank" rel="noopener noreferrer" style="color: inherit; text-decoration: underline;">${escapeHtml(a.attribution_text)}</a>`
-    )
-    .join(' · ');
-
   const customEntries = imageAttributions ? Object.values(imageAttributions) : [];
   const customCredits = customEntries
     .filter((a) => a && typeof a.text === 'string' && typeof a.url === 'string')
@@ -417,10 +401,14 @@ function renderAttributionFooter(
     )
     .join(' · ');
 
-  if (!demoCredits && !customCredits) return '';
+  // Suppress demo image attribution links (e.g. Pexels). Only show credits for
+  // user-selected images (e.g. Unsplash picks via the v1 Images workflow).
+  // Touch the param so TS doesn't flag it if noUnusedParameters is enabled.
+  void demoAttributions;
 
-  const demoLine = demoCredits ? `<div>Demo images: ${demoCredits}</div>` : '';
-  const customLine = customCredits ? `<div>Image credits: ${customCredits}</div>` : '';
+  if (!customCredits) return '';
+
+  const customLine = `<div>Image credits: ${customCredits}</div>`;
 
   return `
 <footer class="v1-attribution" style="
@@ -431,7 +419,7 @@ function renderAttributionFooter(
   text-align: center;
   border-top: 1px solid #e0e0e0;
 ">
-  ${demoLine}${customLine}
+	  ${customLine}
 </footer>`;
 }
 
