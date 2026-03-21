@@ -137,16 +137,22 @@ export default function PreviewDownload({
 			lastAttachReason: string;
 			docReadyState: string;
 			assetKeyElementCount: number;
+			fieldKeyElementCount: number;
 			lastClickTarget: string;
 			lastClickedAssetKey: string;
+			lastClickedFieldKey: string;
+			lastClickedSectionId: string;
 			lastError: string;
 		}>({
 			attached: false,
 			lastAttachReason: '',
 			docReadyState: '',
 			assetKeyElementCount: 0,
+			fieldKeyElementCount: 0,
 			lastClickTarget: '',
 			lastClickedAssetKey: '',
+			lastClickedFieldKey: '',
+			lastClickedSectionId: '',
 			lastError: '',
 		});
 
@@ -173,6 +179,42 @@ export default function PreviewDownload({
   const [v1SaveError, setV1SaveError] = useState<string>('');
   const lastSavedOverridesJsonRef = useRef<string>(JSON.stringify(landingPage.v1?.overrides ?? {}, null, 0));
 	  const v1PreviewIframeRef = useRef<HTMLIFrameElement | null>(null);
+
+	  useEffect(() => {
+	    if (!isV1) return;
+	    const iframe = v1PreviewIframeRef.current;
+	    if (!iframe) return;
+
+	    const applyModeClass = (): boolean => {
+	      const doc = iframe.contentDocument || iframe.contentWindow?.document || null;
+	      const body = doc?.body;
+	      if (!body) return false;
+	      body.classList.toggle('v1-edit-mode', v1Mode === 'edit');
+	      return true;
+	    };
+
+	    applyModeClass();
+
+	    const onLoad = () => {
+	      applyModeClass();
+	    };
+	    iframe.addEventListener('load', onLoad);
+
+	    let tries = 0;
+	    const maxTries = 40;
+	    const retryTimer = window.setInterval(() => {
+	      tries += 1;
+	      const ok = applyModeClass();
+	      if (ok || tries >= maxTries) {
+	        window.clearInterval(retryTimer);
+	      }
+	    }, 50);
+
+	    return () => {
+	      window.clearInterval(retryTimer);
+	      iframe.removeEventListener('load', onLoad);
+	    };
+	  }, [isV1, v1Mode, editedHtml]);
   const currentOverridesJson = useMemo(
     () => JSON.stringify(v1Overrides ?? {}, null, 0),
     [v1Overrides]
@@ -640,6 +682,11 @@ export default function PreviewDownload({
     if (!iframe) return;
 
     const slotKeys = new Set(v1ImageSlots.map((s) => s.assetKey));
+	    const resolveEventElement = (target: EventTarget | null): Element | null => {
+	      if (target instanceof Element) return target;
+	      if (target instanceof Node) return target.parentElement;
+	      return null;
+	    };
 
 	    let detach: (() => void) | null = null;
 	    let cancelled = false;
@@ -647,8 +694,8 @@ export default function PreviewDownload({
 	    // mousedown handler: enables contentEditable BEFORE the browser processes focus.
 	    // Must NOT call e.preventDefault() so the browser naturally gives focus to the element.
 	    const mousedownHandler = (e: MouseEvent) => {
-	      const t = e.target;
-	      if (!(t instanceof Element)) return;
+		      const t = resolveEventElement(e.target);
+		      if (!t) return;
 	      // Image elements are handled by the click handler; skip here.
 	      if (t.closest('[data-v1-asset-key]')) return;
 
@@ -715,13 +762,21 @@ export default function PreviewDownload({
 	      fieldEl.addEventListener('keydown', onKeydown);
 
 	      if (v1Debug) {
+		        setV1ClickDebugInfo((prev) => ({
+		          ...prev,
+		          lastClickTarget: `<${t.tagName.toLowerCase()}> field:${fieldKey} section:${sectionId} (mousedown)`,
+		          lastClickedAssetKey: '',
+		          lastClickedFieldKey: fieldKey,
+		          lastClickedSectionId: sectionId,
+		          lastError: '',
+		        }));
 	        console.log('[v1 inline-edit] mousedown: enabling field:', fieldKey, 'in section:', sectionId);
 	      }
 	    };
 
 	    const handler = (e: MouseEvent) => {
-	      const t = e.target;
-	      if (!(t instanceof Element)) return;
+		      const t = resolveEventElement(e.target);
+		      if (!t) return;
 
 	      // Priority 1: image click-to-edit (asset key)
 	      const assetEl = t.closest('[data-v1-asset-key]');
@@ -747,6 +802,9 @@ export default function PreviewDownload({
 	              ...prev,
 	              lastClickTarget: `<${t.tagName.toLowerCase()}>`,
 	              lastClickedAssetKey: assetKey,
+		              lastClickedFieldKey: '',
+		              lastClickedSectionId: '',
+		              lastError: '',
 	            }));
 	            console.log('[v1 click-to-edit] clicked assetKey:', assetKey);
 	          }
@@ -759,6 +817,7 @@ export default function PreviewDownload({
 	      // and no preventDefault) so the browser positions the cursor inside contentEditable.
 	      const fieldEl = t.closest('[data-v1-field-key]') as HTMLElement | null;
 	      if (fieldEl) {
+		        const fieldKey = fieldEl.getAttribute('data-v1-field-key') || '';
 	        const sectionWrapper = fieldEl.closest('[data-v1-section-id]');
 	        const sectionId = sectionWrapper?.getAttribute('data-v1-section-id') || '';
 	        const displayIdx = v1DisplayOrder.findIndex((item) => item.id === sectionId);
@@ -766,6 +825,16 @@ export default function PreviewDownload({
 	          setV1SelectedSectionIndex(displayIdx);
 	          setV1PanelTab('content');
 	        }
+		        if (v1Debug) {
+		          setV1ClickDebugInfo((prev) => ({
+		            ...prev,
+		            lastClickTarget: `<${t.tagName.toLowerCase()}> field:${fieldKey || 'unknown'} section:${sectionId || 'unknown'} (click)`,
+		            lastClickedAssetKey: '',
+		            lastClickedFieldKey: fieldKey,
+		            lastClickedSectionId: sectionId,
+		            lastError: '',
+		          }));
+		        }
 	        return; // Don't preventDefault — let the browser position the cursor naturally
 	      }
 
@@ -798,6 +867,10 @@ export default function PreviewDownload({
 	          setV1ClickDebugInfo((prev) => ({
 	            ...prev,
 	            lastClickTarget: `<${t.tagName.toLowerCase()}> section:${sectionId}`,
+		            lastClickedAssetKey: '',
+		            lastClickedFieldKey: '',
+		            lastClickedSectionId: sectionId,
+		            lastError: '',
 	          }));
 	          console.log('[v1 click-to-edit] clicked section:', sectionId);
 	        }
@@ -808,6 +881,9 @@ export default function PreviewDownload({
 	        setV1ClickDebugInfo((prev) => ({
 	          ...prev,
 	          lastClickTarget: `<${t.tagName.toLowerCase()}> (no match)`,
+		          lastClickedAssetKey: '',
+		          lastClickedFieldKey: '',
+		          lastClickedSectionId: '',
 	        }));
 	      }
 	    };
@@ -841,6 +917,7 @@ export default function PreviewDownload({
 	          lastAttachReason: reason,
 	          docReadyState: doc.readyState || '',
 	          assetKeyElementCount: doc.querySelectorAll('[data-v1-asset-key]').length,
+		          fieldKeyElementCount: doc.querySelectorAll('[data-v1-field-key]').length,
 	          lastError: '',
 	        }));
 	        // eslint-disable-next-line no-console
@@ -1260,8 +1337,11 @@ export default function PreviewDownload({
 									<div><span className="font-mono">clickListener</span>: {v1ClickDebugInfo.attached ? 'attached' : 'not attached'} ({v1ClickDebugInfo.lastAttachReason || '—'})</div>
 									<div><span className="font-mono">docReadyState</span>: {v1ClickDebugInfo.docReadyState || '—'}</div>
 									<div><span className="font-mono">assetKeyEls</span>: {v1ClickDebugInfo.assetKeyElementCount}</div>
+									<div><span className="font-mono">fieldKeyEls</span>: {v1ClickDebugInfo.fieldKeyElementCount}</div>
 									<div className="col-span-2"><span className="font-mono">lastClickTarget</span>: {v1ClickDebugInfo.lastClickTarget || '—'}</div>
 									<div className="col-span-2"><span className="font-mono">lastClickedAssetKey</span>: {v1ClickDebugInfo.lastClickedAssetKey || '—'}</div>
+									<div className="col-span-2"><span className="font-mono">lastClickedFieldKey</span>: {v1ClickDebugInfo.lastClickedFieldKey || '—'}</div>
+									<div className="col-span-2"><span className="font-mono">lastClickedSectionId</span>: {v1ClickDebugInfo.lastClickedSectionId || '—'}</div>
 									{v1ClickDebugInfo.lastError && (
 										<div className="col-span-2 text-red-700"><span className="font-mono">error</span>: {v1ClickDebugInfo.lastError}</div>
 									)}

@@ -421,12 +421,13 @@ ${tokensCss}
 ${themeCss}
 /* === v1 section interaction highlights === */
 [data-v1-section-id] { transition: outline 0.15s ease, outline-offset 0.15s ease; outline: 2px solid transparent; outline-offset: -2px; }
-[data-v1-section-id]:hover { outline: 2px dashed rgba(99,102,241,0.45); outline-offset: -2px; cursor: pointer; }
-[data-v1-section-id].v1-section-selected { outline: 2px solid rgba(99,102,241,0.8); outline-offset: -2px; }
+body.v1-edit-mode [data-v1-section-id]:hover { outline: 2px dashed rgba(99,102,241,0.45); outline-offset: -2px; cursor: pointer; }
+body.v1-edit-mode [data-v1-section-id].v1-section-selected { outline: 2px solid rgba(99,102,241,0.8); outline-offset: -2px; }
 /* === v1 inline field editing === */
-[data-v1-field-key] { cursor: text; transition: outline 0.12s ease, background 0.12s ease; border-radius: 3px; }
-[data-v1-field-key]:hover { outline: 1px dashed rgba(99,102,241,0.5); outline-offset: 2px; }
-[data-v1-field-key][contenteditable="true"] { outline: 2px solid rgba(99,102,241,0.8); outline-offset: 2px; background: rgba(99,102,241,0.06); min-width: 20px; }
+[data-v1-field-key] { transition: outline 0.12s ease, background 0.12s ease; border-radius: 3px; }
+body.v1-edit-mode [data-v1-field-key] { cursor: text; }
+body.v1-edit-mode [data-v1-field-key]:hover { outline: 1px dashed rgba(99,102,241,0.5); outline-offset: 2px; }
+body.v1-edit-mode [data-v1-field-key][contenteditable="true"] { outline: 2px solid rgba(99,102,241,0.8); outline-offset: 2px; background: rgba(99,102,241,0.06); min-width: 20px; }
   </style>
 </head>
 <body>
