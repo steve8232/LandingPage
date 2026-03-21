@@ -682,9 +682,23 @@ export default function PreviewDownload({
     if (!iframe) return;
 
     const slotKeys = new Set(v1ImageSlots.map((s) => s.assetKey));
+
+	    // Normalise event targets coming from the iframe document. We *cannot* rely on
+	    // `instanceof Element/Node` here because events are dispatched from the
+	    // iframe's Window/Document context, so their prototypes won't match the
+	    // parent window's globals. Instead, use `nodeType` to detect Element/Text.
 	    const resolveEventElement = (target: EventTarget | null): Element | null => {
-	      if (target instanceof Element) return target;
-	      if (target instanceof Node) return target.parentElement;
+	      if (!target || typeof target !== 'object') return null;
+	      const node = target as Node & { parentElement: Element | null; nodeType: number };
+	      const nodeType = node.nodeType;
+	      if (nodeType === 1) {
+	        // ELEMENT_NODE
+	        return node as unknown as Element;
+	      }
+	      if (nodeType === 3) {
+	        // TEXT_NODE → use parent element so CSS selectors/closest() work.
+	        return node.parentElement;
+	      }
 	      return null;
 	    };
 
