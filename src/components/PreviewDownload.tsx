@@ -709,8 +709,42 @@ export default function PreviewDownload({
 	      const sectionId = sectionWrapper?.getAttribute('data-v1-section-id') || '';
 	      if (!fieldKey || !sectionId) return;
 
-	      // Enable editing BEFORE the browser decides focus. Do NOT preventDefault.
+	      // Enable contentEditable BEFORE the browser processes focus (mousedown timing).
 	      fieldEl.contentEditable = 'true';
+
+	      // Explicitly focus + place caret after the browser finishes this event tick.
+	      // caretRangeFromPoint (Chrome/Safari) / caretPositionFromPoint (Firefox) gives
+	      // the exact text position the user clicked — far more reliable than relying on
+	      // the browser to auto-place the cursor inside an iframe contentEditable.
+	      const clickX = e.clientX;
+	      const clickY = e.clientY;
+	      const ownerDoc = fieldEl.ownerDocument;
+	      requestAnimationFrame(() => {
+	        try {
+	          fieldEl.focus();
+	          let range: Range | null = null;
+	          if (typeof ownerDoc.caretRangeFromPoint === 'function') {
+	            range = ownerDoc.caretRangeFromPoint(clickX, clickY);
+	          } else if (typeof (ownerDoc as any).caretPositionFromPoint === 'function') {
+	            const pos = (ownerDoc as any).caretPositionFromPoint(clickX, clickY);
+	            if (pos) {
+	              range = ownerDoc.createRange();
+	              range.setStart(pos.offsetNode, pos.offset);
+	              range.collapse(true);
+	            }
+	          }
+	          if (range) {
+	            const sel = ownerDoc.getSelection();
+	            if (sel) {
+	              sel.removeAllRanges();
+	              sel.addRange(range);
+	            }
+	          }
+	        } catch {
+	          // Fallback: plain focus without precise cursor placement.
+	          try { fieldEl.focus(); } catch { /* ignore */ }
+	        }
+	      });
 
 	      const onBlur = () => {
 	        fieldEl.removeEventListener('blur', onBlur);
