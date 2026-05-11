@@ -70,15 +70,31 @@ export interface V1Metadata {
 
 // ── Top-level spec ─────────────────────────────────────────────────────────────
 
+/**
+ * Per-asset Unsplash search seeds.
+ * Keys match the asset IDs in `assets` (e.g. "heroImageId", "supportImage1")
+ * so the editor can pre-fill the stock-image search UI with a niche-appropriate
+ * query when the user clicks an image slot.
+ */
+export type V1AssetSearchSeeds = Record<string, string>;
+
 export interface TemplateSpec {
   templateId: string;
   version: 'v1';
   category: V1Category;
   goal: V1Goal;
+  /**
+   * Optional niche slug (e.g. "plumber", "lawn-care", "med-spa"). Used by
+   * generateV1Content to bias copy and by the editor to pick relevant stock
+   * imagery defaults. Pure metadata — no rendering impact.
+   */
+  niche?: string;
   /** Reference to a theme file name in /v1/themes/ (without .css extension). */
   theme: string;
   sections: V1SectionEntry[];
   assets: V1AssetMap;
+  /** Optional per-asset Unsplash search seed queries. */
+  assetSearchSeeds?: V1AssetSearchSeeds;
   form: V1FormField[];
   metadata: V1Metadata;
 }
@@ -127,6 +143,17 @@ export function validateSpec(spec: unknown): ValidationResult {
   }
   if (typeof s.theme !== 'string' || s.theme.length === 0) {
     errors.push('theme must be a non-empty string');
+  }
+  if (s.niche !== undefined && typeof s.niche !== 'string') {
+    errors.push('niche must be a string when present');
+  }
+  if (
+    s.assetSearchSeeds !== undefined &&
+    (typeof s.assetSearchSeeds !== 'object' ||
+      s.assetSearchSeeds === null ||
+      Array.isArray(s.assetSearchSeeds))
+  ) {
+    errors.push('assetSearchSeeds must be an object when present');
   }
 
   // Sections array

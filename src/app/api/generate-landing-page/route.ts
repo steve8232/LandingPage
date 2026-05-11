@@ -159,16 +159,34 @@ export async function POST(request: NextRequest) {
 	      const spec = getV1Spec(templateId);
 	      let overrides: V1ContentOverrides | undefined;
 	      const sectionTypes = spec?.sections?.map((s) => s.type) || undefined;
-      if (spec) {
+
+      // If the user did not supply meaningful business info, preserve the
+      // spec's curated defaults verbatim (no AI rewrite). The editor sidebar
+      // can still capture overrides afterwards.
+      const hasBusinessInput = Boolean(
+        v1Input.business.productService?.trim() ||
+          v1Input.business.offer?.trim() ||
+          v1Input.business.uniqueValue?.trim() ||
+          v1Input.business.customerLove?.trim() ||
+          v1Input.business.cta?.trim() ||
+          v1Input.business.pricing?.trim() ||
+          (v1Input.business.images && v1Input.business.images.length > 0)
+      );
+
+      if (spec && hasBusinessInput) {
         overrides = await generateV1Content(v1Input, spec);
         console.log('[v1 adapter] Content overrides generated');
 
         // Second pass: polish copy + generate SEO metadata, alt texts, form labels
         overrides = await enhanceV1Content(v1Input, spec, overrides);
         console.log('[v1 adapter] Enhancement pass complete');
+      } else if (spec) {
+        console.log('[v1 adapter] Empty business input — using spec defaults verbatim');
+      }
 
-	        // Apply any template-driven visibility toggles (e.g. hideTestimonials)
-	        overrides = applyV1SectionOmissions(spec, overrides, v1Input.business.templateAnswers);
+      if (spec) {
+        // Apply any template-driven visibility toggles (e.g. hideTestimonials)
+        overrides = applyV1SectionOmissions(spec, overrides, v1Input.business.templateAnswers);
       }
 
 	      // For the interactive app output we allow remote demo images (when used)

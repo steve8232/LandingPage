@@ -117,6 +117,17 @@ function renderFormFields(
       if (f.type === 'textarea') {
         return `<div class="v1-field">${labelHtml}<textarea ${baseAttrs} rows="4"></textarea></div>`;
       }
+      if (f.type === 'select') {
+        const opts = (f.options ?? []).map((o) => `<option value="${escapeAttr(o)}">${escapeHtml(o)}</option>`).join('');
+        const placeholderOpt = placeholder
+          ? `<option value="" disabled selected>${escapeHtml(placeholder)}</option>`
+          : '';
+        return `<div class="v1-field">${labelHtml}<select id="v1-${escapeAttr(f.name)}" name="${escapeAttr(f.name)}" ${req} class="v1-input">${placeholderOpt}${opts}</select></div>`;
+      }
+      if (f.type === 'checkbox') {
+        const labelText = overrideLabel || placeholder || f.name;
+        return `<div class="v1-field v1-field--checkbox"><label class="v1-checkbox-label"><input id="v1-${escapeAttr(f.name)}" name="${escapeAttr(f.name)}" type="checkbox" ${req} class="v1-checkbox" /> <span>${escapeHtml(labelText)}</span></label></div>`;
+      }
       return `<div class="v1-field">${labelHtml}<input ${baseAttrs} type="${escapeAttr(f.type)}" /></div>`;
     })
     .join('\n');
@@ -307,6 +318,22 @@ export function composeV1Template(
         if (resolvedAssets[fbKey]) props._fallbackImageUrl = resolvedAssets[fbKey];
       }
 
+      // PhotoGalleryStrip — array of items with imageAsset + optional fallbackAsset
+      if (entry.type === 'PhotoGalleryStrip' && Array.isArray((props as Record<string, unknown>).items)) {
+        const galleryItems = (props as Record<string, unknown>).items as Array<Record<string, unknown>>;
+        const urlMap: Record<string, string> = {};
+        const altMap: Record<string, string> = {};
+        for (const it of galleryItems) {
+          const k = typeof it.imageAsset === 'string' ? it.imageAsset : '';
+          if (k && resolvedAssets[k]) urlMap[k] = resolvedAssets[k];
+          const fbk = typeof it.fallbackAsset === 'string' ? it.fallbackAsset : '';
+          if (fbk && resolvedAssets[fbk]) urlMap[`${k}__fallback`] = resolvedAssets[fbk];
+          if (k && overrides?.meta?.imageAltTexts?.[k]) altMap[k] = overrides.meta.imageAltTexts[k];
+        }
+        (props as Record<string, unknown>)._resolvedImageUrls = urlMap;
+        (props as Record<string, unknown>)._altTexts = altMap;
+      }
+
       // ImagePair
       if (typeof (props as Record<string, unknown>).imageAsset1 === 'string') {
         const k = (props as Record<string, unknown>).imageAsset1 as string;
@@ -350,7 +377,7 @@ export function composeV1Template(
       const imgTerms = overrides?.imageSearchTerms;
       if (imgTerms) {
         const p = props as Record<string, unknown>;
-        if (entry.type === 'HeroSplit' && imgTerms.hero && !props._altText) {
+        if ((entry.type === 'HeroSplit' || entry.type === 'HeroLeadForm') && imgTerms.hero && !props._altText) {
           props._altText = imgTerms.hero;
         }
         if (entry.type === 'ImagePair') {
@@ -359,8 +386,8 @@ export function composeV1Template(
         }
       }
 
-      // Inject form HTML into FinalCTA sections
-      if (entry.type === 'FinalCTA') {
+      // Inject form HTML into sections that embed the spec.form
+      if (entry.type === 'FinalCTA' || entry.type === 'HeroLeadForm') {
         props._formHtml = formHtml;
       }
 

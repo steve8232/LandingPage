@@ -1,0 +1,34 @@
+/*
+ * Theme: Home Services Blue
+ *
+ * Trustworthy navy + bold orange accent.
+ * Designed for plumbers, HVAC, electricians, roofers, and other
+ * residential repair niches that need to project reliability.
+ */
+
+.v1-page {
+  --v1-color-primary: #143a6b;
+  --v1-color-primary-dark: #0b2547;
+  --v1-color-accent: #f97316;
+  --v1-color-bg: #ffffff;
+  --v1-color-bg-alt: #f1f6fb;
+  --v1-color-text: #14213d;
+  --v1-color-text-muted: #5b6b80;
+  --v1-color-border: #c7d3e2;
+  --v1-color-hero-bg: #143a6b;
+  --v1-color-hero-text: #ffffff;
+  --v1-color-cta-bg: #f97316;
+  --v1-color-cta-text: #ffffff;
+  --v1-color-card-bg: #ffffff;
+  --v1-color-card-text: #14213d;
+  --v1-color-footer-bg: #0b2547;
+  --v1-color-footer-text: #d8e2ef;
+
+  --v1-font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+  --v1-radius-md: 8px;
+  --v1-radius-lg: 12px;
+
+  --v1-shadow-md: 0 4px 12px rgba(20, 58, 107, 0.10);
+  --v1-shadow-lg: 0 12px 28px rgba(20, 58, 107, 0.16);
+}

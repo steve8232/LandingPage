@@ -35,7 +35,14 @@ export function getV1FormArchetype(templateId?: string): V1FormArchetype {
   if (id.includes('webinar') || id.includes('event')) return 'event';
   if (id.includes('coming-soon') || id.includes('waitlist')) return 'waitlist';
   if (id.includes('ebook') || id.includes('lead-magnet')) return 'lead-magnet';
-  if (id.includes('local') || id.includes('services')) return 'local-service';
+  // Local-service niches — match the niche-specific template IDs.
+  const localServiceNiches = [
+    'local', 'services', 'plumber', 'plumbing', 'lawn', 'landscaping',
+    'hvac', 'painter', 'fencing', 'cleaning', 'carpet', 'junk',
+    'pressure-washing', 'tree-service', 'window-cleaning', 'electrical',
+    'roofing', 'med-spa', 'dog', 'trainer', 'fitness', 'auto-detail', 'pool',
+  ];
+  if (localServiceNiches.some((k) => id.includes(k))) return 'local-service';
   if (id.includes('consulting') || id.includes('law') || id.includes('finance')) return 'professional-service';
   return 'professional-service';
 }

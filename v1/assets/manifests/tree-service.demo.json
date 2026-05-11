@@ -1,0 +1,68 @@
+{
+  "demo-tree-service-hero-01": {
+    "id": "demo-tree-service-hero-01",
+    "role": "hero",
+    "url": "https://images.pexels.com/photos/209229/pexels-photo-209229.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
+    "source_page_url": "https://www.pexels.com/photo/man-cutting-tress-using-chainsaw-209229/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/",
+    "notes": "Demo reference imagery for tree service (hero). Pexels License — replace with the operator's own photography for production."
+  },
+  "demo-tree-service-differentiator-01": {
+    "id": "demo-tree-service-differentiator-01",
+    "role": "differentiator",
+    "url": "https://images.pexels.com/photos/15080633/pexels-photo-15080633.jpeg?auto=compress&cs=tinysrgb&w=800",
+    "source_page_url": "https://www.pexels.com/photo/cut-wood-logs-15080633/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/",
+    "notes": "Demo reference imagery for tree service (differentiator). Pexels License — replace with the operator's own photography for production."
+  },
+  "demo-tree-service-checklist-01": {
+    "id": "demo-tree-service-checklist-01",
+    "role": "checklist",
+    "url": "https://images.pexels.com/photos/3243/pexels-photo-3243.jpeg?auto=compress&cs=tinysrgb&w=800",
+    "source_page_url": "https://www.pexels.com/photo/pen-calendar-to-do-checklist-3243/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo by Breakingpic on Pexels",
+    "attribution_url": "https://www.pexels.com/@breakingpic",
+    "notes": "Demo reference imagery for tree service (checklist). Pexels License — replace with the operator's own photography for production."
+  },
+  "demo-tree-service-gallery-01": {
+    "id": "demo-tree-service-gallery-01",
+    "role": "gallery",
+    "url": "https://images.pexels.com/photos/209229/pexels-photo-209229.jpeg?auto=compress&cs=tinysrgb&w=800",
+    "source_page_url": "https://www.pexels.com/photo/man-cutting-tress-using-chainsaw-209229/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/",
+    "notes": "Demo reference imagery for tree service (gallery). Pexels License — replace with the operator's own photography for production."
+  },
+  "demo-tree-service-gallery-02": {
+    "id": "demo-tree-service-gallery-02",
+    "role": "gallery",
+    "url": "https://images.pexels.com/photos/15080633/pexels-photo-15080633.jpeg?auto=compress&cs=tinysrgb&w=800",
+    "source_page_url": "https://www.pexels.com/photo/cut-wood-logs-15080633/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/",
+    "notes": "Demo reference imagery for tree service (gallery). Pexels License — replace with the operator's own photography for production."
+  },
+  "demo-tree-service-gallery-03": {
+    "id": "demo-tree-service-gallery-03",
+    "role": "gallery",
+    "url": "https://images.pexels.com/photos/7061676/pexels-photo-7061676.jpeg?auto=compress&cs=tinysrgb&w=800",
+    "source_page_url": "https://www.pexels.com/photo/modern-cottage-with-green-backyard-7061676/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/",
+    "notes": "Demo reference imagery for tree service (gallery). Pexels License — replace with the operator's own photography for production."
+  }
+}

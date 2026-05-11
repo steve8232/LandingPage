@@ -13,16 +13,17 @@ import { Template } from '@/lib/templates';
 
 interface Step0TemplateSelectProps {
   onSelect: (template: Template, customizeWithUrl: boolean) => void;
+  onUseAsIs?: (template: Template) => void;
 }
 
-export default function Step0TemplateSelect({ onSelect }: Step0TemplateSelectProps) {
+export default function Step0TemplateSelect({ onSelect, onUseAsIs }: Step0TemplateSelectProps) {
   const [selectedTemplate, setSelectedTemplate] = useState<V1TemplateEntry | null>(null);
   const [customizeWithUrl, setCustomizeWithUrl] = useState(false);
   const [activeCategory, setActiveCategory] = useState<V1DisplayCategory | 'all'>('all');
   const [previewModal, setPreviewModal] = useState<V1TemplateEntry | null>(null);
 
   const categories: (V1DisplayCategory | 'all')[] = [
-    'all', 'saas', 'product', 'leadgen', 'waitlist', 'event'
+    'all', 'home', 'outdoor', 'wellness', 'auto'
   ];
 
   const filteredTemplates = activeCategory === 'all'
@@ -32,6 +33,12 @@ export default function Step0TemplateSelect({ onSelect }: Step0TemplateSelectPro
   const handleContinue = () => {
     if (selectedTemplate) {
       onSelect(v1EntryToTemplate(selectedTemplate), customizeWithUrl);
+    }
+  };
+
+  const handleUseAsIs = () => {
+    if (selectedTemplate && onUseAsIs) {
+      onUseAsIs(v1EntryToTemplate(selectedTemplate));
     }
   };
 
@@ -165,8 +172,21 @@ export default function Step0TemplateSelect({ onSelect }: Step0TemplateSelectPro
         </div>
       )}
 
-      {/* Continue Button */}
-      <div className="flex justify-center">
+      {/* Action Buttons */}
+      <div className="flex flex-col sm:flex-row justify-center gap-3">
+        {onUseAsIs && (
+          <button
+            onClick={handleUseAsIs}
+            disabled={!selectedTemplate}
+            className={`px-8 py-3 rounded-xl font-semibold transition-all ${
+              selectedTemplate
+                ? 'bg-white text-indigo-700 border-2 border-indigo-600 hover:bg-indigo-50'
+                : 'bg-gray-100 text-gray-400 border-2 border-gray-200 cursor-not-allowed'
+            }`}
+          >
+            Edit {selectedTemplate?.name || 'Template'} as-is →
+          </button>
+        )}
         <button
           onClick={handleContinue}
           disabled={!selectedTemplate}
@@ -176,7 +196,7 @@ export default function Step0TemplateSelect({ onSelect }: Step0TemplateSelectPro
               : 'bg-gray-200 text-gray-400 cursor-not-allowed'
           }`}
         >
-          Continue with {selectedTemplate?.name || 'Template'} →
+          Customize with my info →
         </button>
       </div>
 

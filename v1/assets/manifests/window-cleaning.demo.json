@@ -1,0 +1,68 @@
+{
+  "demo-window-cleaning-hero-01": {
+    "id": "demo-window-cleaning-hero-01",
+    "role": "hero",
+    "url": "https://images.pexels.com/photos/17975834/pexels-photo-17975834.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
+    "source_page_url": "https://www.pexels.com/photo/window-cleaning-platform-at-silver-office-building-17975834/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/",
+    "notes": "Demo reference imagery for window cleaning (hero). Pexels License — replace with the operator's own photography for production."
+  },
+  "demo-window-cleaning-differentiator-01": {
+    "id": "demo-window-cleaning-differentiator-01",
+    "role": "differentiator",
+    "url": "https://images.pexels.com/photos/5591490/pexels-photo-5591490.jpeg?auto=compress&cs=tinysrgb&w=800",
+    "source_page_url": "https://www.pexels.com/photo/woman-cleaning-a-mirror-5591490/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/",
+    "notes": "Demo reference imagery for window cleaning (differentiator). Pexels License — replace with the operator's own photography for production."
+  },
+  "demo-window-cleaning-checklist-01": {
+    "id": "demo-window-cleaning-checklist-01",
+    "role": "checklist",
+    "url": "https://images.pexels.com/photos/3243/pexels-photo-3243.jpeg?auto=compress&cs=tinysrgb&w=800",
+    "source_page_url": "https://www.pexels.com/photo/pen-calendar-to-do-checklist-3243/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo by Breakingpic on Pexels",
+    "attribution_url": "https://www.pexels.com/@breakingpic",
+    "notes": "Demo reference imagery for window cleaning (checklist). Pexels License — replace with the operator's own photography for production."
+  },
+  "demo-window-cleaning-gallery-01": {
+    "id": "demo-window-cleaning-gallery-01",
+    "role": "gallery",
+    "url": "https://images.pexels.com/photos/17975834/pexels-photo-17975834.jpeg?auto=compress&cs=tinysrgb&w=800",
+    "source_page_url": "https://www.pexels.com/photo/window-cleaning-platform-at-silver-office-building-17975834/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/",
+    "notes": "Demo reference imagery for window cleaning (gallery). Pexels License — replace with the operator's own photography for production."
+  },
+  "demo-window-cleaning-gallery-02": {
+    "id": "demo-window-cleaning-gallery-02",
+    "role": "gallery",
+    "url": "https://images.pexels.com/photos/5591490/pexels-photo-5591490.jpeg?auto=compress&cs=tinysrgb&w=800",
+    "source_page_url": "https://www.pexels.com/photo/woman-cleaning-a-mirror-5591490/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/",
+    "notes": "Demo reference imagery for window cleaning (gallery). Pexels License — replace with the operator's own photography for production."
+  },
+  "demo-window-cleaning-gallery-03": {
+    "id": "demo-window-cleaning-gallery-03",
+    "role": "gallery",
+    "url": "https://images.pexels.com/photos/17975834/pexels-photo-17975834.jpeg?auto=compress&cs=tinysrgb&w=800",
+    "source_page_url": "https://www.pexels.com/photo/window-cleaning-platform-at-silver-office-building-17975834/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/",
+    "notes": "Demo reference imagery for window cleaning (gallery). Pexels License — replace with the operator's own photography for production."
+  }
+}

@@ -11,20 +11,11 @@ import GeneratingScreen from '@/components/GeneratingScreen';
 import PreviewDownload from '@/components/PreviewDownload';
 import { FormData, GeneratedLandingPage, DesignInput, BusinessInfo, ContactInfo, Template } from '@/types';
 import {
-  DUMMY_PRESETS,
-  getDummyPreset,
-  isDummyPresetId,
-  type DummyPresetId,
-} from '@/lib/dummyPresets';
-import {
-  loadLastDummyPresetId,
-  saveLastDummyPresetId,
-} from '@/lib/dummyPresetStorage';
-import {
   clearActiveV1EditorSession,
   loadActiveV1EditorSession,
   makeClientResultId,
 } from '@/lib/v1EditorStorage';
+import { buildPrefillFromSpec } from '@/lib/specToFormData';
 
 type AppState = 'welcome' | 'form' | 'generating' | 'preview';
 
@@ -55,7 +46,6 @@ export default function Home() {
   const [appState, setAppState] = useState<AppState>('welcome');
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState<FormData>(initialFormData);
-  const [dummyPresetId, setDummyPresetId] = useState<DummyPresetId>('saas');
   const [generatingStage, setGeneratingStage] = useState('');
   const [landingPage, setLandingPage] = useState<GeneratedLandingPage | null>(null);
   const [error, setError] = useState('');
@@ -129,42 +119,72 @@ export default function Home() {
     };
   }, []);
 
-  // Load last used dummy preset selection (client-only).
-  useEffect(() => {
-    const last = loadLastDummyPresetId();
-    if (last) setDummyPresetId(last);
-  }, []);
-
   // Determine which steps to show based on whether user wants to customize with URL
   const steps = formData.customizeWithUrl ? STEPS_WITH_DESIGN : STEPS_NO_DESIGN;
 
   const updateTemplate = (template: Template, customizeWithUrl: boolean) => {
-    setFormData(prev => ({ ...prev, selectedTemplate: template, customizeWithUrl }));
+    setFormData(prev => {
+      // Pre-fill wizard fields from the spec so the Business Information
+      // step opens with niche-appropriate copy instead of empty inputs.
+      // Only fields the user has not already edited are overwritten.
+      const prefill = buildPrefillFromSpec(template.id);
+      const prevBusiness = prev.business;
+      const prevContact = prev.contact;
+      const isEmptyBusiness = !prevBusiness.productService && !prevBusiness.offer
+        && !prevBusiness.pricing && !prevBusiness.cta
+        && !prevBusiness.uniqueValue && !prevBusiness.customerLove;
+      const isEmptyContact = !prevContact.email && !prevContact.phone;
+      return {
+        ...prev,
+        selectedTemplate: template,
+        customizeWithUrl,
+        business: prefill && isEmptyBusiness ? prefill.business : prevBusiness,
+        contact: prefill && isEmptyContact ? prefill.contact : prevContact,
+      };
+    });
     setCurrentStep(1);
   };
   const updateDesign = (design: DesignInput) => setFormData(prev => ({ ...prev, design }));
   const updateBusiness = (business: BusinessInfo) => setFormData(prev => ({ ...prev, business }));
   const updateContact = (contact: ContactInfo) => setFormData(prev => ({ ...prev, contact }));
 
-  const handleFillWithDummyData = () => {
-    const preset = getDummyPreset(dummyPresetId);
-    saveLastDummyPresetId(preset.id);
+  // Skip the wizard and render the chosen template with its built-in spec
+  // defaults (no AI rewrite). The user can still edit everything afterwards in
+  // the editor sidebar; their inputs there will become per-section overrides.
+  const useTemplateAsIs = async (template: Template) => {
     setError('');
-    setFormData(preset.formData);
-
-    // Step 0 (template picker) has internal selection state, so moving forward
-    // is the least surprising way to ensure the filled template is actually used.
-    const nextSteps = preset.formData.customizeWithUrl ? STEPS_WITH_DESIGN : STEPS_NO_DESIGN;
-    setCurrentStep((prev) => {
-      if (prev === 0) return 1;
-      return Math.min(prev, nextSteps.length - 1);
-    });
-  };
-
-  const handleDummyPresetChange = (value: string) => {
-    if (!isDummyPresetId(value)) return;
-    setDummyPresetId(value);
-    saveLastDummyPresetId(value);
+    setFormData(prev => ({ ...prev, selectedTemplate: template, customizeWithUrl: false }));
+    setGeneratingStage('Loading template…');
+    setAppState('generating');
+    try {
+      const res = await fetch('/api/v1/compose', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ templateId: template.id }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error((data as any)?.error || `Failed to load template (${res.status})`);
+      }
+      const data = (await res.json()) as { html?: unknown };
+      const html = typeof data.html === 'string' ? data.html : '';
+      if (!html) throw new Error('Failed to load template: missing HTML');
+      setLandingPage({
+        html,
+        css: '',
+        preview: html,
+        v1: {
+          templateId: template.id,
+          overrides: undefined,
+          resultId: makeClientResultId(),
+        },
+      });
+      setAppState('preview');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load template');
+      setAppState('form');
+      setCurrentStep(0);
+    }
   };
 
   const generateLandingPage = async () => {
@@ -265,7 +285,10 @@ export default function Home() {
     // Step 0: Template Selection
     if (currentStep === 0) {
       return (
-        <Step0TemplateSelect onSelect={updateTemplate} />
+        <Step0TemplateSelect
+          onSelect={updateTemplate}
+          onUseAsIs={useTemplateAsIs}
+        />
       );
     }
 
@@ -343,42 +366,6 @@ export default function Home() {
       <div className={currentStep === 0 ? "max-w-5xl mx-auto" : "max-w-2xl mx-auto"}>
         <div className="bg-white rounded-2xl shadow-xl p-6 md:p-8">
           <ProgressIndicator currentStep={currentStep} steps={steps} />
-
-            {/* Quick start: dummy presets */}
-            <div className="mt-6 mb-6 rounded-xl border border-indigo-100 bg-indigo-50 p-4">
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                <div>
-                  <div className="font-semibold text-indigo-900">Use dummy data</div>
-                  <div className="text-sm text-indigo-800">
-                    Fill the form with realistic example values (you can edit everything after).
-                  </div>
-                </div>
-                <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
-                  <select
-                    value={dummyPresetId}
-                    onChange={(e) => handleDummyPresetChange(e.target.value)}
-                    className="w-full sm:w-auto px-3 py-2 border border-indigo-200 rounded-lg bg-white text-gray-900"
-                  >
-                    {DUMMY_PRESETS.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.label}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={handleFillWithDummyData}
-                    className="w-full sm:w-auto px-4 py-2 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition-colors"
-                  >
-                    Fill with dummy data
-                  </button>
-                </div>
-              </div>
-
-              <div className="mt-2 text-xs text-indigo-900/80">
-                {DUMMY_PRESETS.find((p) => p.id === dummyPresetId)?.description}
-              </div>
-            </div>
 
           {error && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">

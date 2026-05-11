@@ -106,7 +106,7 @@ LANDING PAGE BLUEPRINT:
 - Template: ${spec.metadata.name}
 - Category: ${spec.category}
 - Conversion Goal: ${spec.goal}
-- Tone: ${tone}
+- Tone: ${tone}${spec.niche ? `\n- Niche: ${spec.niche} — copy should sound like it was written for this exact business type, with niche-specific terms, common pains, and reassurances.` : ''}
 
 SECTIONS TO FILL (in order of appearance):
 
@@ -230,6 +230,7 @@ function mapToOverrides(
     (entry: V1SectionEntry) => {
       switch (entry.type) {
         case 'HeroSplit':
+        case 'HeroLeadForm':
           return {
             headline: ai.heroHeadline,
             subheadline: ai.heroSubheadline,
@@ -325,6 +326,7 @@ function buildFallbackOverrides(
     (entry: V1SectionEntry) => {
       switch (entry.type) {
         case 'HeroSplit':
+        case 'HeroLeadForm':
           return {
             headline: biz.uniqueValue || biz.productService || entry.props.headline,
             subheadline: biz.offer || entry.props.subheadline,

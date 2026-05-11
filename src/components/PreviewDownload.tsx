@@ -42,9 +42,11 @@ type V1SpecResponse = {
   category?: string;
   goal?: string;
   theme?: string;
+  niche?: string;
   metadata?: { name?: string; description?: string };
   sections: V1SpecSection[];
   assets?: Record<string, string>;
+  assetSearchSeeds?: Record<string, string>;
   resolvedAssets?: Record<string, string>;
 };
 
@@ -671,6 +673,16 @@ export default function PreviewDownload({
       setV1SelectedAssetKey(v1ImageSlots[0].assetKey);
     }
   }, [v1Spec, v1ImageSlots, v1SelectedAssetKey]);
+
+  // Pre-fill the stock-image search query with a niche-relevant seed whenever
+  // the selected image slot changes. Honours per-asset seeds first, then the
+  // spec-level niche, so the user gets useful results on the first search.
+  useEffect(() => {
+    if (!v1Spec || !v1SelectedAssetKey) return;
+    const seeds = v1Spec.assetSearchSeeds || {};
+    const seed = seeds[v1SelectedAssetKey] || v1Spec.niche || '';
+    if (seed) setStockQuery(seed);
+  }, [v1Spec, v1SelectedAssetKey]);
 
 
   // v1 click-to-edit (images + sections): when in Edit mode, clicking elements
@@ -1568,10 +1580,11 @@ export default function PreviewDownload({
                                   </div>
 
                                   {/* Per-type editors */}
-                                  {selectedV1Section.type === 'HeroSplit' && (() => {
+                                  {(selectedV1Section.type === 'HeroSplit' || selectedV1Section.type === 'HeroLeadForm') && (() => {
                                     const eff = selectedV1Section.effective;
                                     const bulletsText = asStringArray(eff.bullets).join('\n');
                                     const proofText = asStringArray(eff.proofPoints).join('\n');
+                                    const isLeadForm = selectedV1Section.type === 'HeroLeadForm';
                                     return (
                                       <div className="space-y-3">
                                         <div>
@@ -1638,6 +1651,98 @@ export default function PreviewDownload({
                                             className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
                                             rows={3}
                                           />
+                                        </div>
+                                        {isLeadForm && (
+                                          <div className="grid grid-cols-2 gap-2">
+                                            <div>
+                                              <label className="block text-xs font-medium text-gray-700 mb-1">Form heading</label>
+                                              <input
+                                                value={asString(eff.formHeading)}
+                                                onChange={(e) => updateV1Section(v1SelectedSpecIndex, { formHeading: e.target.value })}
+                                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                              />
+                                            </div>
+                                            <div>
+                                              <label className="block text-xs font-medium text-gray-700 mb-1">Form subheading</label>
+                                              <input
+                                                value={asString(eff.formSubheading)}
+                                                onChange={(e) => updateV1Section(v1SelectedSpecIndex, { formSubheading: e.target.value })}
+                                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                              />
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })()}
+
+                                  {selectedV1Section.type === 'Footer' && (() => {
+                                    const eff = selectedV1Section.effective;
+                                    return (
+                                      <div className="space-y-3">
+                                        <div className="text-[11px] text-gray-500 -mt-1">
+                                          Business info shown in the page footer. These default to the template&apos;s spec values; your edits become per-section overrides.
+                                        </div>
+                                        <div>
+                                          <label className="block text-xs font-medium text-gray-700 mb-1">Business name</label>
+                                          <input
+                                            value={asString(eff.brandName)}
+                                            onChange={(e) => updateV1Section(v1SelectedSpecIndex, { brandName: e.target.value })}
+                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                          />
+                                        </div>
+                                        <div>
+                                          <label className="block text-xs font-medium text-gray-700 mb-1">Tagline</label>
+                                          <textarea
+                                            value={asString(eff.tagline)}
+                                            onChange={(e) => updateV1Section(v1SelectedSpecIndex, { tagline: e.target.value })}
+                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                            rows={2}
+                                          />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-2">
+                                          <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Phone</label>
+                                            <input
+                                              value={asString(eff.phone)}
+                                              onChange={(e) => updateV1Section(v1SelectedSpecIndex, { phone: e.target.value })}
+                                              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                            />
+                                          </div>
+                                          <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Email</label>
+                                            <input
+                                              value={asString(eff.email)}
+                                              onChange={(e) => updateV1Section(v1SelectedSpecIndex, { email: e.target.value })}
+                                              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                            />
+                                          </div>
+                                        </div>
+                                        <div>
+                                          <label className="block text-xs font-medium text-gray-700 mb-1">Address / service area</label>
+                                          <input
+                                            value={asString(eff.address)}
+                                            onChange={(e) => updateV1Section(v1SelectedSpecIndex, { address: e.target.value })}
+                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                          />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-2">
+                                          <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Hours</label>
+                                            <input
+                                              value={asString(eff.hours)}
+                                              onChange={(e) => updateV1Section(v1SelectedSpecIndex, { hours: e.target.value })}
+                                              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                            />
+                                          </div>
+                                          <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">License line</label>
+                                            <input
+                                              value={asString(eff.licenseLine)}
+                                              onChange={(e) => updateV1Section(v1SelectedSpecIndex, { licenseLine: e.target.value })}
+                                              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                            />
+                                          </div>
                                         </div>
                                       </div>
                                     );

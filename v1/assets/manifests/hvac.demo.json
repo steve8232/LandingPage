@@ -1,0 +1,68 @@
+{
+  "demo-hvac-hero-01": {
+    "id": "demo-hvac-hero-01",
+    "role": "hero",
+    "url": "https://images.pexels.com/photos/28726413/pexels-photo-28726413.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
+    "source_page_url": "https://www.pexels.com/photo/industrial-air-conditioning-units-on-warehouse-wall-28726413/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/",
+    "notes": "Demo reference imagery for hvac (hero). Pexels License — replace with the operator's own photography for production."
+  },
+  "demo-hvac-differentiator-01": {
+    "id": "demo-hvac-differentiator-01",
+    "role": "differentiator",
+    "url": "https://images.pexels.com/photos/14054757/pexels-photo-14054757.jpeg?auto=compress&cs=tinysrgb&w=800",
+    "source_page_url": "https://www.pexels.com/photo/residential-building-with-air-conditioners-14054757/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/",
+    "notes": "Demo reference imagery for hvac (differentiator). Pexels License — replace with the operator's own photography for production."
+  },
+  "demo-hvac-checklist-01": {
+    "id": "demo-hvac-checklist-01",
+    "role": "checklist",
+    "url": "https://images.pexels.com/photos/3243/pexels-photo-3243.jpeg?auto=compress&cs=tinysrgb&w=800",
+    "source_page_url": "https://www.pexels.com/photo/pen-calendar-to-do-checklist-3243/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo by Breakingpic on Pexels",
+    "attribution_url": "https://www.pexels.com/@breakingpic",
+    "notes": "Demo reference imagery for hvac (checklist). Pexels License — replace with the operator's own photography for production."
+  },
+  "demo-hvac-gallery-01": {
+    "id": "demo-hvac-gallery-01",
+    "role": "gallery",
+    "url": "https://images.pexels.com/photos/28726413/pexels-photo-28726413.jpeg?auto=compress&cs=tinysrgb&w=800",
+    "source_page_url": "https://www.pexels.com/photo/industrial-air-conditioning-units-on-warehouse-wall-28726413/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/",
+    "notes": "Demo reference imagery for hvac (gallery). Pexels License — replace with the operator's own photography for production."
+  },
+  "demo-hvac-gallery-02": {
+    "id": "demo-hvac-gallery-02",
+    "role": "gallery",
+    "url": "https://images.pexels.com/photos/14054757/pexels-photo-14054757.jpeg?auto=compress&cs=tinysrgb&w=800",
+    "source_page_url": "https://www.pexels.com/photo/residential-building-with-air-conditioners-14054757/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/",
+    "notes": "Demo reference imagery for hvac (gallery). Pexels License — replace with the operator's own photography for production."
+  },
+  "demo-hvac-gallery-03": {
+    "id": "demo-hvac-gallery-03",
+    "role": "gallery",
+    "url": "https://images.pexels.com/photos/3243/pexels-photo-3243.jpeg?auto=compress&cs=tinysrgb&w=800",
+    "source_page_url": "https://www.pexels.com/photo/pen-calendar-to-do-checklist-3243/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo by Breakingpic on Pexels",
+    "attribution_url": "https://www.pexels.com/@breakingpic",
+    "notes": "Demo reference imagery for hvac (gallery). Pexels License — replace with the operator's own photography for production."
+  }
+}

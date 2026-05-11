@@ -1,7 +1,7 @@
 import type { FormData } from '@/types';
 import { v1EntryToTemplate, v1Templates } from '@/lib/v1Templates';
 
-export type DummyPresetId = 'saas' | 'agency' | 'ecommerce' | 'creator';
+export type DummyPresetId = 'plumber' | 'lawn' | 'medspa' | 'autodetail';
 
 export interface DummyPreset {
   id: DummyPresetId;
@@ -18,34 +18,34 @@ function v1TemplateById(templateId: string) {
 }
 
 export function isDummyPresetId(v: unknown): v is DummyPresetId {
-  return v === 'saas' || v === 'agency' || v === 'ecommerce' || v === 'creator';
+  return v === 'plumber' || v === 'lawn' || v === 'medspa' || v === 'autodetail';
 }
 
 export const DUMMY_PRESETS: DummyPreset[] = [
   {
-    id: 'saas',
-    label: 'SaaS',
-    description: 'B2B SaaS with free trial and a product-led CTA.',
+    id: 'plumber',
+    label: 'Plumber',
+    description: 'Residential plumbing with emergency service and flat-rate quotes.',
     formData: {
-      selectedTemplate: v1TemplateById('v1-saas-modern-light'),
+      selectedTemplate: v1TemplateById('v1-plumber'),
       customizeWithUrl: false,
       design: {
         option: 'description',
         url: 'https://example.com',
         description:
-          'Clean, modern SaaS design. Lots of whitespace, subtle gradients, crisp typography, and a confident blue primary CTA.',
+          'High-trust home-services design: confident blue primary, clean type, and a strong above-the-fold quote form.',
         designAnalysis:
-          'Clean, modern SaaS design with whitespace, subtle gradients, crisp typography, and a confident blue primary CTA.',
+          'High-trust home-services design: confident blue primary, clean type, and a strong above-the-fold quote form.',
       },
       business: {
-        productService: 'FluxMetrics — analytics that teams actually use',
-        offer: '14-day free trial (no credit card)',
-        pricing: 'From $29/mo (Starter) · $99/mo (Team)',
-        cta: 'Start free trial',
+        productService: 'Riverstone Plumbing — residential + light-commercial plumbing',
+        offer: 'Free flat-rate quote · Same-day appointments',
+        pricing: 'Flat-rate pricing · 2-year warranty on parts and labor',
+        cta: 'Get my free quote',
         uniqueValue:
-          'Set up in 10 minutes, track your full funnel, and get weekly insights your team will act on — without a data warehouse.',
+          '24/7 emergency service, up-front flat-rate pricing, and a 2-year warranty on every job — no hourly surprises.',
         customerLove:
-          'They love the fast setup, clear dashboards, and the weekly “what to do next” insights that save hours of analysis.',
+          'Customers love the fast response, clean workmanship, and that the price they’re quoted is the price they pay.',
         images: [],
         templateAnswers: {
           hideTestimonials: false,
@@ -53,71 +53,35 @@ export const DUMMY_PRESETS: DummyPreset[] = [
         },
       },
       contact: {
-        email: 'hello@fluxmetrics.example.com',
-        phone: '5550101234',
+        email: 'dispatch@riverstoneplumbing.example.com',
+        phone: '5550112233',
       },
     },
   },
   {
-    id: 'agency',
-    label: 'Agency / Consulting',
-    description: 'Lead-gen consulting page with an audit offer.',
+    id: 'lawn',
+    label: 'Lawn & Landscaping',
+    description: 'Lawn care and landscaping with weekly routes and clear estimates.',
     formData: {
-      selectedTemplate: v1TemplateById('v1-professional-consulting'),
+      selectedTemplate: v1TemplateById('v1-lawn-landscaping'),
       customizeWithUrl: false,
       design: {
         option: 'description',
         url: 'https://example.com',
         description:
-          'Professional consulting look: neutral palette, strong contrast headings, trust-forward layout, and a single primary CTA.',
+          'Clean outdoor-services look: green primary, friendly type, and a no-friction estimate form.',
         designAnalysis:
-          'Professional consulting look: neutral palette, trust-forward layout, and a single primary CTA.',
+          'Clean outdoor-services look: green primary, friendly type, and a no-friction estimate form.',
       },
       business: {
-        productService: 'Northwind Growth Studio (B2B pipeline + positioning)',
-        offer: 'Free 30-minute growth audit',
-        pricing: 'Engagements from $2,500/mo',
-        cta: 'Book your audit',
+        productService: 'Greenleaf Lawn & Landscape — weekly mowing, cleanups, beds & landscape installs',
+        offer: 'Free on-site estimate within 24 hours',
+        pricing: 'Weekly mowing from $45 · Landscape installs by quote',
+        cta: 'Get my free estimate',
         uniqueValue:
-          'We combine positioning, landing pages, and paid search to turn “maybe later” traffic into qualified pipeline — with weekly deliverables.',
+          'Reliable weekly routes, two-person crews, and a same-week start on most installs — backed by a satisfaction guarantee.',
         customerLove:
-          'Clients mention clearer messaging, faster lead response, and a noticeable lift in booked calls within the first month.',
-        images: [],
-        templateAnswers: {
-          hideTestimonials: false,
-          hideImages: true,
-        },
-      },
-      contact: {
-        email: 'audit@northwind.example.com',
-        phone: '5550102345',
-      },
-    },
-  },
-  {
-    id: 'ecommerce',
-    label: 'E-commerce',
-    description: 'Product-focused page with a direct purchase CTA.',
-    formData: {
-      selectedTemplate: v1TemplateById('v1-ecommerce-clean-warm'),
-      customizeWithUrl: false,
-      design: {
-        option: 'description',
-        url: 'https://example.com',
-        description:
-          'Warm, minimal e-commerce design with lifestyle imagery, bold product value props, and a high-contrast “Shop” CTA.',
-        designAnalysis:
-          'Warm, minimal e-commerce design with lifestyle imagery, bold value props, and a high-contrast “Shop” CTA.',
-      },
-      business: {
-        productService: 'Cedar & Saffron — small-batch candles + room mists',
-        offer: 'Limited-time launch bundle (save 20%)',
-        pricing: '$39 each · Bundles from $99',
-        cta: 'Shop the collection',
-        uniqueValue:
-          'Clean ingredients, long burn time, and scents designed to feel like a place — not a perfume counter.',
-        customerLove:
-          'Customers say the scents are strong but never overpowering, shipping is fast, and the packaging feels gift-ready.',
+          'Customers love the consistent crew, the tidy finish line, and that we actually show up the day we say we will.',
         images: [],
         templateAnswers: {
           hideTestimonials: false,
@@ -125,44 +89,80 @@ export const DUMMY_PRESETS: DummyPreset[] = [
         },
       },
       contact: {
-        email: 'support@cedarandsaffron.example.com',
-        phone: '5550103456',
+        email: 'hello@greenleaflawn.example.com',
+        phone: '5550113344',
       },
     },
   },
   {
-    id: 'creator',
-    label: 'Creator / Waitlist',
-    description: 'Coming-soon waitlist for a digital product.',
+    id: 'medspa',
+    label: 'Med Spa',
+    description: 'Medical spa with Botox, fillers, lasers, and free consults.',
     formData: {
-      selectedTemplate: v1TemplateById('v1-coming-soon-vibrant-light'),
+      selectedTemplate: v1TemplateById('v1-med-spa'),
       customizeWithUrl: false,
       design: {
         option: 'description',
         url: 'https://example.com',
         description:
-          'Playful, vibrant creator vibe with gradients, friendly typography, and an optimistic early-access waitlist CTA.',
+          'Warm, premium wellness palette with soft neutrals, elegant type, and an inviting consult-booking form.',
         designAnalysis:
-          'Playful, vibrant creator vibe with gradients, friendly typography, and an optimistic early-access waitlist CTA.',
+          'Warm, premium wellness palette with soft neutrals, elegant type, and an inviting consult-booking form.',
       },
       business: {
-        productService: 'The Notion Sprint Kit — templates + prompts for shipping weekly',
-        offer: 'Early access + bonus template pack',
-        pricing: 'Free for early members (paid later)',
-        cta: 'Join the waitlist',
+        productService: 'Lumière Aesthetics — Botox, fillers, laser, facials, body contouring',
+        offer: 'Free 30-minute consultation',
+        pricing: 'Botox from $12/unit · Filler from $650/syringe · Laser packages by plan',
+        cta: 'Book my free consult',
         uniqueValue:
-          'A lightweight system to plan, ship, and review every week — built for creators who want momentum without burnout.',
+          'MD-supervised treatments, board-certified injectors, and honest plans — we tell you the smallest thing that gets the result you want.',
         customerLove:
-          'People love the simplicity: fewer tools, clearer priorities, and a weekly ritual that actually gets shipped work out the door.',
+          'Clients love the natural-looking results, the calm, no-pressure atmosphere, and that the team genuinely listens.',
         images: [],
         templateAnswers: {
-          hideTestimonials: true,
-          hideImages: true,
+          hideTestimonials: false,
+          hideImages: false,
         },
       },
       contact: {
-        email: 'earlyaccess@notionsprint.example.com',
-        phone: '5550104567',
+        email: 'concierge@lumiereaesthetics.example.com',
+        phone: '5550114455',
+      },
+    },
+  },
+  {
+    id: 'autodetail',
+    label: 'Auto Detail',
+    description: 'Mobile auto detailing with paint correction and ceramic coatings.',
+    formData: {
+      selectedTemplate: v1TemplateById('v1-auto-detail'),
+      customizeWithUrl: false,
+      design: {
+        option: 'description',
+        url: 'https://example.com',
+        description:
+          'Bold automotive vibe: high-contrast palette, confident type, and a clear quote-request form.',
+        designAnalysis:
+          'Bold automotive vibe: high-contrast palette, confident type, and a clear quote-request form.',
+      },
+      business: {
+        productService: 'Apex Mobile Detail — paint correction, ceramic coatings, full interiors',
+        offer: 'Free same-day quote · Mobile service to your driveway',
+        pricing: 'Maintenance wash from $89 · Correction from $499 · Ceramic from $899',
+        cta: 'Request my free quote',
+        uniqueValue:
+          'Pro-grade products, paint-safe technique, and a visible-difference guarantee — we bring power and water to you.',
+        customerLove:
+          'Customers love the showroom-clean finish, the meticulous attention to detail, and that the truck shows up on time, every time.',
+        images: [],
+        templateAnswers: {
+          hideTestimonials: false,
+          hideImages: false,
+        },
+      },
+      contact: {
+        email: 'book@apexmobiledetail.example.com',
+        phone: '5550115566',
       },
     },
   },

@@ -23,19 +23,19 @@ globalThis.fetch = async () => {
   throw new Error('fetch disabled in verify-v1-adapter');
 };
 
-const templateId = 'v1-saas-modern-light';
+const templateId = 'v1-plumber';
 
 const formData = {
   selectedTemplate: { id: templateId, name: templateId },
   customizeWithUrl: false,
   design: { option: 'description', description: 'test', designAnalysis: '' },
   business: {
-    productService: 'Example SaaS',
-    offer: '14-day free trial',
-    pricing: '$29/mo',
-    cta: 'Start free trial',
-    uniqueValue: 'Ship faster with fewer meetings.',
-    customerLove: 'Simple setup and great support.',
+    productService: 'Riverstone Plumbing',
+    offer: 'Free flat-rate quote',
+    pricing: 'Flat-rate pricing',
+    cta: 'Get my free quote',
+    uniqueValue: '24/7 emergency service with up-front pricing.',
+    customerLove: 'Fast response and clean workmanship.',
     images: [],
     // Ensure the v1 adapter accepts template-specific answers (used by the
     // generator UI for toggles like hiding testimonial/image sections).

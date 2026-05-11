@@ -1,0 +1,68 @@
+{
+  "demo-fencing-hero-01": {
+    "id": "demo-fencing-hero-01",
+    "role": "hero",
+    "url": "https://images.pexels.com/photos/1029599/pexels-photo-1029599.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
+    "source_page_url": "https://www.pexels.com/photo/white-and-red-wooden-house-with-fence-1029599/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/",
+    "notes": "Demo reference imagery for fencing (hero). Pexels License — replace with the operator's own photography for production."
+  },
+  "demo-fencing-differentiator-01": {
+    "id": "demo-fencing-differentiator-01",
+    "role": "differentiator",
+    "url": "https://images.pexels.com/photos/7061676/pexels-photo-7061676.jpeg?auto=compress&cs=tinysrgb&w=800",
+    "source_page_url": "https://www.pexels.com/photo/modern-cottage-with-green-backyard-7061676/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/",
+    "notes": "Demo reference imagery for fencing (differentiator). Pexels License — replace with the operator's own photography for production."
+  },
+  "demo-fencing-checklist-01": {
+    "id": "demo-fencing-checklist-01",
+    "role": "checklist",
+    "url": "https://images.pexels.com/photos/3243/pexels-photo-3243.jpeg?auto=compress&cs=tinysrgb&w=800",
+    "source_page_url": "https://www.pexels.com/photo/pen-calendar-to-do-checklist-3243/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo by Breakingpic on Pexels",
+    "attribution_url": "https://www.pexels.com/@breakingpic",
+    "notes": "Demo reference imagery for fencing (checklist). Pexels License — replace with the operator's own photography for production."
+  },
+  "demo-fencing-gallery-01": {
+    "id": "demo-fencing-gallery-01",
+    "role": "gallery",
+    "url": "https://images.pexels.com/photos/1029599/pexels-photo-1029599.jpeg?auto=compress&cs=tinysrgb&w=800",
+    "source_page_url": "https://www.pexels.com/photo/white-and-red-wooden-house-with-fence-1029599/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/",
+    "notes": "Demo reference imagery for fencing (gallery). Pexels License — replace with the operator's own photography for production."
+  },
+  "demo-fencing-gallery-02": {
+    "id": "demo-fencing-gallery-02",
+    "role": "gallery",
+    "url": "https://images.pexels.com/photos/27756224/pexels-photo-27756224.jpeg?auto=compress&cs=tinysrgb&w=800",
+    "source_page_url": "https://www.pexels.com/photo/a-vine-growing-on-a-wooden-fence-27756224/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/",
+    "notes": "Demo reference imagery for fencing (gallery). Pexels License — replace with the operator's own photography for production."
+  },
+  "demo-fencing-gallery-03": {
+    "id": "demo-fencing-gallery-03",
+    "role": "gallery",
+    "url": "https://images.pexels.com/photos/7061676/pexels-photo-7061676.jpeg?auto=compress&cs=tinysrgb&w=800",
+    "source_page_url": "https://www.pexels.com/photo/modern-cottage-with-green-backyard-7061676/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/",
+    "notes": "Demo reference imagery for fencing (gallery). Pexels License — replace with the operator's own photography for production."
+  }
+}

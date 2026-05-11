@@ -1,0 +1,68 @@
+{
+  "demo-med-spa-hero-01": {
+    "id": "demo-med-spa-hero-01",
+    "role": "hero",
+    "url": "https://images.pexels.com/photos/19242408/pexels-photo-19242408.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
+    "source_page_url": "https://www.pexels.com/photo/woman-doing-treatment-at-a-beautician-19242408/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/",
+    "notes": "Demo reference imagery for med spa (hero). Pexels License — replace with the operator's own photography for production."
+  },
+  "demo-med-spa-differentiator-01": {
+    "id": "demo-med-spa-differentiator-01",
+    "role": "differentiator",
+    "url": "https://images.pexels.com/photos/34930129/pexels-photo-34930129.jpeg?auto=compress&cs=tinysrgb&w=800",
+    "source_page_url": "https://www.pexels.com/photo/relaxing-spa-facial-with-green-clay-mask-34930129/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/",
+    "notes": "Demo reference imagery for med spa (differentiator). Pexels License — replace with the operator's own photography for production."
+  },
+  "demo-med-spa-checklist-01": {
+    "id": "demo-med-spa-checklist-01",
+    "role": "checklist",
+    "url": "https://images.pexels.com/photos/3243/pexels-photo-3243.jpeg?auto=compress&cs=tinysrgb&w=800",
+    "source_page_url": "https://www.pexels.com/photo/pen-calendar-to-do-checklist-3243/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo by Breakingpic on Pexels",
+    "attribution_url": "https://www.pexels.com/@breakingpic",
+    "notes": "Demo reference imagery for med spa (checklist). Pexels License — replace with the operator's own photography for production."
+  },
+  "demo-med-spa-gallery-01": {
+    "id": "demo-med-spa-gallery-01",
+    "role": "gallery",
+    "url": "https://images.pexels.com/photos/19242408/pexels-photo-19242408.jpeg?auto=compress&cs=tinysrgb&w=800",
+    "source_page_url": "https://www.pexels.com/photo/woman-doing-treatment-at-a-beautician-19242408/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/",
+    "notes": "Demo reference imagery for med spa (gallery). Pexels License — replace with the operator's own photography for production."
+  },
+  "demo-med-spa-gallery-02": {
+    "id": "demo-med-spa-gallery-02",
+    "role": "gallery",
+    "url": "https://images.pexels.com/photos/34930129/pexels-photo-34930129.jpeg?auto=compress&cs=tinysrgb&w=800",
+    "source_page_url": "https://www.pexels.com/photo/relaxing-spa-facial-with-green-clay-mask-34930129/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/",
+    "notes": "Demo reference imagery for med spa (gallery). Pexels License — replace with the operator's own photography for production."
+  },
+  "demo-med-spa-gallery-03": {
+    "id": "demo-med-spa-gallery-03",
+    "role": "gallery",
+    "url": "https://images.pexels.com/photos/5659020/pexels-photo-5659020.jpeg?auto=compress&cs=tinysrgb&w=800",
+    "source_page_url": "https://www.pexels.com/photo/a-person-massaging-a-woman-s-face-5659020/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/",
+    "notes": "Demo reference imagery for med spa (gallery). Pexels License — replace with the operator's own photography for production."
+  }
+}

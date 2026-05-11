@@ -1,0 +1,68 @@
+{
+  "demo-house-cleaning-hero-01": {
+    "id": "demo-house-cleaning-hero-01",
+    "role": "hero",
+    "url": "https://images.pexels.com/photos/9462309/pexels-photo-9462309.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
+    "source_page_url": "https://www.pexels.com/photo/happy-woman-cleaning-the-sink-9462309/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/",
+    "notes": "Demo reference imagery for house cleaning (hero). Pexels License — replace with the operator's own photography for production."
+  },
+  "demo-house-cleaning-differentiator-01": {
+    "id": "demo-house-cleaning-differentiator-01",
+    "role": "differentiator",
+    "url": "https://images.pexels.com/photos/7747511/pexels-photo-7747511.jpeg?auto=compress&cs=tinysrgb&w=800",
+    "source_page_url": "https://www.pexels.com/photo/confident-woman-in-uniform-with-broom-for-dusting-7747511/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/",
+    "notes": "Demo reference imagery for house cleaning (differentiator). Pexels License — replace with the operator's own photography for production."
+  },
+  "demo-house-cleaning-checklist-01": {
+    "id": "demo-house-cleaning-checklist-01",
+    "role": "checklist",
+    "url": "https://images.pexels.com/photos/3243/pexels-photo-3243.jpeg?auto=compress&cs=tinysrgb&w=800",
+    "source_page_url": "https://www.pexels.com/photo/pen-calendar-to-do-checklist-3243/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo by Breakingpic on Pexels",
+    "attribution_url": "https://www.pexels.com/@breakingpic",
+    "notes": "Demo reference imagery for house cleaning (checklist). Pexels License — replace with the operator's own photography for production."
+  },
+  "demo-house-cleaning-gallery-01": {
+    "id": "demo-house-cleaning-gallery-01",
+    "role": "gallery",
+    "url": "https://images.pexels.com/photos/9462309/pexels-photo-9462309.jpeg?auto=compress&cs=tinysrgb&w=800",
+    "source_page_url": "https://www.pexels.com/photo/happy-woman-cleaning-the-sink-9462309/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/",
+    "notes": "Demo reference imagery for house cleaning (gallery). Pexels License — replace with the operator's own photography for production."
+  },
+  "demo-house-cleaning-gallery-02": {
+    "id": "demo-house-cleaning-gallery-02",
+    "role": "gallery",
+    "url": "https://images.pexels.com/photos/8580755/pexels-photo-8580755.jpeg?auto=compress&cs=tinysrgb&w=800",
+    "source_page_url": "https://www.pexels.com/photo/responsible-woman-wiping-an-electric-stove-clean-8580755/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/",
+    "notes": "Demo reference imagery for house cleaning (gallery). Pexels License — replace with the operator's own photography for production."
+  },
+  "demo-house-cleaning-gallery-03": {
+    "id": "demo-house-cleaning-gallery-03",
+    "role": "gallery",
+    "url": "https://images.pexels.com/photos/8440062/pexels-photo-8440062.jpeg?auto=compress&cs=tinysrgb&w=800",
+    "source_page_url": "https://www.pexels.com/photo/person-in-white-shirt-and-brown-apron-cleaning-black-table-with-white-wipe-8440062/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/",
+    "notes": "Demo reference imagery for house cleaning (gallery). Pexels License — replace with the operator's own photography for production."
+  }
+}

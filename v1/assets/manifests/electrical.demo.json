@@ -1,0 +1,68 @@
+{
+  "demo-electrical-hero-01": {
+    "id": "demo-electrical-hero-01",
+    "role": "hero",
+    "url": "https://images.pexels.com/photos/257736/pexels-photo-257736.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
+    "source_page_url": "https://www.pexels.com/photo/electrician-fixing-an-opened-switchboard-257736/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo by Pixabay on Pexels",
+    "attribution_url": "https://www.pexels.com/@pixabay",
+    "notes": "Demo reference imagery for electrical (hero). Pexels License — replace with the operator's own photography for production."
+  },
+  "demo-electrical-differentiator-01": {
+    "id": "demo-electrical-differentiator-01",
+    "role": "differentiator",
+    "url": "https://images.pexels.com/photos/6419128/pexels-photo-6419128.jpeg?auto=compress&cs=tinysrgb&w=800",
+    "source_page_url": "https://www.pexels.com/photo/plumber-installs-pipe-fittings-6419128/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo by Anıl Karakaya on Pexels",
+    "attribution_url": "https://www.pexels.com/@anilkarakaya",
+    "notes": "Demo reference imagery for electrical (differentiator). Pexels License — replace with the operator's own photography for production."
+  },
+  "demo-electrical-checklist-01": {
+    "id": "demo-electrical-checklist-01",
+    "role": "checklist",
+    "url": "https://images.pexels.com/photos/3243/pexels-photo-3243.jpeg?auto=compress&cs=tinysrgb&w=800",
+    "source_page_url": "https://www.pexels.com/photo/pen-calendar-to-do-checklist-3243/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo by Breakingpic on Pexels",
+    "attribution_url": "https://www.pexels.com/@breakingpic",
+    "notes": "Demo reference imagery for electrical (checklist). Pexels License — replace with the operator's own photography for production."
+  },
+  "demo-electrical-gallery-01": {
+    "id": "demo-electrical-gallery-01",
+    "role": "gallery",
+    "url": "https://images.pexels.com/photos/257736/pexels-photo-257736.jpeg?auto=compress&cs=tinysrgb&w=800",
+    "source_page_url": "https://www.pexels.com/photo/electrician-fixing-an-opened-switchboard-257736/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo by Pixabay on Pexels",
+    "attribution_url": "https://www.pexels.com/@pixabay",
+    "notes": "Demo reference imagery for electrical (gallery). Pexels License — replace with the operator's own photography for production."
+  },
+  "demo-electrical-gallery-02": {
+    "id": "demo-electrical-gallery-02",
+    "role": "gallery",
+    "url": "https://images.pexels.com/photos/6419128/pexels-photo-6419128.jpeg?auto=compress&cs=tinysrgb&w=800",
+    "source_page_url": "https://www.pexels.com/photo/plumber-installs-pipe-fittings-6419128/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo by Anıl Karakaya on Pexels",
+    "attribution_url": "https://www.pexels.com/@anilkarakaya",
+    "notes": "Demo reference imagery for electrical (gallery). Pexels License — replace with the operator's own photography for production."
+  },
+  "demo-electrical-gallery-03": {
+    "id": "demo-electrical-gallery-03",
+    "role": "gallery",
+    "url": "https://images.pexels.com/photos/3243/pexels-photo-3243.jpeg?auto=compress&cs=tinysrgb&w=800",
+    "source_page_url": "https://www.pexels.com/photo/pen-calendar-to-do-checklist-3243/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo by Breakingpic on Pexels",
+    "attribution_url": "https://www.pexels.com/@breakingpic",
+    "notes": "Demo reference imagery for electrical (gallery). Pexels License — replace with the operator's own photography for production."
+  }
+}

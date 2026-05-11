@@ -82,9 +82,11 @@ export async function GET(request: NextRequest) {
       category: spec.category,
       goal: spec.goal,
       theme: spec.theme,
+      niche: spec.niche,
       metadata: spec.metadata,
       sections: spec.sections,
       assets: spec.assets,
+      assetSearchSeeds: spec.assetSearchSeeds,
       resolvedAssets,
     });
   } catch (error) {

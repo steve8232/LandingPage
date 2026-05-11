@@ -1,0 +1,68 @@
+{
+  "demo-dog-grooming-hero-01": {
+    "id": "demo-dog-grooming-hero-01",
+    "role": "hero",
+    "url": "https://images.pexels.com/photos/6131157/pexels-photo-6131157.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
+    "source_page_url": "https://www.pexels.com/photo/a-person-grooming-the-dog-6131157/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/",
+    "notes": "Demo reference imagery for dog grooming (hero). Pexels License — replace with the operator's own photography for production."
+  },
+  "demo-dog-grooming-differentiator-01": {
+    "id": "demo-dog-grooming-differentiator-01",
+    "role": "differentiator",
+    "url": "https://images.pexels.com/photos/6131096/pexels-photo-6131096.jpeg?auto=compress&cs=tinysrgb&w=800",
+    "source_page_url": "https://www.pexels.com/photo/woman-holding-orange-tabby-cat-on-the-neck-6131096/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/",
+    "notes": "Demo reference imagery for dog grooming (differentiator). Pexels License — replace with the operator's own photography for production."
+  },
+  "demo-dog-grooming-checklist-01": {
+    "id": "demo-dog-grooming-checklist-01",
+    "role": "checklist",
+    "url": "https://images.pexels.com/photos/3243/pexels-photo-3243.jpeg?auto=compress&cs=tinysrgb&w=800",
+    "source_page_url": "https://www.pexels.com/photo/pen-calendar-to-do-checklist-3243/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo by Breakingpic on Pexels",
+    "attribution_url": "https://www.pexels.com/@breakingpic",
+    "notes": "Demo reference imagery for dog grooming (checklist). Pexels License — replace with the operator's own photography for production."
+  },
+  "demo-dog-grooming-gallery-01": {
+    "id": "demo-dog-grooming-gallery-01",
+    "role": "gallery",
+    "url": "https://images.pexels.com/photos/6131157/pexels-photo-6131157.jpeg?auto=compress&cs=tinysrgb&w=800",
+    "source_page_url": "https://www.pexels.com/photo/a-person-grooming-the-dog-6131157/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/",
+    "notes": "Demo reference imagery for dog grooming (gallery). Pexels License — replace with the operator's own photography for production."
+  },
+  "demo-dog-grooming-gallery-02": {
+    "id": "demo-dog-grooming-gallery-02",
+    "role": "gallery",
+    "url": "https://images.pexels.com/photos/7224650/pexels-photo-7224650.jpeg?auto=compress&cs=tinysrgb&w=800",
+    "source_page_url": "https://www.pexels.com/photo/close-up-shot-of-a-person-bathing-a-gray-cat-7224650/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/",
+    "notes": "Demo reference imagery for dog grooming (gallery). Pexels License — replace with the operator's own photography for production."
+  },
+  "demo-dog-grooming-gallery-03": {
+    "id": "demo-dog-grooming-gallery-03",
+    "role": "gallery",
+    "url": "https://images.pexels.com/photos/6131096/pexels-photo-6131096.jpeg?auto=compress&cs=tinysrgb&w=800",
+    "source_page_url": "https://www.pexels.com/photo/woman-holding-orange-tabby-cat-on-the-neck-6131096/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/",
+    "notes": "Demo reference imagery for dog grooming (gallery). Pexels License — replace with the operator's own photography for production."
+  }
+}

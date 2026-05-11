@@ -1,0 +1,34 @@
+/*
+ * Theme: Outdoor Green
+ *
+ * Earthy forest green + warm sun-yellow accent.
+ * Designed for lawn care, landscaping, tree service, pressure washing,
+ * and other outdoor service niches.
+ */
+
+.v1-page {
+  --v1-color-primary: #1f6f43;
+  --v1-color-primary-dark: #134d2c;
+  --v1-color-accent: #f5b400;
+  --v1-color-bg: #ffffff;
+  --v1-color-bg-alt: #f1f7f0;
+  --v1-color-text: #1a2e22;
+  --v1-color-text-muted: #5e6f63;
+  --v1-color-border: #c8dcc6;
+  --v1-color-hero-bg: #1f6f43;
+  --v1-color-hero-text: #ffffff;
+  --v1-color-cta-bg: #f97316;
+  --v1-color-cta-text: #ffffff;
+  --v1-color-card-bg: #ffffff;
+  --v1-color-card-text: #1a2e22;
+  --v1-color-footer-bg: #134d2c;
+  --v1-color-footer-text: #dceadb;
+
+  --v1-font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+  --v1-radius-md: 10px;
+  --v1-radius-lg: 14px;
+
+  --v1-shadow-md: 0 4px 12px rgba(31, 111, 67, 0.12);
+  --v1-shadow-lg: 0 12px 28px rgba(31, 111, 67, 0.18);
+}

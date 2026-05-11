@@ -1,0 +1,34 @@
+/*
+ * Theme: Fitness Bold
+ *
+ * Near-black charcoal with electric yellow accent.
+ * Designed for personal trainers, gyms, auto detailing, and other
+ * niches that lean into a high-energy, high-contrast aesthetic.
+ */
+
+.v1-page {
+  --v1-color-primary: #111418;
+  --v1-color-primary-dark: #000000;
+  --v1-color-accent: #f5e016;
+  --v1-color-bg: #ffffff;
+  --v1-color-bg-alt: #f3f4f6;
+  --v1-color-text: #111418;
+  --v1-color-text-muted: #5b6470;
+  --v1-color-border: #d6d9de;
+  --v1-color-hero-bg: #111418;
+  --v1-color-hero-text: #ffffff;
+  --v1-color-cta-bg: #f97316;
+  --v1-color-cta-text: #ffffff;
+  --v1-color-card-bg: #ffffff;
+  --v1-color-card-text: #111418;
+  --v1-color-footer-bg: #000000;
+  --v1-color-footer-text: #d6d9de;
+
+  --v1-font-family: 'Inter', 'Helvetica Neue', -apple-system, BlinkMacSystemFont, sans-serif;
+
+  --v1-radius-md: 4px;
+  --v1-radius-lg: 6px;
+
+  --v1-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.10);
+  --v1-shadow-lg: 0 12px 28px rgba(0, 0, 0, 0.20);
+}
