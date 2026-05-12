@@ -108,9 +108,9 @@ const spec: TemplateSpec = {
         heading: 'What 410+ local homeowners say',
         subheading: 'Verified Google reviews from neighbors in Brookwood, Crestline, and Westgate.',
         testimonials: [
-          { quote: 'Same cleaner for 14 months in our Brookwood home — knows our 2 dogs, knows we hate fingerprints on stainless. Saturdays are mine again.', highlight: 'Saturdays are mine again', rating: 5, name: 'Renee D.', title: 'Brookwood homeowner' },
-          { quote: 'Move-out clean in Crestline — landlord returned 100% of our $3,200 deposit. The before/after photo report was unreal. Worth twice what they charged.', highlight: '100% of $3,200 deposit', rating: 5, name: 'Tomas A.', title: 'Crestline tenant' },
-          { quote: 'I run 2 Westgate Airbnbs. BrightNest does same-day turnovers, restocks, and sends photos before guests arrive. Reviews jumped from 4.6 to 4.9 in 3 months.', highlight: '4.6 to 4.9 in 3 months', rating: 5, name: 'Priya N.', title: 'Westgate Airbnb host' },
+          { quote: 'Same cleaner for 14 months in our Brookwood home — knows our 2 dogs, knows we hate fingerprints on stainless. Saturdays are mine again.', highlight: 'Saturdays are mine again', rating: 5, name: 'Renee D.', title: 'Brookwood homeowner' , avatarAsset: 'testimonialAvatar1', fallbackAsset: 'fallbackTestimonialAvatar1' },
+          { quote: 'Move-out clean in Crestline — landlord returned 100% of our $3,200 deposit. The before/after photo report was unreal. Worth twice what they charged.', highlight: '100% of $3,200 deposit', rating: 5, name: 'Tomas A.', title: 'Crestline tenant' , avatarAsset: 'testimonialAvatar2', fallbackAsset: 'fallbackTestimonialAvatar2' },
+          { quote: 'I run 2 Westgate Airbnbs. BrightNest does same-day turnovers, restocks, and sends photos before guests arrive. Reviews jumped from 4.6 to 4.9 in 3 months.', highlight: '4.6 to 4.9 in 3 months', rating: 5, name: 'Priya N.', title: 'Westgate Airbnb host' , avatarAsset: 'testimonialAvatar3', fallbackAsset: 'fallbackTestimonialAvatar3' },
         ],
       },
     },
@@ -214,6 +214,12 @@ const spec: TemplateSpec = {
     fallbackGalleryImage3: '/v1/assets/placeholders/local/local-services-trust-hero-01.svg',
     logo: '/v1/assets/placeholders/common/logo-placeholder.svg',
     avatar: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    testimonialAvatar1: 'demo-house-cleaning-avatar-01',
+    testimonialAvatar2: 'demo-house-cleaning-avatar-02',
+    testimonialAvatar3: 'demo-house-cleaning-avatar-03',
+    fallbackTestimonialAvatar1: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    fallbackTestimonialAvatar2: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    fallbackTestimonialAvatar3: '/v1/assets/placeholders/common/avatar-placeholder.svg',
   },
 
   assetSearchSeeds: {
@@ -223,6 +229,9 @@ const spec: TemplateSpec = {
     galleryImage1: 'real photo spotless residential kitchen recently cleaned natural light',
     galleryImage2: 'real photo deep cleaned bathroom shining tile shower glass residential',
     galleryImage3: 'real photo made bed clean bedroom residential turnover service',
+    testimonialAvatar1: 'real photo professional headshot of happy house-cleaning customer, woman late 30s, warm friendly smile, residential setting',
+    testimonialAvatar2: 'real photo professional headshot of satisfied house-cleaning customer, man early 40s, casual confident, daylight',
+    testimonialAvatar3: 'real photo warm portrait of mature house-cleaning repeat customer, woman 50s, natural light, trustworthy expression',
   },
 
   form: [

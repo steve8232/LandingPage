@@ -24,13 +24,13 @@
   "demo-med-spa-checklist-01": {
     "id": "demo-med-spa-checklist-01",
     "role": "checklist",
-    "url": "https://images.pexels.com/photos/3243/pexels-photo-3243.jpeg?auto=compress&cs=tinysrgb&w=800",
-    "source_page_url": "https://www.pexels.com/photo/pen-calendar-to-do-checklist-3243/",
+    "url": "https://images.pexels.com/photos/5327498/pexels-photo-5327498.jpeg?auto=compress&cs=tinysrgb&w=800",
+    "source_page_url": "https://www.pexels.com/photo/a-man-working-out-using-the-cable-crossover-machine-5327498/",
     "provider": "pexels",
     "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
-    "attribution_text": "Photo by Breakingpic on Pexels",
-    "attribution_url": "https://www.pexels.com/@breakingpic",
-    "notes": "Demo reference imagery for med spa (checklist). Pexels License — replace with the operator's own photography for production."
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/",
+    "notes": "Demo reference imagery for med-spa (checklist); donor=personal-trainer/demo-personal-trainer-gallery-03. Pexels License — replace with the operator's own photography for production."
   },
   "demo-med-spa-gallery-01": {
     "id": "demo-med-spa-gallery-01",
@@ -64,5 +64,38 @@
     "attribution_text": "Photo from Pexels",
     "attribution_url": "https://www.pexels.com/",
     "notes": "Demo reference imagery for med spa (gallery). Pexels License — replace with the operator's own photography for production."
+  },
+  "demo-med-spa-avatar-01": {
+    "id": "demo-med-spa-avatar-01",
+    "role": "avatar",
+    "url": "https://images.pexels.com/photos/17059392/pexels-photo-17059392.jpeg?auto=compress&cs=tinysrgb&w=400",
+    "source_page_url": "https://www.pexels.com/photo/close-up-portrait-of-a-young-man-smiling-17059392/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/photo/close-up-portrait-of-a-young-man-smiling-17059392/",
+    "notes": "Demo reference portrait for med-spa (testimonial avatar slot 1). Pexels License — replace with the operator's own customer photography for production."
+  },
+  "demo-med-spa-avatar-02": {
+    "id": "demo-med-spa-avatar-02",
+    "role": "avatar",
+    "url": "https://images.pexels.com/photos/35103924/pexels-photo-35103924.jpeg?auto=compress&cs=tinysrgb&w=400",
+    "source_page_url": "https://www.pexels.com/photo/casual-portrait-of-a-smiling-man-outdoors-35103924/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/photo/casual-portrait-of-a-smiling-man-outdoors-35103924/",
+    "notes": "Demo reference portrait for med-spa (testimonial avatar slot 2). Pexels License — replace with the operator's own customer photography for production."
+  },
+  "demo-med-spa-avatar-03": {
+    "id": "demo-med-spa-avatar-03",
+    "role": "avatar",
+    "url": "https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=400",
+    "source_page_url": "https://www.pexels.com/photo/portrait-photo-of-smiling-man-with-his-arms-crossed-standing-in-front-of-a-wall-2379004/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/photo/portrait-photo-of-smiling-man-with-his-arms-crossed-standing-in-front-of-a-wall-2379004/",
+    "notes": "Demo reference portrait for med-spa (testimonial avatar slot 3). Pexels License — replace with the operator's own customer photography for production."
   }
 }

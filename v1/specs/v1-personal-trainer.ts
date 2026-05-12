@@ -108,9 +108,9 @@ const spec: TemplateSpec = {
         heading: 'What 220+ members say',
         subheading: 'Verified Google reviews from members in Eastside, Riverwest, and Highland.',
         testimonials: [
-          { quote: 'Down 24 lbs and 5 inches off the waist in 90 days at the Eastside studio. Two prior trainers and two diets failed me. The accountability check-ins were the difference. First time I finished a program.', highlight: '24 lbs in 90 days', rating: 5, name: 'Curtis B.', title: 'Eastside member' },
-          { quote: 'Riverwest small-group classes — I\'m 52 and stronger than I was at 30. Coach modified everything around my old shoulder injury. Sane, progressive, no Crossfit nonsense. Bought 12 months upfront.', highlight: 'stronger than at 30', rating: 5, name: 'Tonya M.', title: 'Riverwest member' },
-          { quote: 'I have hated working out my whole life. Highland coach built a 30-min/3x-week plan I can actually do. Lost 11 lbs by month 2 — and I no longer dread Sunday meal prep.', highlight: '11 lbs by month 2', rating: 5, name: 'Sebastian L.', title: 'Highland member' },
+          { quote: 'Down 24 lbs and 5 inches off the waist in 90 days at the Eastside studio. Two prior trainers and two diets failed me. The accountability check-ins were the difference. First time I finished a program.', highlight: '24 lbs in 90 days', rating: 5, name: 'Curtis B.', title: 'Eastside member' , avatarAsset: 'testimonialAvatar1', fallbackAsset: 'fallbackTestimonialAvatar1' },
+          { quote: 'Riverwest small-group classes — I\'m 52 and stronger than I was at 30. Coach modified everything around my old shoulder injury. Sane, progressive, no Crossfit nonsense. Bought 12 months upfront.', highlight: 'stronger than at 30', rating: 5, name: 'Tonya M.', title: 'Riverwest member' , avatarAsset: 'testimonialAvatar2', fallbackAsset: 'fallbackTestimonialAvatar2' },
+          { quote: 'I have hated working out my whole life. Highland coach built a 30-min/3x-week plan I can actually do. Lost 11 lbs by month 2 — and I no longer dread Sunday meal prep.', highlight: '11 lbs by month 2', rating: 5, name: 'Sebastian L.', title: 'Highland member' , avatarAsset: 'testimonialAvatar3', fallbackAsset: 'fallbackTestimonialAvatar3' },
         ],
       },
     },
@@ -214,6 +214,12 @@ const spec: TemplateSpec = {
     fallbackGalleryImage3: '/v1/assets/placeholders/local/local-services-trust-hero-01.svg',
     logo: '/v1/assets/placeholders/common/logo-placeholder.svg',
     avatar: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    testimonialAvatar1: 'demo-personal-trainer-avatar-01',
+    testimonialAvatar2: 'demo-personal-trainer-avatar-02',
+    testimonialAvatar3: 'demo-personal-trainer-avatar-03',
+    fallbackTestimonialAvatar1: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    fallbackTestimonialAvatar2: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    fallbackTestimonialAvatar3: '/v1/assets/placeholders/common/avatar-placeholder.svg',
   },
 
   assetSearchSeeds: {
@@ -223,6 +229,9 @@ const spec: TemplateSpec = {
     galleryImage1: 'real photo client transformation before after weight loss strength training',
     galleryImage2: 'real photo small group strength training class progressive overload gym',
     galleryImage3: 'real photo nutrition coaching meal prep macros healthy plate',
+    testimonialAvatar1: 'real photo professional headshot of happy personal-trainer customer, woman late 30s, warm friendly smile, residential setting',
+    testimonialAvatar2: 'real photo professional headshot of satisfied personal-trainer customer, man early 40s, casual confident, daylight',
+    testimonialAvatar3: 'real photo warm portrait of mature personal-trainer repeat customer, woman 50s, natural light, trustworthy expression',
   },
 
   form: [

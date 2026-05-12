@@ -24,13 +24,13 @@
   "demo-lawn-landscaping-checklist-01": {
     "id": "demo-lawn-landscaping-checklist-01",
     "role": "checklist",
-    "url": "https://images.pexels.com/photos/3243/pexels-photo-3243.jpeg?auto=compress&cs=tinysrgb&w=800",
-    "source_page_url": "https://www.pexels.com/photo/pen-calendar-to-do-checklist-3243/",
+    "url": "https://images.pexels.com/photos/15080633/pexels-photo-15080633.jpeg?auto=compress&cs=tinysrgb&w=800",
+    "source_page_url": "https://www.pexels.com/photo/cut-wood-logs-15080633/",
     "provider": "pexels",
     "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
-    "attribution_text": "Photo by Breakingpic on Pexels",
-    "attribution_url": "https://www.pexels.com/@breakingpic",
-    "notes": "Demo reference imagery for lawn landscaping (checklist). Pexels License — replace with the operator's own photography for production."
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/",
+    "notes": "Demo reference imagery for lawn-landscaping (checklist); donor=tree-service/demo-tree-service-differentiator-01. Pexels License — replace with the operator's own photography for production."
   },
   "demo-lawn-landscaping-gallery-01": {
     "id": "demo-lawn-landscaping-gallery-01",
@@ -64,5 +64,38 @@
     "attribution_text": "Photo from Pexels",
     "attribution_url": "https://www.pexels.com/",
     "notes": "Demo reference imagery for lawn landscaping (gallery). Pexels License — replace with the operator's own photography for production."
+  },
+  "demo-lawn-landscaping-avatar-01": {
+    "id": "demo-lawn-landscaping-avatar-01",
+    "role": "avatar",
+    "url": "https://images.pexels.com/photos/33271175/pexels-photo-33271175.jpeg?auto=compress&cs=tinysrgb&w=400",
+    "source_page_url": "https://www.pexels.com/photo/elegant-casual-portrait-of-a-man-outdoors-33271175/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/photo/elegant-casual-portrait-of-a-man-outdoors-33271175/",
+    "notes": "Demo reference portrait for lawn-landscaping (testimonial avatar slot 1). Pexels License — replace with the operator's own customer photography for production."
+  },
+  "demo-lawn-landscaping-avatar-02": {
+    "id": "demo-lawn-landscaping-avatar-02",
+    "role": "avatar",
+    "url": "https://images.pexels.com/photos/19201205/pexels-photo-19201205.jpeg?auto=compress&cs=tinysrgb&w=400",
+    "source_page_url": "https://www.pexels.com/photo/portrait-of-man-with-beard-in-light-19201205/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/photo/portrait-of-man-with-beard-in-light-19201205/",
+    "notes": "Demo reference portrait for lawn-landscaping (testimonial avatar slot 2). Pexels License — replace with the operator's own customer photography for production."
+  },
+  "demo-lawn-landscaping-avatar-03": {
+    "id": "demo-lawn-landscaping-avatar-03",
+    "role": "avatar",
+    "url": "https://images.pexels.com/photos/5793952/pexels-photo-5793952.jpeg?auto=compress&cs=tinysrgb&w=400",
+    "source_page_url": "https://www.pexels.com/photo/a-woman-sitting-in-a-living-room-5793952/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/photo/a-woman-sitting-in-a-living-room-5793952/",
+    "notes": "Demo reference portrait for lawn-landscaping (testimonial avatar slot 3). Pexels License — replace with the operator's own customer photography for production."
   }
 }

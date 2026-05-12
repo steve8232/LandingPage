@@ -108,9 +108,9 @@ const spec: TemplateSpec = {
         heading: 'What 410+ local homeowners say',
         subheading: 'Verified Google reviews from neighbors in Westbrook, Lakehurst, and Brookhaven.',
         testimonials: [
-          { quote: 'TrueLine painted our entire 4-bedroom Westbrook home in 4 days. The line-item quote was exact to the dollar — $11,840, no surprises. Walls look better than the day we moved in.', highlight: 'exact to the dollar', rating: 5, name: 'Amanda K.', title: 'Westbrook homeowner' },
-          { quote: 'Got 6 quotes for our Lakehurst exterior. TrueLine was not the cheapest, but the only one with a written 5-year warranty and W-2 crew. 2 years later, zero peeling.', highlight: 'zero peeling 2 years later', rating: 5, name: 'David R.', title: 'Lakehurst homeowner' },
-          { quote: 'Off-site cabinet spraying in Brookhaven — they took my doors to their shop, sprayed in 5 days, and the finish looks factory. Not a brush-stroke in sight.', highlight: 'looks factory', rating: 5, name: 'Linh P.', title: 'Brookhaven homeowner' },
+          { quote: 'TrueLine painted our entire 4-bedroom Westbrook home in 4 days. The line-item quote was exact to the dollar — $11,840, no surprises. Walls look better than the day we moved in.', highlight: 'exact to the dollar', rating: 5, name: 'Amanda K.', title: 'Westbrook homeowner' , avatarAsset: 'testimonialAvatar1', fallbackAsset: 'fallbackTestimonialAvatar1' },
+          { quote: 'Got 6 quotes for our Lakehurst exterior. TrueLine was not the cheapest, but the only one with a written 5-year warranty and W-2 crew. 2 years later, zero peeling.', highlight: 'zero peeling 2 years later', rating: 5, name: 'David R.', title: 'Lakehurst homeowner' , avatarAsset: 'testimonialAvatar2', fallbackAsset: 'fallbackTestimonialAvatar2' },
+          { quote: 'Off-site cabinet spraying in Brookhaven — they took my doors to their shop, sprayed in 5 days, and the finish looks factory. Not a brush-stroke in sight.', highlight: 'looks factory', rating: 5, name: 'Linh P.', title: 'Brookhaven homeowner' , avatarAsset: 'testimonialAvatar3', fallbackAsset: 'fallbackTestimonialAvatar3' },
         ],
       },
     },
@@ -214,6 +214,12 @@ const spec: TemplateSpec = {
     fallbackGalleryImage3: '/v1/assets/placeholders/local/local-services-trust-hero-01.svg',
     logo: '/v1/assets/placeholders/common/logo-placeholder.svg',
     avatar: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    testimonialAvatar1: 'demo-painters-avatar-01',
+    testimonialAvatar2: 'demo-painters-avatar-02',
+    testimonialAvatar3: 'demo-painters-avatar-03',
+    fallbackTestimonialAvatar1: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    fallbackTestimonialAvatar2: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    fallbackTestimonialAvatar3: '/v1/assets/placeholders/common/avatar-placeholder.svg',
   },
 
   assetSearchSeeds: {
@@ -223,6 +229,9 @@ const spec: TemplateSpec = {
     galleryImage1: 'real photo freshly painted living room interior modern home neutral colors',
     galleryImage2: 'real photo exterior house painting two story residential clean lines',
     galleryImage3: 'real photo white spray painted kitchen cabinets factory finish smooth',
+    testimonialAvatar1: 'real photo professional headshot of happy painters customer, woman late 30s, warm friendly smile, residential setting',
+    testimonialAvatar2: 'real photo professional headshot of satisfied painters customer, man early 40s, casual confident, daylight',
+    testimonialAvatar3: 'real photo warm portrait of mature painters repeat customer, woman 50s, natural light, trustworthy expression',
   },
 
   form: [

@@ -108,9 +108,9 @@ const spec: TemplateSpec = {
         heading: 'What 740+ local homeowners say',
         subheading: 'Verified Google reviews from neighbors in Brookfield, Hillcrest, and Westgate.',
         testimonials: [
-          { quote: 'AC died on the hottest day of July in Hillcrest. NorthAir had a NATE tech here in 90 minutes and a new condenser coil in by 4 PM. House was 72°F that night.', highlight: 'house was 72°F that night', rating: 5, name: 'Sandra K.', title: 'Hillcrest homeowner' },
-          { quote: 'Got three quotes for a furnace replacement in Brookfield — NorthAir was $1,200 less than the next, with a longer warranty and zero hidden fees.', highlight: '$1,200 less', rating: 5, name: 'Marcus W.', title: 'Brookfield homeowner' },
-          { quote: 'Their $89 tune-up caught a cracked heat exchanger I had no idea about. Probably saved my family from CO. Honest, careful, and on time every visit.', highlight: 'honest, careful, and on time', rating: 5, name: 'Priya N.', title: 'Westgate maintenance plan member' },
+          { quote: 'AC died on the hottest day of July in Hillcrest. NorthAir had a NATE tech here in 90 minutes and a new condenser coil in by 4 PM. House was 72°F that night.', highlight: 'house was 72°F that night', rating: 5, name: 'Sandra K.', title: 'Hillcrest homeowner' , avatarAsset: 'testimonialAvatar1', fallbackAsset: 'fallbackTestimonialAvatar1' },
+          { quote: 'Got three quotes for a furnace replacement in Brookfield — NorthAir was $1,200 less than the next, with a longer warranty and zero hidden fees.', highlight: '$1,200 less', rating: 5, name: 'Marcus W.', title: 'Brookfield homeowner' , avatarAsset: 'testimonialAvatar2', fallbackAsset: 'fallbackTestimonialAvatar2' },
+          { quote: 'Their $89 tune-up caught a cracked heat exchanger I had no idea about. Probably saved my family from CO. Honest, careful, and on time every visit.', highlight: 'honest, careful, and on time', rating: 5, name: 'Priya N.', title: 'Westgate maintenance plan member' , avatarAsset: 'testimonialAvatar3', fallbackAsset: 'fallbackTestimonialAvatar3' },
         ],
       },
     },
@@ -214,6 +214,12 @@ const spec: TemplateSpec = {
     fallbackGalleryImage3: '/v1/assets/placeholders/local/local-services-trust-hero-01.svg',
     logo: '/v1/assets/placeholders/common/logo-placeholder.svg',
     avatar: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    testimonialAvatar1: 'demo-hvac-avatar-01',
+    testimonialAvatar2: 'demo-hvac-avatar-02',
+    testimonialAvatar3: 'demo-hvac-avatar-03',
+    fallbackTestimonialAvatar1: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    fallbackTestimonialAvatar2: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    fallbackTestimonialAvatar3: '/v1/assets/placeholders/common/avatar-placeholder.svg',
   },
 
   assetSearchSeeds: {
@@ -223,6 +229,9 @@ const spec: TemplateSpec = {
     galleryImage1: 'real photo new high efficiency AC condenser installation level pad',
     galleryImage2: 'real photo gas furnace replacement clean basement labeled wires',
     galleryImage3: 'real photo whole home air purifier indoor air quality install',
+    testimonialAvatar1: 'real photo professional headshot of happy hvac customer, woman late 30s, warm friendly smile, residential setting',
+    testimonialAvatar2: 'real photo professional headshot of satisfied hvac customer, man early 40s, casual confident, daylight',
+    testimonialAvatar3: 'real photo warm portrait of mature hvac repeat customer, woman 50s, natural light, trustworthy expression',
   },
 
   form: [

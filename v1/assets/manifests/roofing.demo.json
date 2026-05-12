@@ -24,13 +24,13 @@
   "demo-roofing-checklist-01": {
     "id": "demo-roofing-checklist-01",
     "role": "checklist",
-    "url": "https://images.pexels.com/photos/3243/pexels-photo-3243.jpeg?auto=compress&cs=tinysrgb&w=800",
-    "source_page_url": "https://www.pexels.com/photo/pen-calendar-to-do-checklist-3243/",
+    "url": "https://images.pexels.com/photos/7747511/pexels-photo-7747511.jpeg?auto=compress&cs=tinysrgb&w=800",
+    "source_page_url": "https://www.pexels.com/photo/confident-woman-in-uniform-with-broom-for-dusting-7747511/",
     "provider": "pexels",
     "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
-    "attribution_text": "Photo by Breakingpic on Pexels",
-    "attribution_url": "https://www.pexels.com/@breakingpic",
-    "notes": "Demo reference imagery for roofing (checklist). Pexels License — replace with the operator's own photography for production."
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/",
+    "notes": "Demo reference imagery for roofing (checklist); donor=carpet-cleaning/demo-carpet-cleaning-gallery-02. Pexels License — replace with the operator's own photography for production."
   },
   "demo-roofing-gallery-01": {
     "id": "demo-roofing-gallery-01",
@@ -64,5 +64,38 @@
     "attribution_text": "Photo from Pexels",
     "attribution_url": "https://www.pexels.com/",
     "notes": "Demo reference imagery for roofing (gallery). Pexels License — replace with the operator's own photography for production."
+  },
+  "demo-roofing-avatar-01": {
+    "id": "demo-roofing-avatar-01",
+    "role": "avatar",
+    "url": "https://images.pexels.com/photos/6338370/pexels-photo-6338370.jpeg?auto=compress&cs=tinysrgb&w=400",
+    "source_page_url": "https://www.pexels.com/photo/close-up-shot-of-a-person-smiling-6338370/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/photo/close-up-shot-of-a-person-smiling-6338370/",
+    "notes": "Demo reference portrait for roofing (testimonial avatar slot 1). Pexels License — replace with the operator's own customer photography for production."
+  },
+  "demo-roofing-avatar-02": {
+    "id": "demo-roofing-avatar-02",
+    "role": "avatar",
+    "url": "https://images.pexels.com/photos/1139743/pexels-photo-1139743.jpeg?auto=compress&cs=tinysrgb&w=400",
+    "source_page_url": "https://www.pexels.com/photo/portrait-photo-of-man-in-white-crew-neck-t-shirt-with-assorted-hand-tools-in-background-1139743/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/photo/portrait-photo-of-man-in-white-crew-neck-t-shirt-with-assorted-hand-tools-in-background-1139743/",
+    "notes": "Demo reference portrait for roofing (testimonial avatar slot 2). Pexels License — replace with the operator's own customer photography for production."
+  },
+  "demo-roofing-avatar-03": {
+    "id": "demo-roofing-avatar-03",
+    "role": "avatar",
+    "url": "https://images.pexels.com/photos/26733183/pexels-photo-26733183.jpeg?auto=compress&cs=tinysrgb&w=400",
+    "source_page_url": "https://www.pexels.com/photo/portrait-of-elderly-man-26733183/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/photo/portrait-of-elderly-man-26733183/",
+    "notes": "Demo reference portrait for roofing (testimonial avatar slot 3). Pexels License — replace with the operator's own customer photography for production."
   }
 }

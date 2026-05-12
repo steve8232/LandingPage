@@ -24,13 +24,13 @@
   "demo-plumber-checklist-01": {
     "id": "demo-plumber-checklist-01",
     "role": "checklist",
-    "url": "https://images.pexels.com/photos/3243/pexels-photo-3243.jpeg?auto=compress&cs=tinysrgb&w=800",
-    "source_page_url": "https://www.pexels.com/photo/pen-calendar-to-do-checklist-3243/",
+    "url": "https://images.pexels.com/photos/209296/pexels-photo-209296.jpeg?auto=compress&cs=tinysrgb&w=800",
+    "source_page_url": "https://www.pexels.com/photo/gray-painted-house-209296/",
     "provider": "pexels",
     "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
-    "attribution_text": "Photo by Breakingpic on Pexels",
-    "attribution_url": "https://www.pexels.com/@breakingpic",
-    "notes": "Demo reference imagery for plumber (checklist). Pexels License — replace with the operator's own photography for production."
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/",
+    "notes": "Demo reference imagery for plumber (checklist); donor=painters/demo-painters-differentiator-01. Pexels License — replace with the operator's own photography for production."
   },
   "demo-plumber-gallery-01": {
     "id": "demo-plumber-gallery-01",
@@ -57,12 +57,45 @@
   "demo-plumber-gallery-03": {
     "id": "demo-plumber-gallery-03",
     "role": "gallery",
-    "url": "https://images.pexels.com/photos/3243/pexels-photo-3243.jpeg?auto=compress&cs=tinysrgb&w=800",
-    "source_page_url": "https://www.pexels.com/photo/pen-calendar-to-do-checklist-3243/",
+    "url": "https://images.pexels.com/photos/1260727/pexels-photo-1260727.jpeg?auto=compress&cs=tinysrgb&w=800",
+    "source_page_url": "https://www.pexels.com/photo/white-wall-paint-1260727/",
     "provider": "pexels",
     "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
-    "attribution_text": "Photo by Breakingpic on Pexels",
-    "attribution_url": "https://www.pexels.com/@breakingpic",
-    "notes": "Demo reference imagery for plumber (gallery). Pexels License — replace with the operator's own photography for production."
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/",
+    "notes": "Demo reference imagery for plumber (gallery); donor=painters/demo-painters-gallery-02. Pexels License — replace with the operator's own photography for production."
+  },
+  "demo-plumber-avatar-01": {
+    "id": "demo-plumber-avatar-01",
+    "role": "avatar",
+    "url": "https://images.pexels.com/photos/26529933/pexels-photo-26529933.jpeg?auto=compress&cs=tinysrgb&w=400",
+    "source_page_url": "https://www.pexels.com/photo/portrait-of-smiling-woman-26529933/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/photo/portrait-of-smiling-woman-26529933/",
+    "notes": "Demo reference portrait for plumber (testimonial avatar slot 1). Pexels License — replace with the operator's own customer photography for production."
+  },
+  "demo-plumber-avatar-02": {
+    "id": "demo-plumber-avatar-02",
+    "role": "avatar",
+    "url": "https://images.pexels.com/photos/37065614/pexels-photo-37065614.jpeg?auto=compress&cs=tinysrgb&w=400",
+    "source_page_url": "https://www.pexels.com/photo/portrait-of-a-smiling-woman-outdoors-37065614/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/photo/portrait-of-a-smiling-woman-outdoors-37065614/",
+    "notes": "Demo reference portrait for plumber (testimonial avatar slot 2). Pexels License — replace with the operator's own customer photography for production."
+  },
+  "demo-plumber-avatar-03": {
+    "id": "demo-plumber-avatar-03",
+    "role": "avatar",
+    "url": "https://images.pexels.com/photos/17059392/pexels-photo-17059392.jpeg?auto=compress&cs=tinysrgb&w=400",
+    "source_page_url": "https://www.pexels.com/photo/close-up-portrait-of-a-young-man-smiling-17059392/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/photo/close-up-portrait-of-a-young-man-smiling-17059392/",
+    "notes": "Demo reference portrait for plumber (testimonial avatar slot 3). Pexels License — replace with the operator's own customer photography for production."
   }
 }

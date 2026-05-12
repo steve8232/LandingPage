@@ -275,7 +275,6 @@ export default function Home() {
         landingPage={landingPage}
         onStartOver={startOver}
         formData={formData}
-        testimonialCount={8}
       />
     );
   }

@@ -108,9 +108,9 @@ const spec: TemplateSpec = {
         heading: 'What 380+ local homeowners say',
         subheading: 'Verified Google reviews from neighbors in Lakewood, Sunset Hills, and Bayview.',
         testimonials: [
-          { quote: 'Two dogs and a 5-year-old in our Lakewood house. PureFiber lifted stains I was sure were permanent — including the red Kool-Aid in the master closet. Carpets dry in 3 hours. Magic.', highlight: 'lifted permanent stains', rating: 5, name: 'Christine L.', title: 'Lakewood homeowner' },
-          { quote: 'Sunset Hills rental had cat urine in 2 rooms. Other cleaners said "replace the pad." PureFiber\'s enzyme treatment killed the smell in one visit. Saved us $1,800 in flooring.', highlight: 'saved us $1,800', rating: 5, name: 'Devon T.', title: 'Sunset Hills landlord' },
-          { quote: 'White microfiber sectional in Bayview, 3 years of grime, soda spills, dog drool. PureFiber matched the cleaner to the fabric and brought it back to white. Stunned.', highlight: 'brought it back to white', rating: 5, name: 'Maya K.', title: 'Bayview homeowner' },
+          { quote: 'Two dogs and a 5-year-old in our Lakewood house. PureFiber lifted stains I was sure were permanent — including the red Kool-Aid in the master closet. Carpets dry in 3 hours. Magic.', highlight: 'lifted permanent stains', rating: 5, name: 'Christine L.', title: 'Lakewood homeowner' , avatarAsset: 'testimonialAvatar1', fallbackAsset: 'fallbackTestimonialAvatar1' },
+          { quote: 'Sunset Hills rental had cat urine in 2 rooms. Other cleaners said "replace the pad." PureFiber\'s enzyme treatment killed the smell in one visit. Saved us $1,800 in flooring.', highlight: 'saved us $1,800', rating: 5, name: 'Devon T.', title: 'Sunset Hills landlord' , avatarAsset: 'testimonialAvatar2', fallbackAsset: 'fallbackTestimonialAvatar2' },
+          { quote: 'White microfiber sectional in Bayview, 3 years of grime, soda spills, dog drool. PureFiber matched the cleaner to the fabric and brought it back to white. Stunned.', highlight: 'brought it back to white', rating: 5, name: 'Maya K.', title: 'Bayview homeowner' , avatarAsset: 'testimonialAvatar3', fallbackAsset: 'fallbackTestimonialAvatar3' },
         ],
       },
     },
@@ -214,6 +214,12 @@ const spec: TemplateSpec = {
     fallbackGalleryImage3: '/v1/assets/placeholders/local/local-services-trust-hero-01.svg',
     logo: '/v1/assets/placeholders/common/logo-placeholder.svg',
     avatar: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    testimonialAvatar1: 'demo-carpet-cleaning-avatar-01',
+    testimonialAvatar2: 'demo-carpet-cleaning-avatar-02',
+    testimonialAvatar3: 'demo-carpet-cleaning-avatar-03',
+    fallbackTestimonialAvatar1: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    fallbackTestimonialAvatar2: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    fallbackTestimonialAvatar3: '/v1/assets/placeholders/common/avatar-placeholder.svg',
   },
 
   assetSearchSeeds: {
@@ -223,6 +229,9 @@ const spec: TemplateSpec = {
     galleryImage1: 'real photo carpet pet stain removal before after enzyme treatment',
     galleryImage2: 'real photo clean residential carpet bedroom recently steam cleaned',
     galleryImage3: 'real photo upholstery couch sofa cleaning microfiber before after',
+    testimonialAvatar1: 'real photo professional headshot of happy carpet-cleaning customer, woman late 30s, warm friendly smile, residential setting',
+    testimonialAvatar2: 'real photo professional headshot of satisfied carpet-cleaning customer, man early 40s, casual confident, daylight',
+    testimonialAvatar3: 'real photo warm portrait of mature carpet-cleaning repeat customer, woman 50s, natural light, trustworthy expression',
   },
 
   form: [

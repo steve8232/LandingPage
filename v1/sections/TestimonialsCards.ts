@@ -7,7 +7,7 @@
  * Props:
  *   heading      – section heading
  *   subheading   – optional intro line
- *   testimonials – array of { quote, name, title, highlight?, rating? }
+ *   testimonials – array of { quote, name, title, highlight?, rating?, avatarAsset?, fallbackAsset? }
  */
 
 export interface Testimonial {
@@ -18,6 +18,10 @@ export interface Testimonial {
   highlight?: string;
   /** Star rating 1-5 */
   rating?: number;
+  /** Optional avatar image asset key (resolved by composer). */
+  avatarAsset?: string;
+  /** Optional fallback avatar asset key. */
+  fallbackAsset?: string;
 }
 
 export interface TestimonialsCardsProps {
@@ -25,6 +29,10 @@ export interface TestimonialsCardsProps {
   /** Intro line below the heading (e.g. "Join 500+ satisfied customers") */
   subheading?: string;
   testimonials: Testimonial[];
+
+  // Composer-injected (per-asset-key resolved URLs/alt texts)
+  _resolvedAvatarUrls?: Record<string, string>;
+  _avatarAltTexts?: Record<string, string>;
 }
 
 /* ── Helpers ───────────────────────────────────────────────────────────── */
@@ -53,8 +61,32 @@ function renderStars(rating: number): string {
   return `<div style="display:flex; align-items:center; margin-bottom: var(--v1-space-4);" aria-label="${clamped} out of 5 stars">${stars.join('')}</div>`;
 }
 
-/** Generate initials-based avatar placeholder */
-function renderAvatar(name: string): string {
+/** Render an avatar — image when an asset URL is available, initials fallback otherwise. */
+function renderAvatar(
+  name: string,
+  assetKey?: string,
+  imageUrl?: string,
+  fallbackUrl?: string,
+  altText?: string,
+): string {
+  if (assetKey && imageUrl) {
+    const alt = altText || `${name} — verified customer`;
+    return `<img
+      src="${escapeAttr(imageUrl)}"
+      alt="${escapeAttr(alt)}"
+      data-v1-asset-key="${escapeAttr(assetKey)}"
+      data-fallback="${escapeAttr(fallbackUrl || '')}"
+      onerror="if(this.dataset.fallback&&this.src!==this.dataset.fallback){this.src=this.dataset.fallback;}"
+      style="
+        width: 44px; height: 44px;
+        border-radius: 50%;
+        object-fit: cover;
+        flex-shrink: 0;
+        background: var(--v1-color-primary);
+      "
+    />`;
+  }
+
   const initials = name
     .split(/\s+/)
     .map((w) => w[0] || '')
@@ -84,6 +116,8 @@ const QUOTE_SVG = `<svg width="32" height="32" viewBox="0 0 24 24" fill="none" x
 
 export function renderTestimonialsCards(props: TestimonialsCardsProps): string {
   const heading = props.heading || 'What Our Customers Say';
+  const resolvedAvatars = props._resolvedAvatarUrls || {};
+  const avatarAlts = props._avatarAltTexts || {};
 
   const cardsHtml = props.testimonials
     .map(
@@ -121,7 +155,13 @@ ${t.rating ? `      ${renderStars(t.rating)}` : ''}
         padding-top: var(--v1-space-4);
         border-top: 1px solid var(--v1-color-border, rgba(0,0,0,0.08));
       ">
-        ${renderAvatar(t.name)}
+        ${renderAvatar(
+          t.name,
+          t.avatarAsset,
+          t.avatarAsset ? (resolvedAvatars[t.avatarAsset] || resolvedAvatars[`${t.avatarAsset}__fallback`]) : undefined,
+          t.avatarAsset ? resolvedAvatars[`${t.avatarAsset}__fallback`] : undefined,
+          t.avatarAsset ? avatarAlts[t.avatarAsset] : undefined,
+        )}
         <div>
           <strong style="
             display: block;
@@ -177,5 +217,9 @@ function escapeHtml(str: string): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+function escapeAttr(str: string): string {
+  return str.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 

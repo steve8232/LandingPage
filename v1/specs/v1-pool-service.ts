@@ -108,9 +108,9 @@ const spec: TemplateSpec = {
         heading: 'What 240+ local pool owners say',
         subheading: 'Verified Google reviews from neighbors in Lakeshore, Vista Bay, and Sunhaven.',
         testimonials: [
-          { quote: 'Lakeshore pool went green after the heat wave — 3 other pool guys quoted $600+ "shock packages." CrystalBlue had it crystal-clear in 3 days for $180. Now on weekly service for $179/mo. Worth every penny.', highlight: 'crystal-clear in 3 days', rating: 5, name: 'Vincent R.', title: 'Lakeshore homeowner' },
-          { quote: 'Vista Bay tech is the same guy every Tuesday for 14 months. Knows my equipment, brings parts before I ask, photo report in my inbox by 11am. Best pool service we have ever had.', highlight: 'photo report in my inbox by 11am', rating: 5, name: 'Wendy A.', title: 'Vista Bay homeowner' },
-          { quote: 'Sunhaven pump died on July 4th. Other services said "Tuesday at earliest." CrystalBlue came that night, replaced it, swimming the next morning. Fair price, no upsell.', highlight: 'swimming the next morning', rating: 5, name: 'Jorge P.', title: 'Sunhaven homeowner' },
+          { quote: 'Lakeshore pool went green after the heat wave — 3 other pool guys quoted $600+ "shock packages." CrystalBlue had it crystal-clear in 3 days for $180. Now on weekly service for $179/mo. Worth every penny.', highlight: 'crystal-clear in 3 days', rating: 5, name: 'Vincent R.', title: 'Lakeshore homeowner' , avatarAsset: 'testimonialAvatar1', fallbackAsset: 'fallbackTestimonialAvatar1' },
+          { quote: 'Vista Bay tech is the same guy every Tuesday for 14 months. Knows my equipment, brings parts before I ask, photo report in my inbox by 11am. Best pool service we have ever had.', highlight: 'photo report in my inbox by 11am', rating: 5, name: 'Wendy A.', title: 'Vista Bay homeowner' , avatarAsset: 'testimonialAvatar2', fallbackAsset: 'fallbackTestimonialAvatar2' },
+          { quote: 'Sunhaven pump died on July 4th. Other services said "Tuesday at earliest." CrystalBlue came that night, replaced it, swimming the next morning. Fair price, no upsell.', highlight: 'swimming the next morning', rating: 5, name: 'Jorge P.', title: 'Sunhaven homeowner' , avatarAsset: 'testimonialAvatar3', fallbackAsset: 'fallbackTestimonialAvatar3' },
         ],
       },
     },
@@ -214,6 +214,12 @@ const spec: TemplateSpec = {
     fallbackGalleryImage3: '/v1/assets/placeholders/local/local-services-trust-hero-01.svg',
     logo: '/v1/assets/placeholders/common/logo-placeholder.svg',
     avatar: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    testimonialAvatar1: 'demo-pool-service-avatar-01',
+    testimonialAvatar2: 'demo-pool-service-avatar-02',
+    testimonialAvatar3: 'demo-pool-service-avatar-03',
+    fallbackTestimonialAvatar1: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    fallbackTestimonialAvatar2: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    fallbackTestimonialAvatar3: '/v1/assets/placeholders/common/avatar-placeholder.svg',
   },
 
   assetSearchSeeds: {
@@ -223,6 +229,9 @@ const spec: TemplateSpec = {
     galleryImage1: 'real photo crystal clear blue residential pool sparkling backyard',
     galleryImage2: 'real photo pool tech equipment maintenance pump filter residential',
     galleryImage3: 'real photo pool acid wash plaster restoration before after residential',
+    testimonialAvatar1: 'real photo professional headshot of happy pool-service customer, woman late 30s, warm friendly smile, residential setting',
+    testimonialAvatar2: 'real photo professional headshot of satisfied pool-service customer, man early 40s, casual confident, daylight',
+    testimonialAvatar3: 'real photo warm portrait of mature pool-service repeat customer, woman 50s, natural light, trustworthy expression',
   },
 
   form: [

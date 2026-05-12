@@ -334,6 +334,22 @@ export function composeV1Template(
         (props as Record<string, unknown>)._altTexts = altMap;
       }
 
+      // TestimonialsCards — per-testimonial avatarAsset + optional fallbackAsset
+      if (entry.type === 'TestimonialsCards' && Array.isArray((props as Record<string, unknown>).testimonials)) {
+        const items = (props as Record<string, unknown>).testimonials as Array<Record<string, unknown>>;
+        const urlMap: Record<string, string> = {};
+        const altMap: Record<string, string> = {};
+        for (const it of items) {
+          const k = typeof it.avatarAsset === 'string' ? it.avatarAsset : '';
+          if (k && resolvedAssets[k]) urlMap[k] = resolvedAssets[k];
+          const fbk = typeof it.fallbackAsset === 'string' ? it.fallbackAsset : '';
+          if (fbk && resolvedAssets[fbk]) urlMap[`${k}__fallback`] = resolvedAssets[fbk];
+          if (k && overrides?.meta?.imageAltTexts?.[k]) altMap[k] = overrides.meta.imageAltTexts[k];
+        }
+        (props as Record<string, unknown>)._resolvedAvatarUrls = urlMap;
+        (props as Record<string, unknown>)._avatarAltTexts = altMap;
+      }
+
       // ImagePair
       if (typeof (props as Record<string, unknown>).imageAsset1 === 'string') {
         const k = (props as Record<string, unknown>).imageAsset1 as string;

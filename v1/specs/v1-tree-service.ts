@@ -108,9 +108,9 @@ const spec: TemplateSpec = {
         heading: 'What 290+ local homeowners say',
         subheading: 'Verified Google reviews from neighbors in Oakwood, Pinegrove, and Hillcrest.',
         testimonials: [
-          { quote: '90-foot oak fell on our Oakwood house at 11pm during the storm. OakGuard had a crane onsite by 6am, tree off the roof by noon, tarp up before rain. Worked directly with our insurance — saved us $14K in delays.', highlight: 'tree off roof by noon', rating: 5, name: 'Hannah Q.', title: 'Oakwood homeowner' },
-          { quote: 'Three other Pinegrove "tree guys" said our 80-ft sycamore was impossible without breaking the fence. OakGuard\'s crane crew dropped it in pieces, no damage. Driveway clean by 5pm.', highlight: 'no damage, clean by 5pm', rating: 5, name: 'Andrew F.', title: 'Pinegrove homeowner' },
-          { quote: 'Asked for proof of insurance — 4 of 5 Hillcrest tree services couldn\'t produce one. OakGuard emailed COI in 5 minutes. That tells you everything. Pruned 6 oaks beautifully.', highlight: 'COI in 5 minutes', rating: 5, name: 'Linda M.', title: 'Hillcrest homeowner' },
+          { quote: '90-foot oak fell on our Oakwood house at 11pm during the storm. OakGuard had a crane onsite by 6am, tree off the roof by noon, tarp up before rain. Worked directly with our insurance — saved us $14K in delays.', highlight: 'tree off roof by noon', rating: 5, name: 'Hannah Q.', title: 'Oakwood homeowner' , avatarAsset: 'testimonialAvatar1', fallbackAsset: 'fallbackTestimonialAvatar1' },
+          { quote: 'Three other Pinegrove "tree guys" said our 80-ft sycamore was impossible without breaking the fence. OakGuard\'s crane crew dropped it in pieces, no damage. Driveway clean by 5pm.', highlight: 'no damage, clean by 5pm', rating: 5, name: 'Andrew F.', title: 'Pinegrove homeowner' , avatarAsset: 'testimonialAvatar2', fallbackAsset: 'fallbackTestimonialAvatar2' },
+          { quote: 'Asked for proof of insurance — 4 of 5 Hillcrest tree services couldn\'t produce one. OakGuard emailed COI in 5 minutes. That tells you everything. Pruned 6 oaks beautifully.', highlight: 'COI in 5 minutes', rating: 5, name: 'Linda M.', title: 'Hillcrest homeowner' , avatarAsset: 'testimonialAvatar3', fallbackAsset: 'fallbackTestimonialAvatar3' },
         ],
       },
     },
@@ -214,6 +214,12 @@ const spec: TemplateSpec = {
     fallbackGalleryImage3: '/v1/assets/placeholders/local/local-services-trust-hero-01.svg',
     logo: '/v1/assets/placeholders/common/logo-placeholder.svg',
     avatar: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    testimonialAvatar1: 'demo-tree-service-avatar-01',
+    testimonialAvatar2: 'demo-tree-service-avatar-02',
+    testimonialAvatar3: 'demo-tree-service-avatar-03',
+    fallbackTestimonialAvatar1: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    fallbackTestimonialAvatar2: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    fallbackTestimonialAvatar3: '/v1/assets/placeholders/common/avatar-placeholder.svg',
   },
 
   assetSearchSeeds: {
@@ -223,6 +229,9 @@ const spec: TemplateSpec = {
     galleryImage1: 'real photo storm damaged tree on roof emergency removal crane',
     galleryImage2: 'real photo large tree removal sycamore precision rigging residential',
     galleryImage3: 'real photo arborist pruning oak tree crown reduction professional',
+    testimonialAvatar1: 'real photo professional headshot of happy tree-service customer, woman late 30s, warm friendly smile, residential setting',
+    testimonialAvatar2: 'real photo professional headshot of satisfied tree-service customer, man early 40s, casual confident, daylight',
+    testimonialAvatar3: 'real photo warm portrait of mature tree-service repeat customer, woman 50s, natural light, trustworthy expression',
   },
 
   form: [

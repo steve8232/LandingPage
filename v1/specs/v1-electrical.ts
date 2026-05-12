@@ -108,9 +108,9 @@ const spec: TemplateSpec = {
         heading: 'What 480+ local homeowners say',
         subheading: 'Verified Google reviews from neighbors in Highland Park and Crestwood.',
         testimonials: [
-          { quote: 'Half my house lost power on a Sunday in Highland Park — Bright Circuit had a master electrician in my basement by 9 AM Monday with a $0 diagnostic. Power back by lunch.', highlight: 'power back by lunch', rating: 5, name: 'Diana C.', title: 'Highland Park homeowner' },
-          { quote: 'Got 4 quotes for a 200A panel upgrade in Crestwood. Bright Circuit was the only one who handled the permit and passed inspection on the first try. $400 less, too.', highlight: 'passed inspection first try', rating: 5, name: 'Ravi P.', title: 'Crestwood homeowner' },
-          { quote: 'Tesla charger install in Riverbend — clean, labeled, and rebate paperwork done for me. Other electricians wanted $1,800; Bright Circuit was $1,150 with a 5-year warranty.', highlight: '5-year warranty', rating: 5, name: 'Kelly M.', title: 'Riverbend EV owner' },
+          { quote: 'Half my house lost power on a Sunday in Highland Park — Bright Circuit had a master electrician in my basement by 9 AM Monday with a $0 diagnostic. Power back by lunch.', highlight: 'power back by lunch', rating: 5, name: 'Diana C.', title: 'Highland Park homeowner' , avatarAsset: 'testimonialAvatar1', fallbackAsset: 'fallbackTestimonialAvatar1' },
+          { quote: 'Got 4 quotes for a 200A panel upgrade in Crestwood. Bright Circuit was the only one who handled the permit and passed inspection on the first try. $400 less, too.', highlight: 'passed inspection first try', rating: 5, name: 'Ravi P.', title: 'Crestwood homeowner' , avatarAsset: 'testimonialAvatar2', fallbackAsset: 'fallbackTestimonialAvatar2' },
+          { quote: 'Tesla charger install in Riverbend — clean, labeled, and rebate paperwork done for me. Other electricians wanted $1,800; Bright Circuit was $1,150 with a 5-year warranty.', highlight: '5-year warranty', rating: 5, name: 'Kelly M.', title: 'Riverbend EV owner' , avatarAsset: 'testimonialAvatar3', fallbackAsset: 'fallbackTestimonialAvatar3' },
         ],
       },
     },
@@ -214,6 +214,12 @@ const spec: TemplateSpec = {
     fallbackGalleryImage3: '/v1/assets/placeholders/local/local-services-trust-hero-01.svg',
     logo: '/v1/assets/placeholders/common/logo-placeholder.svg',
     avatar: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    testimonialAvatar1: 'demo-electrical-avatar-01',
+    testimonialAvatar2: 'demo-electrical-avatar-02',
+    testimonialAvatar3: 'demo-electrical-avatar-03',
+    fallbackTestimonialAvatar1: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    fallbackTestimonialAvatar2: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    fallbackTestimonialAvatar3: '/v1/assets/placeholders/common/avatar-placeholder.svg',
   },
 
   assetSearchSeeds: {
@@ -223,6 +229,9 @@ const spec: TemplateSpec = {
     galleryImage1: 'real photo new 200 amp electrical panel installation labeled breakers',
     galleryImage2: 'real photo Tesla wall charger EV install garage neat conduit',
     galleryImage3: 'real photo whole home surge protector GFI outlet install',
+    testimonialAvatar1: 'real photo professional headshot of happy electrical customer, woman late 30s, warm friendly smile, residential setting',
+    testimonialAvatar2: 'real photo professional headshot of satisfied electrical customer, man early 40s, casual confident, daylight',
+    testimonialAvatar3: 'real photo warm portrait of mature electrical repeat customer, woman 50s, natural light, trustworthy expression',
   },
 
   form: [

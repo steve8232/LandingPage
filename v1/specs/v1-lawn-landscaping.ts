@@ -108,9 +108,9 @@ const spec: TemplateSpec = {
         heading: 'What 460+ local homeowners say',
         subheading: 'Verified Google reviews from neighbors in Cedar Park, Riverstone, and Maple Heights.',
         testimonials: [
-          { quote: 'Our Cedar Park lawn was 60% crabgrass. By the 4th treatment it was the thickest yard in the cul-de-sac. Same 2 guys every visit — they even bring treats for our dog.', highlight: 'thickest yard in the cul-de-sac', rating: 5, name: 'Patrick M.', title: 'Cedar Park homeowner' },
-          { quote: 'Riverstone HOA forced us to fix our dead spots before sale. GreenAcre aerated, overseeded, and treated — by closing the lawn was magazine-cover green. Buyer\'s agent commented.', highlight: 'magazine-cover green', rating: 5, name: 'Becca H.', title: 'Riverstone homeowner' },
-          { quote: 'Hired 3 other "lawn guys" before GreenAcre — all skipped weeks or scalped the grass. GreenAcre has been every Wednesday at 9am for 18 months. Maple Heights yard never looked better.', highlight: 'every Wednesday at 9am', rating: 5, name: 'Rashid V.', title: 'Maple Heights homeowner' },
+          { quote: 'Our Cedar Park lawn was 60% crabgrass. By the 4th treatment it was the thickest yard in the cul-de-sac. Same 2 guys every visit — they even bring treats for our dog.', highlight: 'thickest yard in the cul-de-sac', rating: 5, name: 'Patrick M.', title: 'Cedar Park homeowner' , avatarAsset: 'testimonialAvatar1', fallbackAsset: 'fallbackTestimonialAvatar1' },
+          { quote: 'Riverstone HOA forced us to fix our dead spots before sale. GreenAcre aerated, overseeded, and treated — by closing the lawn was magazine-cover green. Buyer\'s agent commented.', highlight: 'magazine-cover green', rating: 5, name: 'Becca H.', title: 'Riverstone homeowner' , avatarAsset: 'testimonialAvatar2', fallbackAsset: 'fallbackTestimonialAvatar2' },
+          { quote: 'Hired 3 other "lawn guys" before GreenAcre — all skipped weeks or scalped the grass. GreenAcre has been every Wednesday at 9am for 18 months. Maple Heights yard never looked better.', highlight: 'every Wednesday at 9am', rating: 5, name: 'Rashid V.', title: 'Maple Heights homeowner' , avatarAsset: 'testimonialAvatar3', fallbackAsset: 'fallbackTestimonialAvatar3' },
         ],
       },
     },
@@ -214,6 +214,12 @@ const spec: TemplateSpec = {
     fallbackGalleryImage3: '/v1/assets/placeholders/local/local-services-trust-hero-01.svg',
     logo: '/v1/assets/placeholders/common/logo-placeholder.svg',
     avatar: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    testimonialAvatar1: 'demo-lawn-landscaping-avatar-01',
+    testimonialAvatar2: 'demo-lawn-landscaping-avatar-02',
+    testimonialAvatar3: 'demo-lawn-landscaping-avatar-03',
+    fallbackTestimonialAvatar1: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    fallbackTestimonialAvatar2: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    fallbackTestimonialAvatar3: '/v1/assets/placeholders/common/avatar-placeholder.svg',
   },
 
   assetSearchSeeds: {
@@ -223,6 +229,9 @@ const spec: TemplateSpec = {
     galleryImage1: 'real photo before after thick green lawn fresh treatment residential',
     galleryImage2: 'real photo aeration overseeding residential lawn fall preparation',
     galleryImage3: 'real photo fresh mulch landscaped flower bed residential curb appeal',
+    testimonialAvatar1: 'real photo professional headshot of happy lawn-landscaping customer, woman late 30s, warm friendly smile, residential setting',
+    testimonialAvatar2: 'real photo professional headshot of satisfied lawn-landscaping customer, man early 40s, casual confident, daylight',
+    testimonialAvatar3: 'real photo warm portrait of mature lawn-landscaping repeat customer, woman 50s, natural light, trustworthy expression',
   },
 
   form: [

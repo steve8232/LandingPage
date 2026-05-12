@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Landing Page Designer - AI-Powered Landing Page Generator",
-  description: "Create beautiful, conversion-optimized landing pages in minutes using AI.",
+  title: "SparkPage — Local Service Landing Pages, Built in Minutes",
+  description: "SparkPage builds conversion-optimized landing pages for local service businesses. Pick a niche template, answer a few questions, and publish.",
 };
 
 export default function RootLayout({

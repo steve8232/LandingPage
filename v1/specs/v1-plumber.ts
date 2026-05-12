@@ -152,9 +152,9 @@ const spec: TemplateSpec = {
         heading: 'What 600+ local homeowners say',
         subheading: 'Fast response, fair pricing, work that holds up — verified Google reviews from the metro.',
         testimonials: [
-          { quote: 'Burst pipe at 11 PM in Lakeside and they had a tech in my kitchen by midnight. Saved my hardwood floors and my weekend.', highlight: 'saved my hardwood floors', rating: 5, name: 'Robert M.', title: 'Lakeside homeowner' },
-          { quote: 'Quoted exactly what I paid — $389 flat for a tankless install in Riverside. No upsell, no surprises. Will absolutely call them again.', highlight: 'no surprises', rating: 5, name: 'Jennifer H.', title: 'Riverside property manager' },
-          { quote: 'Replaced our water heater in three hours, cleaned up better than the install crew. 12 years in Maple Heights and these are the best plumbers we have hired.', highlight: 'cleaned up better', rating: 5, name: 'Tom R.', title: 'Maple Heights repeat customer' },
+          { quote: 'Burst pipe at 11 PM in Lakeside and they had a tech in my kitchen by midnight. Saved my hardwood floors and my weekend.', highlight: 'saved my hardwood floors', rating: 5, name: 'Robert M.', title: 'Lakeside homeowner' , avatarAsset: 'testimonialAvatar1', fallbackAsset: 'fallbackTestimonialAvatar1' },
+          { quote: 'Quoted exactly what I paid — $389 flat for a tankless install in Riverside. No upsell, no surprises. Will absolutely call them again.', highlight: 'no surprises', rating: 5, name: 'Jennifer H.', title: 'Riverside property manager' , avatarAsset: 'testimonialAvatar2', fallbackAsset: 'fallbackTestimonialAvatar2' },
+          { quote: 'Replaced our water heater in three hours, cleaned up better than the install crew. 12 years in Maple Heights and these are the best plumbers we have hired.', highlight: 'cleaned up better', rating: 5, name: 'Tom R.', title: 'Maple Heights repeat customer' , avatarAsset: 'testimonialAvatar3', fallbackAsset: 'fallbackTestimonialAvatar3' },
         ],
       },
     },
@@ -264,6 +264,12 @@ const spec: TemplateSpec = {
 
     logo: '/v1/assets/placeholders/common/logo-placeholder.svg',
     avatar: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    testimonialAvatar1: 'demo-plumber-avatar-01',
+    testimonialAvatar2: 'demo-plumber-avatar-02',
+    testimonialAvatar3: 'demo-plumber-avatar-03',
+    fallbackTestimonialAvatar1: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    fallbackTestimonialAvatar2: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    fallbackTestimonialAvatar3: '/v1/assets/placeholders/common/avatar-placeholder.svg',
   },
 
   assetSearchSeeds: {
@@ -273,6 +279,9 @@ const spec: TemplateSpec = {
     galleryImage1: 'real photo tankless water heater installation clean labeled pipes',
     galleryImage2: 'real photo plumber under sink repair copper fittings tidy work',
     galleryImage3: 'real photo sewer drain camera inspection plumber van',
+    testimonialAvatar1: 'real photo professional headshot of happy plumber customer, woman late 30s, warm friendly smile, residential setting',
+    testimonialAvatar2: 'real photo professional headshot of satisfied plumber customer, man early 40s, casual confident, daylight',
+    testimonialAvatar3: 'real photo warm portrait of mature plumber repeat customer, woman 50s, natural light, trustworthy expression',
   },
 
   form: [

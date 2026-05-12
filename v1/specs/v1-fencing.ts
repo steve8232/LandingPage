@@ -108,9 +108,9 @@ const spec: TemplateSpec = {
         heading: 'What 360+ local homeowners say',
         subheading: 'Verified Google reviews from neighbors in Oakridge, Stonewood, and Lakeview.',
         testimonials: [
-          { quote: 'Got 5 fence quotes in Oakridge — IronGate was the only crew that mentioned frost depth and concrete. 3 winters later, every post still plumb. Worth every penny.', highlight: 'still plumb 3 winters later', rating: 5, name: 'Megan O.', title: 'Oakridge homeowner' },
-          { quote: 'Vinyl pool fence in Stonewood — passed inspection first try, looks better than our neighbor\'s install from last year. Crew was polite and tidy every day.', highlight: 'passed inspection first try', rating: 5, name: 'Carlos R.', title: 'Stonewood homeowner' },
-          { quote: 'Storm took out 40 feet of fence in Lakeview. IronGate had a quote in 24 hours and a new fence in 4 days — including hauling away the old one. Saved my sanity.', highlight: 'new fence in 4 days', rating: 5, name: 'Tina L.', title: 'Lakeview homeowner' },
+          { quote: 'Got 5 fence quotes in Oakridge — IronGate was the only crew that mentioned frost depth and concrete. 3 winters later, every post still plumb. Worth every penny.', highlight: 'still plumb 3 winters later', rating: 5, name: 'Megan O.', title: 'Oakridge homeowner' , avatarAsset: 'testimonialAvatar1', fallbackAsset: 'fallbackTestimonialAvatar1' },
+          { quote: 'Vinyl pool fence in Stonewood — passed inspection first try, looks better than our neighbor\'s install from last year. Crew was polite and tidy every day.', highlight: 'passed inspection first try', rating: 5, name: 'Carlos R.', title: 'Stonewood homeowner' , avatarAsset: 'testimonialAvatar2', fallbackAsset: 'fallbackTestimonialAvatar2' },
+          { quote: 'Storm took out 40 feet of fence in Lakeview. IronGate had a quote in 24 hours and a new fence in 4 days — including hauling away the old one. Saved my sanity.', highlight: 'new fence in 4 days', rating: 5, name: 'Tina L.', title: 'Lakeview homeowner' , avatarAsset: 'testimonialAvatar3', fallbackAsset: 'fallbackTestimonialAvatar3' },
         ],
       },
     },
@@ -214,6 +214,12 @@ const spec: TemplateSpec = {
     fallbackGalleryImage3: '/v1/assets/placeholders/local/local-services-trust-hero-01.svg',
     logo: '/v1/assets/placeholders/common/logo-placeholder.svg',
     avatar: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    testimonialAvatar1: 'demo-fencing-avatar-01',
+    testimonialAvatar2: 'demo-fencing-avatar-02',
+    testimonialAvatar3: 'demo-fencing-avatar-03',
+    fallbackTestimonialAvatar1: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    fallbackTestimonialAvatar2: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    fallbackTestimonialAvatar3: '/v1/assets/placeholders/common/avatar-placeholder.svg',
   },
 
   assetSearchSeeds: {
@@ -223,6 +229,9 @@ const spec: TemplateSpec = {
     galleryImage1: 'real photo new cedar privacy fence backyard residential straight line',
     galleryImage2: 'real photo white vinyl pool fence backyard pool deck installation',
     galleryImage3: 'real photo black aluminum ornamental fence yard powder coated',
+    testimonialAvatar1: 'real photo professional headshot of happy fencing customer, woman late 30s, warm friendly smile, residential setting',
+    testimonialAvatar2: 'real photo professional headshot of satisfied fencing customer, man early 40s, casual confident, daylight',
+    testimonialAvatar3: 'real photo warm portrait of mature fencing repeat customer, woman 50s, natural light, trustworthy expression',
   },
 
   form: [

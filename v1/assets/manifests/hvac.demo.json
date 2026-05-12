@@ -24,13 +24,13 @@
   "demo-hvac-checklist-01": {
     "id": "demo-hvac-checklist-01",
     "role": "checklist",
-    "url": "https://images.pexels.com/photos/3243/pexels-photo-3243.jpeg?auto=compress&cs=tinysrgb&w=800",
-    "source_page_url": "https://www.pexels.com/photo/pen-calendar-to-do-checklist-3243/",
+    "url": "https://images.pexels.com/photos/6419128/pexels-photo-6419128.jpeg?auto=compress&cs=tinysrgb&w=800",
+    "source_page_url": "https://www.pexels.com/photo/plumber-installs-pipe-fittings-6419128/",
     "provider": "pexels",
     "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
-    "attribution_text": "Photo by Breakingpic on Pexels",
-    "attribution_url": "https://www.pexels.com/@breakingpic",
-    "notes": "Demo reference imagery for hvac (checklist). Pexels License — replace with the operator's own photography for production."
+    "attribution_text": "Photo by Anıl Karakaya on Pexels",
+    "attribution_url": "https://www.pexels.com/@anilkarakaya",
+    "notes": "Demo reference imagery for hvac (checklist); donor=electrical/demo-electrical-differentiator-01. Pexels License — replace with the operator's own photography for production."
   },
   "demo-hvac-gallery-01": {
     "id": "demo-hvac-gallery-01",
@@ -57,12 +57,45 @@
   "demo-hvac-gallery-03": {
     "id": "demo-hvac-gallery-03",
     "role": "gallery",
-    "url": "https://images.pexels.com/photos/3243/pexels-photo-3243.jpeg?auto=compress&cs=tinysrgb&w=800",
-    "source_page_url": "https://www.pexels.com/photo/pen-calendar-to-do-checklist-3243/",
+    "url": "https://images.pexels.com/photos/27756224/pexels-photo-27756224.jpeg?auto=compress&cs=tinysrgb&w=800",
+    "source_page_url": "https://www.pexels.com/photo/a-vine-growing-on-a-wooden-fence-27756224/",
     "provider": "pexels",
     "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
-    "attribution_text": "Photo by Breakingpic on Pexels",
-    "attribution_url": "https://www.pexels.com/@breakingpic",
-    "notes": "Demo reference imagery for hvac (gallery). Pexels License — replace with the operator's own photography for production."
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/",
+    "notes": "Demo reference imagery for hvac (gallery); donor=fencing/demo-fencing-gallery-02. Pexels License — replace with the operator's own photography for production."
+  },
+  "demo-hvac-avatar-01": {
+    "id": "demo-hvac-avatar-01",
+    "role": "avatar",
+    "url": "https://images.pexels.com/photos/35103924/pexels-photo-35103924.jpeg?auto=compress&cs=tinysrgb&w=400",
+    "source_page_url": "https://www.pexels.com/photo/casual-portrait-of-a-smiling-man-outdoors-35103924/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/photo/casual-portrait-of-a-smiling-man-outdoors-35103924/",
+    "notes": "Demo reference portrait for hvac (testimonial avatar slot 1). Pexels License — replace with the operator's own customer photography for production."
+  },
+  "demo-hvac-avatar-02": {
+    "id": "demo-hvac-avatar-02",
+    "role": "avatar",
+    "url": "https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=400",
+    "source_page_url": "https://www.pexels.com/photo/portrait-photo-of-smiling-man-with-his-arms-crossed-standing-in-front-of-a-wall-2379004/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/photo/portrait-photo-of-smiling-man-with-his-arms-crossed-standing-in-front-of-a-wall-2379004/",
+    "notes": "Demo reference portrait for hvac (testimonial avatar slot 2). Pexels License — replace with the operator's own customer photography for production."
+  },
+  "demo-hvac-avatar-03": {
+    "id": "demo-hvac-avatar-03",
+    "role": "avatar",
+    "url": "https://images.pexels.com/photos/10031281/pexels-photo-10031281.jpeg?auto=compress&cs=tinysrgb&w=400",
+    "source_page_url": "https://www.pexels.com/photo/portrait-of-smiling-businessman-sitting-on-desk-in-office-10031281/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/photo/portrait-of-smiling-businessman-sitting-on-desk-in-office-10031281/",
+    "notes": "Demo reference portrait for hvac (testimonial avatar slot 3). Pexels License — replace with the operator's own customer photography for production."
   }
 }

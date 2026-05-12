@@ -108,9 +108,9 @@ const spec: TemplateSpec = {
         heading: 'What 360+ patients say',
         subheading: 'Verified Google reviews from patients in Highland Park, Beacon Hill, and Cedar Crest.',
         testimonials: [
-          { quote: 'Tried Botox at a Highland Park chain — looked frozen, hated it. Glow\'s injector took 30 minutes to map my face and used half the units. Look refreshed, not "done." Going back forever.', highlight: 'refreshed, not done', rating: 5, name: 'Mariana C.', title: 'Highland Park patient' },
-          { quote: 'Got tear-trough filler in Beacon Hill at 47 — 3 years of compliments, no one knows. The MD walked me through risks before booking. Felt like I was at a real medical practice.', highlight: '3 years of compliments', rating: 5, name: 'Diane W.', title: 'Beacon Hill patient' },
-          { quote: 'Morpheus8 for melasma in Cedar Crest — 4 sessions, brown patches gone. Other clinics pushed packages I didn\'t need. Glow custom-built a 4-treatment plan and it worked.', highlight: 'brown patches gone', rating: 5, name: 'Amara J.', title: 'Cedar Crest patient' },
+          { quote: 'Tried Botox at a Highland Park chain — looked frozen, hated it. Glow\'s injector took 30 minutes to map my face and used half the units. Look refreshed, not "done." Going back forever.', highlight: 'refreshed, not done', rating: 5, name: 'Mariana C.', title: 'Highland Park patient' , avatarAsset: 'testimonialAvatar1', fallbackAsset: 'fallbackTestimonialAvatar1' },
+          { quote: 'Got tear-trough filler in Beacon Hill at 47 — 3 years of compliments, no one knows. The MD walked me through risks before booking. Felt like I was at a real medical practice.', highlight: '3 years of compliments', rating: 5, name: 'Diane W.', title: 'Beacon Hill patient' , avatarAsset: 'testimonialAvatar2', fallbackAsset: 'fallbackTestimonialAvatar2' },
+          { quote: 'Morpheus8 for melasma in Cedar Crest — 4 sessions, brown patches gone. Other clinics pushed packages I didn\'t need. Glow custom-built a 4-treatment plan and it worked.', highlight: 'brown patches gone', rating: 5, name: 'Amara J.', title: 'Cedar Crest patient' , avatarAsset: 'testimonialAvatar3', fallbackAsset: 'fallbackTestimonialAvatar3' },
         ],
       },
     },
@@ -214,6 +214,12 @@ const spec: TemplateSpec = {
     fallbackGalleryImage3: '/v1/assets/placeholders/local/local-services-trust-hero-01.svg',
     logo: '/v1/assets/placeholders/common/logo-placeholder.svg',
     avatar: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    testimonialAvatar1: 'demo-med-spa-avatar-01',
+    testimonialAvatar2: 'demo-med-spa-avatar-02',
+    testimonialAvatar3: 'demo-med-spa-avatar-03',
+    fallbackTestimonialAvatar1: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    fallbackTestimonialAvatar2: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    fallbackTestimonialAvatar3: '/v1/assets/placeholders/common/avatar-placeholder.svg',
   },
 
   assetSearchSeeds: {
@@ -223,6 +229,9 @@ const spec: TemplateSpec = {
     galleryImage1: 'real photo natural botox before after refreshed female face',
     galleryImage2: 'real photo dermal filler lip cheek subtle natural before after',
     galleryImage3: 'real photo morpheus8 hydrafacial skin rejuvenation glow before after',
+    testimonialAvatar1: 'real photo professional headshot of happy med-spa customer, woman late 30s, warm friendly smile, residential setting',
+    testimonialAvatar2: 'real photo professional headshot of satisfied med-spa customer, man early 40s, casual confident, daylight',
+    testimonialAvatar3: 'real photo warm portrait of mature med-spa repeat customer, woman 50s, natural light, trustworthy expression',
   },
 
   form: [

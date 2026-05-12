@@ -108,9 +108,9 @@ const spec: TemplateSpec = {
         heading: 'What 510+ local customers say',
         subheading: 'Verified Google reviews from neighbors in Riverbend, Oak Hill, and Cedar Ridge.',
         testimonials: [
-          { quote: 'Cleared out my late dad\'s Riverbend basement in 90 minutes — 30 years of stuff. Crew was kind, sorted donations vs. dump on the fly, and the price matched the texted quote exactly.', highlight: '30 years of stuff in 90 minutes', rating: 5, name: 'Allison P.', title: 'Riverbend resident' },
-          { quote: 'Three other Oak Hill haulers no-showed. HaulPro arrived in a 2-hour window, hauled an old hot tub plus 6 truckloads of garage junk, and donated half. Saved my weekend.', highlight: 'saved my weekend', rating: 5, name: 'Marcus B.', title: 'Oak Hill homeowner' },
-          { quote: 'Cedar Ridge construction cleanout — drywall, old cabinets, broken tile. Same-day pickup, fair flat rate, sweep-up included. Hiring them again on the next remodel.', highlight: 'fair flat rate, sweep-up included', rating: 5, name: 'Diana R.', title: 'Cedar Ridge contractor' },
+          { quote: 'Cleared out my late dad\'s Riverbend basement in 90 minutes — 30 years of stuff. Crew was kind, sorted donations vs. dump on the fly, and the price matched the texted quote exactly.', highlight: '30 years of stuff in 90 minutes', rating: 5, name: 'Allison P.', title: 'Riverbend resident' , avatarAsset: 'testimonialAvatar1', fallbackAsset: 'fallbackTestimonialAvatar1' },
+          { quote: 'Three other Oak Hill haulers no-showed. HaulPro arrived in a 2-hour window, hauled an old hot tub plus 6 truckloads of garage junk, and donated half. Saved my weekend.', highlight: 'saved my weekend', rating: 5, name: 'Marcus B.', title: 'Oak Hill homeowner' , avatarAsset: 'testimonialAvatar2', fallbackAsset: 'fallbackTestimonialAvatar2' },
+          { quote: 'Cedar Ridge construction cleanout — drywall, old cabinets, broken tile. Same-day pickup, fair flat rate, sweep-up included. Hiring them again on the next remodel.', highlight: 'fair flat rate, sweep-up included', rating: 5, name: 'Diana R.', title: 'Cedar Ridge contractor' , avatarAsset: 'testimonialAvatar3', fallbackAsset: 'fallbackTestimonialAvatar3' },
         ],
       },
     },
@@ -214,6 +214,12 @@ const spec: TemplateSpec = {
     fallbackGalleryImage3: '/v1/assets/placeholders/local/local-services-trust-hero-01.svg',
     logo: '/v1/assets/placeholders/common/logo-placeholder.svg',
     avatar: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    testimonialAvatar1: 'demo-junk-removal-avatar-01',
+    testimonialAvatar2: 'demo-junk-removal-avatar-02',
+    testimonialAvatar3: 'demo-junk-removal-avatar-03',
+    fallbackTestimonialAvatar1: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    fallbackTestimonialAvatar2: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    fallbackTestimonialAvatar3: '/v1/assets/placeholders/common/avatar-placeholder.svg',
   },
 
   assetSearchSeeds: {
@@ -223,6 +229,9 @@ const spec: TemplateSpec = {
     galleryImage1: 'real photo full junk removal truck residential basement cleanout',
     galleryImage2: 'real photo old appliance hot tub haul away crew',
     galleryImage3: 'real photo construction debris drywall pickup truck job site',
+    testimonialAvatar1: 'real photo professional headshot of happy junk-removal customer, woman late 30s, warm friendly smile, residential setting',
+    testimonialAvatar2: 'real photo professional headshot of satisfied junk-removal customer, man early 40s, casual confident, daylight',
+    testimonialAvatar3: 'real photo warm portrait of mature junk-removal repeat customer, woman 50s, natural light, trustworthy expression',
   },
 
   form: [

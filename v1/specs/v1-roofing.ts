@@ -108,9 +108,9 @@ const spec: TemplateSpec = {
         heading: 'What 580+ local homeowners say',
         subheading: 'Verified Google reviews from neighbors in Cedar Heights, Stonebridge, and Hilltop.',
         testimonials: [
-          { quote: 'Hailstorm hit Cedar Heights in May — Summit Peak met my insurance adjuster and got my full roof approved at $18,400. Five other roofers said the damage was "not enough."', highlight: '$18,400 claim approved', rating: 5, name: 'Marcus T.', title: 'Cedar Heights homeowner' },
-          { quote: 'Replaced our 22-year-old roof in Stonebridge in a single day, magnet-swept the lawn three times. My toddler walks barefoot — zero nails missed.', highlight: 'zero nails missed', rating: 5, name: 'Jennifer L.', title: 'Stonebridge homeowner' },
-          { quote: 'A "discount roofer" wanted $4K to repair our leak in Hilltop. Summit Peak found the real cause — vent flashing — and fixed it for $480 with a 5-year warranty.', highlight: 'fixed it for $480', rating: 5, name: 'Eric N.', title: 'Hilltop homeowner' },
+          { quote: 'Hailstorm hit Cedar Heights in May — Summit Peak met my insurance adjuster and got my full roof approved at $18,400. Five other roofers said the damage was "not enough."', highlight: '$18,400 claim approved', rating: 5, name: 'Marcus T.', title: 'Cedar Heights homeowner' , avatarAsset: 'testimonialAvatar1', fallbackAsset: 'fallbackTestimonialAvatar1' },
+          { quote: 'Replaced our 22-year-old roof in Stonebridge in a single day, magnet-swept the lawn three times. My toddler walks barefoot — zero nails missed.', highlight: 'zero nails missed', rating: 5, name: 'Jennifer L.', title: 'Stonebridge homeowner' , avatarAsset: 'testimonialAvatar2', fallbackAsset: 'fallbackTestimonialAvatar2' },
+          { quote: 'A "discount roofer" wanted $4K to repair our leak in Hilltop. Summit Peak found the real cause — vent flashing — and fixed it for $480 with a 5-year warranty.', highlight: 'fixed it for $480', rating: 5, name: 'Eric N.', title: 'Hilltop homeowner' , avatarAsset: 'testimonialAvatar3', fallbackAsset: 'fallbackTestimonialAvatar3' },
         ],
       },
     },
@@ -214,6 +214,12 @@ const spec: TemplateSpec = {
     fallbackGalleryImage3: '/v1/assets/placeholders/local/local-services-trust-hero-01.svg',
     logo: '/v1/assets/placeholders/common/logo-placeholder.svg',
     avatar: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    testimonialAvatar1: 'demo-roofing-avatar-01',
+    testimonialAvatar2: 'demo-roofing-avatar-02',
+    testimonialAvatar3: 'demo-roofing-avatar-03',
+    fallbackTestimonialAvatar1: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    fallbackTestimonialAvatar2: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    fallbackTestimonialAvatar3: '/v1/assets/placeholders/common/avatar-placeholder.svg',
   },
 
   assetSearchSeeds: {
@@ -223,6 +229,9 @@ const spec: TemplateSpec = {
     galleryImage1: 'real photo new GAF Timberline architectural shingle roof installation',
     galleryImage2: 'real photo storm damage hail roof inspection insurance adjuster',
     galleryImage3: 'real photo seamless aluminum gutter installation residential home',
+    testimonialAvatar1: 'real photo professional headshot of happy roofing customer, woman late 30s, warm friendly smile, residential setting',
+    testimonialAvatar2: 'real photo professional headshot of satisfied roofing customer, man early 40s, casual confident, daylight',
+    testimonialAvatar3: 'real photo warm portrait of mature roofing repeat customer, woman 50s, natural light, trustworthy expression',
   },
 
   form: [

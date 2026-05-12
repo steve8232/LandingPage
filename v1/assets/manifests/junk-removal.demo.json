@@ -24,13 +24,13 @@
   "demo-junk-removal-checklist-01": {
     "id": "demo-junk-removal-checklist-01",
     "role": "checklist",
-    "url": "https://images.pexels.com/photos/3243/pexels-photo-3243.jpeg?auto=compress&cs=tinysrgb&w=800",
-    "source_page_url": "https://www.pexels.com/photo/pen-calendar-to-do-checklist-3243/",
+    "url": "https://images.pexels.com/photos/27756224/pexels-photo-27756224.jpeg?auto=compress&cs=tinysrgb&w=800",
+    "source_page_url": "https://www.pexels.com/photo/a-vine-growing-on-a-wooden-fence-27756224/",
     "provider": "pexels",
     "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
-    "attribution_text": "Photo by Breakingpic on Pexels",
-    "attribution_url": "https://www.pexels.com/@breakingpic",
-    "notes": "Demo reference imagery for junk removal (checklist). Pexels License — replace with the operator's own photography for production."
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/",
+    "notes": "Demo reference imagery for junk-removal (checklist); donor=fencing/demo-fencing-gallery-02. Pexels License — replace with the operator's own photography for production."
   },
   "demo-junk-removal-gallery-01": {
     "id": "demo-junk-removal-gallery-01",
@@ -64,5 +64,38 @@
     "attribution_text": "Photo from Pexels",
     "attribution_url": "https://www.pexels.com/",
     "notes": "Demo reference imagery for junk removal (gallery). Pexels License — replace with the operator's own photography for production."
+  },
+  "demo-junk-removal-avatar-01": {
+    "id": "demo-junk-removal-avatar-01",
+    "role": "avatar",
+    "url": "https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=400",
+    "source_page_url": "https://www.pexels.com/photo/portrait-photo-of-smiling-man-with-his-arms-crossed-standing-in-front-of-a-wall-2379004/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/photo/portrait-photo-of-smiling-man-with-his-arms-crossed-standing-in-front-of-a-wall-2379004/",
+    "notes": "Demo reference portrait for junk-removal (testimonial avatar slot 1). Pexels License — replace with the operator's own customer photography for production."
+  },
+  "demo-junk-removal-avatar-02": {
+    "id": "demo-junk-removal-avatar-02",
+    "role": "avatar",
+    "url": "https://images.pexels.com/photos/10031281/pexels-photo-10031281.jpeg?auto=compress&cs=tinysrgb&w=400",
+    "source_page_url": "https://www.pexels.com/photo/portrait-of-smiling-businessman-sitting-on-desk-in-office-10031281/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/photo/portrait-of-smiling-businessman-sitting-on-desk-in-office-10031281/",
+    "notes": "Demo reference portrait for junk-removal (testimonial avatar slot 2). Pexels License — replace with the operator's own customer photography for production."
+  },
+  "demo-junk-removal-avatar-03": {
+    "id": "demo-junk-removal-avatar-03",
+    "role": "avatar",
+    "url": "https://images.pexels.com/photos/3456882/pexels-photo-3456882.jpeg?auto=compress&cs=tinysrgb&w=400",
+    "source_page_url": "https://www.pexels.com/photo/photo-of-woman-smiling-3456882/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/photo/photo-of-woman-smiling-3456882/",
+    "notes": "Demo reference portrait for junk-removal (testimonial avatar slot 3). Pexels License — replace with the operator's own customer photography for production."
   }
 }

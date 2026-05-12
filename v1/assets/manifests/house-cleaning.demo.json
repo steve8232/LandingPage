@@ -24,13 +24,13 @@
   "demo-house-cleaning-checklist-01": {
     "id": "demo-house-cleaning-checklist-01",
     "role": "checklist",
-    "url": "https://images.pexels.com/photos/3243/pexels-photo-3243.jpeg?auto=compress&cs=tinysrgb&w=800",
-    "source_page_url": "https://www.pexels.com/photo/pen-calendar-to-do-checklist-3243/",
+    "url": "https://images.pexels.com/photos/5591490/pexels-photo-5591490.jpeg?auto=compress&cs=tinysrgb&w=800",
+    "source_page_url": "https://www.pexels.com/photo/woman-cleaning-a-mirror-5591490/",
     "provider": "pexels",
     "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
-    "attribution_text": "Photo by Breakingpic on Pexels",
-    "attribution_url": "https://www.pexels.com/@breakingpic",
-    "notes": "Demo reference imagery for house cleaning (checklist). Pexels License — replace with the operator's own photography for production."
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/",
+    "notes": "Demo reference imagery for house-cleaning (checklist); donor=carpet-cleaning/demo-carpet-cleaning-differentiator-01. Pexels License — replace with the operator's own photography for production."
   },
   "demo-house-cleaning-gallery-01": {
     "id": "demo-house-cleaning-gallery-01",
@@ -64,5 +64,38 @@
     "attribution_text": "Photo from Pexels",
     "attribution_url": "https://www.pexels.com/",
     "notes": "Demo reference imagery for house cleaning (gallery). Pexels License — replace with the operator's own photography for production."
+  },
+  "demo-house-cleaning-avatar-01": {
+    "id": "demo-house-cleaning-avatar-01",
+    "role": "avatar",
+    "url": "https://images.pexels.com/photos/31285126/pexels-photo-31285126.jpeg?auto=compress&cs=tinysrgb&w=400",
+    "source_page_url": "https://www.pexels.com/photo/warm-portrait-of-smiling-woman-in-sunlight-31285126/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/photo/warm-portrait-of-smiling-woman-in-sunlight-31285126/",
+    "notes": "Demo reference portrait for house-cleaning (testimonial avatar slot 1). Pexels License — replace with the operator's own customer photography for production."
+  },
+  "demo-house-cleaning-avatar-02": {
+    "id": "demo-house-cleaning-avatar-02",
+    "role": "avatar",
+    "url": "https://images.pexels.com/photos/26529933/pexels-photo-26529933.jpeg?auto=compress&cs=tinysrgb&w=400",
+    "source_page_url": "https://www.pexels.com/photo/portrait-of-smiling-woman-26529933/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/photo/portrait-of-smiling-woman-26529933/",
+    "notes": "Demo reference imagery for house-cleaning (avatar); donor=plumber/demo-plumber-avatar-01. Pexels License — replace with the operator's own photography for production."
+  },
+  "demo-house-cleaning-avatar-03": {
+    "id": "demo-house-cleaning-avatar-03",
+    "role": "avatar",
+    "url": "https://images.pexels.com/photos/6338370/pexels-photo-6338370.jpeg?auto=compress&cs=tinysrgb&w=400",
+    "source_page_url": "https://www.pexels.com/photo/close-up-shot-of-a-person-smiling-6338370/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/photo/close-up-shot-of-a-person-smiling-6338370/",
+    "notes": "Demo reference portrait for house-cleaning (testimonial avatar slot 3). Pexels License — replace with the operator's own customer photography for production."
   }
 }

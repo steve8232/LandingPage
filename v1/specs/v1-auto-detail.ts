@@ -108,9 +108,9 @@ const spec: TemplateSpec = {
         heading: 'What 540+ vehicle owners say',
         subheading: 'Verified Google reviews from owners in Westside, Riverside, and Highland.',
         testimonials: [
-          { quote: '2018 Tahoe with kids and dogs in Westside \u2014 looked rough. Apex spent 5 hours in my driveway, came out looking like the dealer lot. Used a steamer on the car seats. Worth every dollar.', highlight: 'looked like the dealer lot', rating: 5, name: 'Marcus L.', title: 'Westside owner' },
-          { quote: 'Two-stage paint correction + 5-year ceramic on my BMW in Riverside \u2014 swirl marks I had given up on, GONE. Real warranty paperwork in my name. Six months in, water still beads.', highlight: 'swirl marks gone', rating: 5, name: 'Ava K.', title: 'Riverside owner' },
-          { quote: 'Trade-in detail in Highland \u2014 paid $279, dealer offered $1,400 more than the prior week\u2019s scan-quote. Apex paid for itself 5 times over. Showed up exactly on time.', highlight: '$1,400 more on trade-in', rating: 5, name: 'Damian P.', title: 'Highland owner' },
+          { quote: '2018 Tahoe with kids and dogs in Westside \u2014 looked rough. Apex spent 5 hours in my driveway, came out looking like the dealer lot. Used a steamer on the car seats. Worth every dollar.', highlight: 'looked like the dealer lot', rating: 5, name: 'Marcus L.', title: 'Westside owner' , avatarAsset: 'testimonialAvatar1', fallbackAsset: 'fallbackTestimonialAvatar1' },
+          { quote: 'Two-stage paint correction + 5-year ceramic on my BMW in Riverside \u2014 swirl marks I had given up on, GONE. Real warranty paperwork in my name. Six months in, water still beads.', highlight: 'swirl marks gone', rating: 5, name: 'Ava K.', title: 'Riverside owner' , avatarAsset: 'testimonialAvatar2', fallbackAsset: 'fallbackTestimonialAvatar2' },
+          { quote: 'Trade-in detail in Highland \u2014 paid $279, dealer offered $1,400 more than the prior week\u2019s scan-quote. Apex paid for itself 5 times over. Showed up exactly on time.', highlight: '$1,400 more on trade-in', rating: 5, name: 'Damian P.', title: 'Highland owner' , avatarAsset: 'testimonialAvatar3', fallbackAsset: 'fallbackTestimonialAvatar3' },
         ],
       },
     },
@@ -214,6 +214,12 @@ const spec: TemplateSpec = {
     fallbackGalleryImage3: '/v1/assets/placeholders/local/local-services-trust-hero-01.svg',
     logo: '/v1/assets/placeholders/common/logo-placeholder.svg',
     avatar: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    testimonialAvatar1: 'demo-auto-detail-avatar-01',
+    testimonialAvatar2: 'demo-auto-detail-avatar-02',
+    testimonialAvatar3: 'demo-auto-detail-avatar-03',
+    fallbackTestimonialAvatar1: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    fallbackTestimonialAvatar2: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    fallbackTestimonialAvatar3: '/v1/assets/placeholders/common/avatar-placeholder.svg',
   },
 
   assetSearchSeeds: {
@@ -223,6 +229,9 @@ const spec: TemplateSpec = {
     galleryImage1: 'real photo SUV full detail before after exterior driveway showroom finish',
     galleryImage2: 'real photo BMW paint correction ceramic coating water beading deep gloss',
     galleryImage3: 'real photo trade in car detail engine bay headlights restored',
+    testimonialAvatar1: 'real photo professional headshot of happy auto-detail customer, woman late 30s, warm friendly smile, residential setting',
+    testimonialAvatar2: 'real photo professional headshot of satisfied auto-detail customer, man early 40s, casual confident, daylight',
+    testimonialAvatar3: 'real photo warm portrait of mature auto-detail repeat customer, woman 50s, natural light, trustworthy expression',
   },
 
   form: [

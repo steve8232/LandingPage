@@ -108,9 +108,9 @@ const spec: TemplateSpec = {
         heading: 'What 410+ dog owners say',
         subheading: 'Verified Google reviews from owners in Westlake, Cedar Park, and Highland.',
         testimonials: [
-          { quote: 'Switched after PetSmart left my Goldendoodle in a cage dryer for 5 hours \u2014 came home panting and traumatized. Pawfect Cut had her home in 2 hours, hand-dried, tail wagging. Never going back.', highlight: 'tail wagging', rating: 5, name: 'Jasmine R.', title: 'Westlake owner' },
-          { quote: 'My senior 14-year-old shih tzu HATES grooming. Pawfect did her on a soft mat, took breaks, and texted me photos throughout. First time in years she came home calm.', highlight: 'came home calm', rating: 5, name: 'Walter T.', title: 'Cedar Park owner' },
-          { quote: 'Husky de-shed in Highland was unreal \u2014 60% less hair on the couch for 5 weeks. Groomer explained the process, no upsells, fair price. Booked 6 months ahead.', highlight: '60% less hair', rating: 5, name: 'Briana O.', title: 'Highland owner' },
+          { quote: 'Switched after PetSmart left my Goldendoodle in a cage dryer for 5 hours \u2014 came home panting and traumatized. Pawfect Cut had her home in 2 hours, hand-dried, tail wagging. Never going back.', highlight: 'tail wagging', rating: 5, name: 'Jasmine R.', title: 'Westlake owner' , avatarAsset: 'testimonialAvatar1', fallbackAsset: 'fallbackTestimonialAvatar1' },
+          { quote: 'My senior 14-year-old shih tzu HATES grooming. Pawfect did her on a soft mat, took breaks, and texted me photos throughout. First time in years she came home calm.', highlight: 'came home calm', rating: 5, name: 'Walter T.', title: 'Cedar Park owner' , avatarAsset: 'testimonialAvatar2', fallbackAsset: 'fallbackTestimonialAvatar2' },
+          { quote: 'Husky de-shed in Highland was unreal \u2014 60% less hair on the couch for 5 weeks. Groomer explained the process, no upsells, fair price. Booked 6 months ahead.', highlight: '60% less hair', rating: 5, name: 'Briana O.', title: 'Highland owner' , avatarAsset: 'testimonialAvatar3', fallbackAsset: 'fallbackTestimonialAvatar3' },
         ],
       },
     },
@@ -214,6 +214,12 @@ const spec: TemplateSpec = {
     fallbackGalleryImage3: '/v1/assets/placeholders/local/local-services-trust-hero-01.svg',
     logo: '/v1/assets/placeholders/common/logo-placeholder.svg',
     avatar: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    testimonialAvatar1: 'demo-dog-grooming-avatar-01',
+    testimonialAvatar2: 'demo-dog-grooming-avatar-02',
+    testimonialAvatar3: 'demo-dog-grooming-avatar-03',
+    fallbackTestimonialAvatar1: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    fallbackTestimonialAvatar2: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    fallbackTestimonialAvatar3: '/v1/assets/placeholders/common/avatar-placeholder.svg',
   },
 
   assetSearchSeeds: {
@@ -223,6 +229,9 @@ const spec: TemplateSpec = {
     galleryImage1: 'real photo goldendoodle full groom before after bandana studio',
     galleryImage2: 'real photo senior shih tzu calm groom soft mat low stress',
     galleryImage3: 'real photo husky de-shed treatment double coat brush professional',
+    testimonialAvatar1: 'real photo professional headshot of happy dog-grooming customer, woman late 30s, warm friendly smile, residential setting',
+    testimonialAvatar2: 'real photo professional headshot of satisfied dog-grooming customer, man early 40s, casual confident, daylight',
+    testimonialAvatar3: 'real photo warm portrait of mature dog-grooming repeat customer, woman 50s, natural light, trustworthy expression',
   },
 
   form: [

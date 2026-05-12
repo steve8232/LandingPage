@@ -24,13 +24,13 @@
   "demo-pool-service-checklist-01": {
     "id": "demo-pool-service-checklist-01",
     "role": "checklist",
-    "url": "https://images.pexels.com/photos/3243/pexels-photo-3243.jpeg?auto=compress&cs=tinysrgb&w=800",
-    "source_page_url": "https://www.pexels.com/photo/pen-calendar-to-do-checklist-3243/",
+    "url": "https://images.pexels.com/photos/7061676/pexels-photo-7061676.jpeg?auto=compress&cs=tinysrgb&w=800",
+    "source_page_url": "https://www.pexels.com/photo/modern-cottage-with-green-backyard-7061676/",
     "provider": "pexels",
     "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
-    "attribution_text": "Photo by Breakingpic on Pexels",
-    "attribution_url": "https://www.pexels.com/@breakingpic",
-    "notes": "Demo reference imagery for pool service (checklist). Pexels License — replace with the operator's own photography for production."
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/",
+    "notes": "Demo reference imagery for pool-service (checklist); donor=fencing/demo-fencing-differentiator-01. Pexels License — replace with the operator's own photography for production."
   },
   "demo-pool-service-gallery-01": {
     "id": "demo-pool-service-gallery-01",
@@ -64,5 +64,38 @@
     "attribution_text": "Photo from Pexels",
     "attribution_url": "https://www.pexels.com/",
     "notes": "Demo reference imagery for pool service (gallery). Pexels License — replace with the operator's own photography for production."
+  },
+  "demo-pool-service-avatar-01": {
+    "id": "demo-pool-service-avatar-01",
+    "role": "avatar",
+    "url": "https://images.pexels.com/photos/3931603/pexels-photo-3931603.jpeg?auto=compress&cs=tinysrgb&w=400",
+    "source_page_url": "https://www.pexels.com/photo/smiling-middle-aged-man-using-tablet-and-holding-apple-near-window-in-office-3931603/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/photo/smiling-middle-aged-man-using-tablet-and-holding-apple-near-window-in-office-3931603/",
+    "notes": "Demo reference portrait for pool-service (testimonial avatar slot 1). Pexels License — replace with the operator's own customer photography for production."
+  },
+  "demo-pool-service-avatar-02": {
+    "id": "demo-pool-service-avatar-02",
+    "role": "avatar",
+    "url": "https://images.pexels.com/photos/26529933/pexels-photo-26529933.jpeg?auto=compress&cs=tinysrgb&w=400",
+    "source_page_url": "https://www.pexels.com/photo/portrait-of-smiling-woman-26529933/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/photo/portrait-of-smiling-woman-26529933/",
+    "notes": "Demo reference portrait for pool-service (testimonial avatar slot 2). Pexels License — replace with the operator's own customer photography for production."
+  },
+  "demo-pool-service-avatar-03": {
+    "id": "demo-pool-service-avatar-03",
+    "role": "avatar",
+    "url": "https://images.pexels.com/photos/37065614/pexels-photo-37065614.jpeg?auto=compress&cs=tinysrgb&w=400",
+    "source_page_url": "https://www.pexels.com/photo/portrait-of-a-smiling-woman-outdoors-37065614/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/photo/portrait-of-a-smiling-woman-outdoors-37065614/",
+    "notes": "Demo reference portrait for pool-service (testimonial avatar slot 3). Pexels License — replace with the operator's own customer photography for production."
   }
 }

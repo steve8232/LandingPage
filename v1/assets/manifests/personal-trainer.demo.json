@@ -24,13 +24,13 @@
   "demo-personal-trainer-checklist-01": {
     "id": "demo-personal-trainer-checklist-01",
     "role": "checklist",
-    "url": "https://images.pexels.com/photos/3243/pexels-photo-3243.jpeg?auto=compress&cs=tinysrgb&w=800",
-    "source_page_url": "https://www.pexels.com/photo/pen-calendar-to-do-checklist-3243/",
+    "url": "https://images.pexels.com/photos/5659020/pexels-photo-5659020.jpeg?auto=compress&cs=tinysrgb&w=800",
+    "source_page_url": "https://www.pexels.com/photo/a-person-massaging-a-woman-s-face-5659020/",
     "provider": "pexels",
     "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
-    "attribution_text": "Photo by Breakingpic on Pexels",
-    "attribution_url": "https://www.pexels.com/@breakingpic",
-    "notes": "Demo reference imagery for personal trainer (checklist). Pexels License — replace with the operator's own photography for production."
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/",
+    "notes": "Demo reference imagery for personal-trainer (checklist); donor=med-spa/demo-med-spa-gallery-03. Pexels License — replace with the operator's own photography for production."
   },
   "demo-personal-trainer-gallery-01": {
     "id": "demo-personal-trainer-gallery-01",
@@ -64,5 +64,38 @@
     "attribution_text": "Photo from Pexels",
     "attribution_url": "https://www.pexels.com/",
     "notes": "Demo reference imagery for personal trainer (gallery). Pexels License — replace with the operator's own photography for production."
+  },
+  "demo-personal-trainer-avatar-01": {
+    "id": "demo-personal-trainer-avatar-01",
+    "role": "avatar",
+    "url": "https://images.pexels.com/photos/10031281/pexels-photo-10031281.jpeg?auto=compress&cs=tinysrgb&w=400",
+    "source_page_url": "https://www.pexels.com/photo/portrait-of-smiling-businessman-sitting-on-desk-in-office-10031281/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/photo/portrait-of-smiling-businessman-sitting-on-desk-in-office-10031281/",
+    "notes": "Demo reference portrait for personal-trainer (testimonial avatar slot 1). Pexels License — replace with the operator's own customer photography for production."
+  },
+  "demo-personal-trainer-avatar-02": {
+    "id": "demo-personal-trainer-avatar-02",
+    "role": "avatar",
+    "url": "https://images.pexels.com/photos/3456882/pexels-photo-3456882.jpeg?auto=compress&cs=tinysrgb&w=400",
+    "source_page_url": "https://www.pexels.com/photo/photo-of-woman-smiling-3456882/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/photo/photo-of-woman-smiling-3456882/",
+    "notes": "Demo reference portrait for personal-trainer (testimonial avatar slot 2). Pexels License — replace with the operator's own customer photography for production."
+  },
+  "demo-personal-trainer-avatar-03": {
+    "id": "demo-personal-trainer-avatar-03",
+    "role": "avatar",
+    "url": "https://images.pexels.com/photos/31285126/pexels-photo-31285126.jpeg?auto=compress&cs=tinysrgb&w=400",
+    "source_page_url": "https://www.pexels.com/photo/warm-portrait-of-smiling-woman-in-sunlight-31285126/",
+    "provider": "pexels",
+    "license_summary": "Pexels License — free to use, no attribution required, commercial use OK",
+    "attribution_text": "Photo from Pexels",
+    "attribution_url": "https://www.pexels.com/photo/warm-portrait-of-smiling-woman-in-sunlight-31285126/",
+    "notes": "Demo reference portrait for personal-trainer (testimonial avatar slot 3). Pexels License — replace with the operator's own customer photography for production."
   }
 }

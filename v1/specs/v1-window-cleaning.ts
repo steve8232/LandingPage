@@ -108,9 +108,9 @@ const spec: TemplateSpec = {
         heading: 'What 280+ local homeowners say',
         subheading: 'Verified Google reviews from neighbors in Hillside, Maplebrook, and Forestpark.',
         testimonials: [
-          { quote: 'Two-person team did 28 windows in our Hillside house in under 4 hours — inside, outside, tracks, screens. Streak-free everywhere. The light through the kitchen is shocking.', highlight: '28 windows in under 4 hours', rating: 5, name: 'Catherine S.', title: 'Hillside homeowner' },
-          { quote: 'Maplebrook home had 3 years of mineral spots from sprinklers. CrystalView restored 14 windows like new — saved us $4K replacing the glass. Worth every dollar.', highlight: 'saved us $4K', rating: 5, name: 'Greg M.', title: 'Maplebrook homeowner' },
-          { quote: 'The screens, the tracks, the sills — everywhere I thought "they will skip that," they didn\'t. Forestpark home looks 10 years newer. Booking the next clean already.', highlight: '10 years newer', rating: 5, name: 'Yuki T.', title: 'Forestpark homeowner' },
+          { quote: 'Two-person team did 28 windows in our Hillside house in under 4 hours — inside, outside, tracks, screens. Streak-free everywhere. The light through the kitchen is shocking.', highlight: '28 windows in under 4 hours', rating: 5, name: 'Catherine S.', title: 'Hillside homeowner' , avatarAsset: 'testimonialAvatar1', fallbackAsset: 'fallbackTestimonialAvatar1' },
+          { quote: 'Maplebrook home had 3 years of mineral spots from sprinklers. CrystalView restored 14 windows like new — saved us $4K replacing the glass. Worth every dollar.', highlight: 'saved us $4K', rating: 5, name: 'Greg M.', title: 'Maplebrook homeowner' , avatarAsset: 'testimonialAvatar2', fallbackAsset: 'fallbackTestimonialAvatar2' },
+          { quote: 'The screens, the tracks, the sills — everywhere I thought "they will skip that," they didn\'t. Forestpark home looks 10 years newer. Booking the next clean already.', highlight: '10 years newer', rating: 5, name: 'Yuki T.', title: 'Forestpark homeowner' , avatarAsset: 'testimonialAvatar3', fallbackAsset: 'fallbackTestimonialAvatar3' },
         ],
       },
     },
@@ -214,6 +214,12 @@ const spec: TemplateSpec = {
     fallbackGalleryImage3: '/v1/assets/placeholders/local/local-services-trust-hero-01.svg',
     logo: '/v1/assets/placeholders/common/logo-placeholder.svg',
     avatar: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    testimonialAvatar1: 'demo-window-cleaning-avatar-01',
+    testimonialAvatar2: 'demo-window-cleaning-avatar-02',
+    testimonialAvatar3: 'demo-window-cleaning-avatar-03',
+    fallbackTestimonialAvatar1: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    fallbackTestimonialAvatar2: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    fallbackTestimonialAvatar3: '/v1/assets/placeholders/common/avatar-placeholder.svg',
   },
 
   assetSearchSeeds: {
@@ -223,6 +229,9 @@ const spec: TemplateSpec = {
     galleryImage1: 'real photo clean residential window interior streak free crystal clear',
     galleryImage2: 'real photo hard water mineral spot removal glass restoration before after',
     galleryImage3: 'real photo skylight atrium glass cleaning water fed pole sun',
+    testimonialAvatar1: 'real photo professional headshot of happy window-cleaning customer, woman late 30s, warm friendly smile, residential setting',
+    testimonialAvatar2: 'real photo professional headshot of satisfied window-cleaning customer, man early 40s, casual confident, daylight',
+    testimonialAvatar3: 'real photo warm portrait of mature window-cleaning repeat customer, woman 50s, natural light, trustworthy expression',
   },
 
   form: [

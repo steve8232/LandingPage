@@ -108,9 +108,9 @@ const spec: TemplateSpec = {
         heading: 'What 320+ local homeowners say',
         subheading: 'Verified Google reviews from neighbors in Lakemont, Aspen Bluff, and Brookhaven.',
         testimonials: [
-          { quote: 'Soft-washed our 4,200 sqft Lakemont house in 3 hours — black streaks on the roof, mildew on siding, all gone. 14 months later still clean. Worth twice what they charged.', highlight: '14 months later still clean', rating: 5, name: 'Brian H.', title: 'Lakemont homeowner' },
-          { quote: 'Other "pressure washers" in Aspen Bluff stripped my neighbor\'s paint. CleanSlate uses real soft-wash with the right chemistry. House looks 5 years newer.', highlight: 'house looks 5 years newer', rating: 5, name: 'Margie F.', title: 'Aspen Bluff homeowner' },
-          { quote: 'Brookhaven driveway had oil spots and 2 years of grime — surface-clean rotary plus pre-treat got 95% of it out. Zero damage to the concrete. Friendly tech too.', highlight: 'zero damage to concrete', rating: 5, name: 'James O.', title: 'Brookhaven homeowner' },
+          { quote: 'Soft-washed our 4,200 sqft Lakemont house in 3 hours — black streaks on the roof, mildew on siding, all gone. 14 months later still clean. Worth twice what they charged.', highlight: '14 months later still clean', rating: 5, name: 'Brian H.', title: 'Lakemont homeowner' , avatarAsset: 'testimonialAvatar1', fallbackAsset: 'fallbackTestimonialAvatar1' },
+          { quote: 'Other "pressure washers" in Aspen Bluff stripped my neighbor\'s paint. CleanSlate uses real soft-wash with the right chemistry. House looks 5 years newer.', highlight: 'house looks 5 years newer', rating: 5, name: 'Margie F.', title: 'Aspen Bluff homeowner' , avatarAsset: 'testimonialAvatar2', fallbackAsset: 'fallbackTestimonialAvatar2' },
+          { quote: 'Brookhaven driveway had oil spots and 2 years of grime — surface-clean rotary plus pre-treat got 95% of it out. Zero damage to the concrete. Friendly tech too.', highlight: 'zero damage to concrete', rating: 5, name: 'James O.', title: 'Brookhaven homeowner' , avatarAsset: 'testimonialAvatar3', fallbackAsset: 'fallbackTestimonialAvatar3' },
         ],
       },
     },
@@ -214,6 +214,12 @@ const spec: TemplateSpec = {
     fallbackGalleryImage3: '/v1/assets/placeholders/local/local-services-trust-hero-01.svg',
     logo: '/v1/assets/placeholders/common/logo-placeholder.svg',
     avatar: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    testimonialAvatar1: 'demo-pressure-washing-avatar-01',
+    testimonialAvatar2: 'demo-pressure-washing-avatar-02',
+    testimonialAvatar3: 'demo-pressure-washing-avatar-03',
+    fallbackTestimonialAvatar1: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    fallbackTestimonialAvatar2: '/v1/assets/placeholders/common/avatar-placeholder.svg',
+    fallbackTestimonialAvatar3: '/v1/assets/placeholders/common/avatar-placeholder.svg',
   },
 
   assetSearchSeeds: {
@@ -223,6 +229,9 @@ const spec: TemplateSpec = {
     galleryImage1: 'real photo soft wash vinyl siding house clean before after',
     galleryImage2: 'real photo roof black streak removal soft wash before after',
     galleryImage3: 'real photo driveway surface cleaning rotary tool clean concrete',
+    testimonialAvatar1: 'real photo professional headshot of happy pressure-washing customer, woman late 30s, warm friendly smile, residential setting',
+    testimonialAvatar2: 'real photo professional headshot of satisfied pressure-washing customer, man early 40s, casual confident, daylight',
+    testimonialAvatar3: 'real photo warm portrait of mature pressure-washing repeat customer, woman 50s, natural light, trustworthy expression',
   },
 
   form: [
