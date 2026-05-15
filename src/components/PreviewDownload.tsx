@@ -14,6 +14,9 @@ import {
   Trash2,
   Plus,
   Sparkles,
+  Rocket,
+  ExternalLink,
+  Loader2,
 } from 'lucide-react';
 import { GeneratedLandingPage, FormData } from '@/types';
 import VisualEditor from '@/components/editor/VisualEditor';
@@ -27,6 +30,9 @@ import {
 } from '@/lib/v1EditorStorage';
 import { useSession } from '@/lib/useSession';
 import { createProject, updateProject } from '@/lib/projects/remoteStorage';
+import { createDeploymentForProject, getDeployment } from '@/lib/deployments/client';
+import type { DeploymentDTO } from '@/lib/deployments/types';
+import { isTerminalStatus } from '@/lib/deployments/types';
 import { v1Templates } from '@/lib/v1Templates';
 
 type V1SpecSection = {
@@ -181,6 +187,16 @@ export default function PreviewDownload({
   const [v1ProjectId, setV1ProjectId] = useState<string | undefined>(landingPage.v1?.projectId);
   const [cloudSaved, setCloudSaved] = useState(false);
   const lastSavedOverridesJsonRef = useRef<string>(JSON.stringify(landingPage.v1?.overrides ?? {}, null, 0));
+
+  // Publish-to-Vercel (Phase 3). The button: implicitly saves to cloud if
+  // needed, kicks off /api/projects/[id]/deploy, then polls the deployment
+  // row until it reaches a terminal status.
+  const [publishStatus, setPublishStatus] =
+    useState<'idle' | 'publishing' | 'polling' | 'ready' | 'error'>('idle');
+  const [publishedDeployment, setPublishedDeployment] = useState<DeploymentDTO | null>(null);
+  const [publishError, setPublishError] = useState<string>('');
+  const publishPollTimerRef = useRef<number | null>(null);
+
 	  const v1PreviewIframeRef = useRef<HTMLIFrameElement | null>(null);
 
 	  useEffect(() => {
@@ -348,6 +364,118 @@ export default function PreviewDownload({
       setIsComposing(false);
     }
   }, [currentOverridesJson, isV1, v1Overrides, v1ResultId, v1TemplateId, setComposeError, setIsComposing, user, v1ProjectId]);
+
+  /**
+   * Ensure the current overrides exist as a row in Supabase, returning the
+   * projectId. Creates the project on first use; otherwise PATCHes when there
+   * are unsaved override changes. Required precondition for publishing.
+   */
+  const ensureCloudSavedProject = useCallback(async (): Promise<string> => {
+    if (!user) throw new Error('Sign in to publish your SparkPage.');
+    if (!v1TemplateId) throw new Error('Missing templateId for this v1 result.');
+
+    if (v1ProjectId) {
+      if (hasUnsavedOverrides) {
+        await updateProject(v1ProjectId, { overrides: v1Overrides });
+        lastSavedOverridesJsonRef.current = currentOverridesJson;
+      }
+      return v1ProjectId;
+    }
+
+    const tplName = v1Templates.find((t) => t.id === v1TemplateId)?.name ?? 'SparkPage';
+    const today = new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    const created = await createProject({
+      templateId: v1TemplateId,
+      title: `${tplName} – ${today}`,
+      overrides: v1Overrides,
+    });
+    setV1ProjectId(created.id);
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('project', created.id);
+      window.history.replaceState(null, '', url.toString());
+    } catch {
+      // ignore URL update failures; the project is still saved
+    }
+    lastSavedOverridesJsonRef.current = currentOverridesJson;
+    return created.id;
+  }, [user, v1TemplateId, v1ProjectId, hasUnsavedOverrides, v1Overrides, currentOverridesJson]);
+
+  /**
+   * Publish: implicit save → POST /api/projects/[id]/deploy → poll status.
+   * Cancels any in-flight poll on re-entry / unmount.
+   */
+  const handlePublish = useCallback(async () => {
+    if (publishStatus === 'publishing' || publishStatus === 'polling') return;
+
+    if (publishPollTimerRef.current !== null) {
+      window.clearTimeout(publishPollTimerRef.current);
+      publishPollTimerRef.current = null;
+    }
+
+    setPublishError('');
+    setPublishStatus('publishing');
+
+    let projectId: string;
+    try {
+      projectId = await ensureCloudSavedProject();
+    } catch (err) {
+      setPublishStatus('error');
+      setPublishError(err instanceof Error ? err.message : 'Save before publish failed');
+      return;
+    }
+
+    let deployment: DeploymentDTO;
+    try {
+      deployment = await createDeploymentForProject(projectId);
+    } catch (err) {
+      setPublishStatus('error');
+      setPublishError(err instanceof Error ? err.message : 'Publish failed');
+      return;
+    }
+
+    setPublishedDeployment(deployment);
+    if (isTerminalStatus(deployment.status)) {
+      setPublishStatus(deployment.status === 'ready' ? 'ready' : 'error');
+      if (deployment.status !== 'ready' && deployment.errorMessage) {
+        setPublishError(deployment.errorMessage);
+      }
+      return;
+    }
+
+    setPublishStatus('polling');
+
+    const tick = async () => {
+      try {
+        const next = await getDeployment(deployment.id);
+        setPublishedDeployment(next);
+        if (isTerminalStatus(next.status)) {
+          setPublishStatus(next.status === 'ready' ? 'ready' : 'error');
+          if (next.status !== 'ready' && next.errorMessage) {
+            setPublishError(next.errorMessage);
+          }
+          publishPollTimerRef.current = null;
+          return;
+        }
+        publishPollTimerRef.current = window.setTimeout(tick, 3000);
+      } catch (err) {
+        // Transient poll failure: keep polling — the server's last-known
+        // state was already returned to us as a fallback.
+        console.warn('[publish] poll failed:', err);
+        publishPollTimerRef.current = window.setTimeout(tick, 3000);
+      }
+    };
+    publishPollTimerRef.current = window.setTimeout(tick, 3000);
+  }, [publishStatus, ensureCloudSavedProject]);
+
+  useEffect(() => {
+    return () => {
+      if (publishPollTimerRef.current !== null) {
+        window.clearTimeout(publishPollTimerRef.current);
+        publishPollTimerRef.current = null;
+      }
+    };
+  }, []);
 
   // v1 spec defaults (for effective props = spec defaults + overrides)
   const [v1Spec, setV1Spec] = useState<V1SpecResponse | null>(null);
@@ -1297,6 +1425,51 @@ export default function PreviewDownload({
 					  >
 						My pages
 					  </a>
+					)}
+					{user && (
+					  <button
+						onClick={handlePublish}
+						disabled={
+						  !v1TemplateId ||
+						  publishStatus === 'publishing' ||
+						  publishStatus === 'polling'
+						}
+						className="px-3 py-1.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-1.5"
+						title={!v1TemplateId
+						  ? 'Missing templateId for v1 publishing'
+						  : 'Publish this page to a *.vercel.app URL'}
+					  >
+						{publishStatus === 'publishing' || publishStatus === 'polling' ? (
+						  <Loader2 className="w-4 h-4 animate-spin" />
+						) : (
+						  <Rocket className="w-4 h-4" />
+						)}
+						{publishStatus === 'publishing'
+						  ? 'Publishing…'
+						  : publishStatus === 'polling'
+							? 'Building…'
+							: 'Publish'}
+					  </button>
+					)}
+					{publishStatus === 'ready' && publishedDeployment?.url && (
+					  <a
+						href={publishedDeployment.url}
+						target="_blank"
+						rel="noopener noreferrer"
+						className="text-xs text-orange-700 hover:text-orange-800 inline-flex items-center gap-1 max-w-[260px] truncate"
+						title={publishedDeployment.url}
+					  >
+						<ExternalLink className="w-3 h-3" />
+						{publishedDeployment.url.replace(/^https?:\/\//, '')}
+					  </a>
+					)}
+					{publishStatus === 'error' && (
+					  <div
+						className="text-xs text-red-600 max-w-[260px] truncate"
+						title={publishError || 'Publish failed'}
+					  >
+						{publishError || 'Publish failed'}
+					  </div>
 					)}
                 <button
                   onClick={onStartOver}

@@ -1,0 +1,123 @@
+import { NextResponse, type NextRequest } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { composeV1Template } from '../../../../../../v1/composer/composeV1Template';
+import { isV1Template } from '../../../../../../v1/specs';
+import {
+  createDeployment,
+  toFullUrl,
+  vercelProjectNameFor,
+} from '@/lib/vercel/client';
+import { mapReadyState } from '@/lib/vercel/types';
+import { rowToDTO, type DeploymentRow } from '@/lib/deployments/types';
+import type { ProjectRow } from '@/lib/projects/types';
+
+/**
+ * POST /api/projects/[id]/deploy
+ *   Compose HTML from the project's latest overrides, ship it to Vercel as a
+ *   static deployment, persist a `deployments` row (service-role write), and
+ *   return the new deployment for the client to poll.
+ *
+ * GET /api/projects/[id]/deploy
+ *   List deployments for this project (RLS-scoped to the owner).
+ */
+
+const SELECT_COLS =
+  'id, project_id, revision_id, vercel_deployment_id, url, status, error_message, created_at, updated_at';
+
+export async function GET(
+  _request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  const { id } = await context.params;
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const { data, error } = await supabase
+    .from('deployments')
+    .select(SELECT_COLS)
+    .eq('project_id', id)
+    .order('created_at', { ascending: false });
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  const rows = (data ?? []) as DeploymentRow[];
+  return NextResponse.json({ deployments: rows.map(rowToDTO) });
+}
+
+export async function POST(
+  _request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  const { id } = await context.params;
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  // Ownership check + load latest overrides (RLS scopes this row to owner).
+  const { data: projectRow, error: projectErr } = await supabase
+    .from('projects')
+    .select('id, user_id, template_id, title, slug, overrides, created_at, updated_at')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (projectErr) return NextResponse.json({ error: projectErr.message }, { status: 500 });
+  if (!projectRow) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
+  const project = projectRow as ProjectRow;
+  if (!isV1Template(project.template_id)) {
+    return NextResponse.json({ error: 'Unknown templateId on project' }, { status: 400 });
+  }
+
+  // Compose server-side — the server is the source of truth for HTML.
+  let indexHtml: string;
+  try {
+    const composed = composeV1Template(project.template_id, project.overrides, {
+      allowRemoteDemoImages: true,
+    });
+    indexHtml = composed.html;
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : 'Compose failed' },
+      { status: 500 }
+    );
+  }
+
+  // Fire the Vercel deployment.
+  const projectName = vercelProjectNameFor(project.id);
+  let vercel;
+  try {
+    vercel = await createDeployment({ projectName, indexHtml });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Vercel deploy failed';
+    return NextResponse.json({ error: message }, { status: 502 });
+  }
+
+  const status = mapReadyState(vercel.readyState ?? vercel.status ?? 'QUEUED');
+  const url = toFullUrl(vercel.url) || null;
+
+  // deployments table is service-role write per migration RLS.
+  const admin = createAdminClient();
+  const { data: inserted, error: insertErr } = await admin
+    .from('deployments')
+    .insert({
+      project_id: project.id,
+      vercel_deployment_id: vercel.id,
+      url,
+      status,
+    })
+    .select(SELECT_COLS)
+    .single();
+
+  if (insertErr || !inserted) {
+    return NextResponse.json(
+      { error: insertErr?.message || 'Failed to record deployment' },
+      { status: 500 }
+    );
+  }
+
+  return NextResponse.json(
+    { deployment: rowToDTO(inserted as DeploymentRow) },
+    { status: 202 }
+  );
+}

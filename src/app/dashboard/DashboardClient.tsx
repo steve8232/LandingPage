@@ -5,9 +5,18 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Sparkles, Plus, Pencil, Trash2, ExternalLink, LogOut, Loader2 } from 'lucide-react';
 import type { ProjectDTO } from '@/lib/projects/types';
+import type { DeploymentDTO } from '@/lib/deployments/types';
 import { deleteProject, updateProject } from '@/lib/projects/remoteStorage';
 import { v1Templates } from '@/lib/v1Templates';
 import { createClient } from '@/lib/supabase/client';
+
+const STATUS_PILL: Record<DeploymentDTO['status'], { label: string; cls: string }> = {
+  pending:  { label: 'Queued',    cls: 'bg-gray-100 text-gray-700 border-gray-200' },
+  building: { label: 'Building…', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
+  ready:    { label: 'Live',      cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  error:    { label: 'Failed',    cls: 'bg-red-50 text-red-700 border-red-200' },
+  canceled: { label: 'Canceled',  cls: 'bg-gray-100 text-gray-700 border-gray-200' },
+};
 
 function templateName(templateId: string): string {
   return v1Templates.find((t) => t.id === templateId)?.name ?? templateId;
@@ -27,13 +36,20 @@ function formatRelative(iso: string): string {
 
 interface DashboardClientProps {
   initialProjects: ProjectDTO[];
+  initialLatestDeployments: Record<string, DeploymentDTO>;
   userEmail: string;
   loadError: string;
 }
 
-export default function DashboardClient({ initialProjects, userEmail, loadError }: DashboardClientProps) {
+export default function DashboardClient({
+  initialProjects,
+  initialLatestDeployments,
+  userEmail,
+  loadError,
+}: DashboardClientProps) {
   const router = useRouter();
   const [projects, setProjects] = useState<ProjectDTO[]>(initialProjects);
+  const [latestDeployments] = useState<Record<string, DeploymentDTO>>(initialLatestDeployments);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -146,6 +162,7 @@ export default function DashboardClient({ initialProjects, userEmail, loadError 
         ) : (
           <ProjectList
             projects={projects}
+            latestDeployments={latestDeployments}
             renamingId={renamingId}
             renameValue={renameValue}
             busyId={busyId}
@@ -164,6 +181,7 @@ export default function DashboardClient({ initialProjects, userEmail, loadError 
 
 interface ProjectListProps {
   projects: ProjectDTO[];
+  latestDeployments: Record<string, DeploymentDTO>;
   renamingId: string | null;
   renameValue: string;
   busyId: string | null;
@@ -176,7 +194,7 @@ interface ProjectListProps {
 }
 
 function ProjectList({
-  projects, renamingId, renameValue, busyId,
+  projects, latestDeployments, renamingId, renameValue, busyId,
   onOpen, onStartRename, onRenameChange, onRenameSubmit, onRenameCancel, onDelete,
 }: ProjectListProps) {
   return (
@@ -184,6 +202,8 @@ function ProjectList({
       {projects.map((p) => {
         const isRenaming = renamingId === p.id;
         const isBusy = busyId === p.id;
+        const dep = latestDeployments[p.id];
+        const pill = dep ? STATUS_PILL[dep.status] : { label: 'Draft', cls: 'bg-gray-50 text-gray-600 border-gray-200' };
         return (
           <li
             key={p.id}
@@ -210,10 +230,33 @@ function ProjectList({
                   className="text-left w-full"
                   title="Open in editor"
                 >
-                  <div className="font-semibold text-gray-900 truncate">{p.title}</div>
-                  <div className="text-xs text-gray-500 mt-0.5">
-                    {templateName(p.templateId)} · updated {formatRelative(p.updatedAt)}
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="font-semibold text-gray-900 truncate">{p.title}</span>
+                    <span
+                      className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full border shrink-0 ${pill.cls}`}
+                      title={dep?.errorMessage || pill.label}
+                    >
+                      {pill.label}
+                    </span>
                   </div>
+                  <div className="text-xs text-gray-500 mt-0.5 flex items-center gap-2 min-w-0">
+                    <span className="truncate">
+                      {templateName(p.templateId)} · updated {formatRelative(p.updatedAt)}
+                    </span>
+                  </div>
+                  {dep?.status === 'ready' && dep.url && (
+                    <a
+                      href={dep.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-xs text-orange-700 hover:text-orange-800 inline-flex items-center gap-1 mt-1 max-w-full truncate"
+                      title={dep.url}
+                    >
+                      <ExternalLink className="w-3 h-3 shrink-0" />
+                      {dep.url.replace(/^https?:\/\//, '')}
+                    </a>
+                  )}
                 </button>
               )}
             </div>
