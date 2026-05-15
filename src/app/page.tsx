@@ -16,6 +16,7 @@ import {
   makeClientResultId,
 } from '@/lib/v1EditorStorage';
 import { buildPrefillFromSpec } from '@/lib/specToFormData';
+import { getProject } from '@/lib/projects/remoteStorage';
 
 type AppState = 'welcome' | 'form' | 'generating' | 'preview';
 
@@ -51,12 +52,77 @@ export default function Home() {
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // A1: Auto-resume last *saved* v1 session (Option 2: localStorage).
-  // We gate initial render to avoid a brief flash of the welcome screen.
+  // A1: Boot strategy:
+  //   1. If `?project=<id>` is present, load that cloud project (Phase 2).
+  //   2. Otherwise, fall back to the last locally-saved v1 session.
+  // Initial render is gated to avoid a flash of the welcome screen.
   useEffect(() => {
     let cancelled = false;
 
+    const composeFromOverrides = async (
+      templateId: string,
+      overrides: import('../../v1/composer/composeV1Template').V1ContentOverrides | undefined,
+    ): Promise<string> => {
+      const res = await fetch('/api/v1/compose', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ templateId, overrides }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error((data as any)?.error || `Failed to compose (${res.status})`);
+      }
+      const data = (await res.json()) as { html?: unknown };
+      const html = typeof data.html === 'string' ? data.html : '';
+      if (!html) throw new Error('Compose returned empty HTML');
+      return html;
+    };
+
     const restore = async () => {
+      // 1) ?project=<id> takes priority — this is how the dashboard opens pages
+      // and how a refresh-after-save resumes the same record.
+      let projectId = '';
+      try {
+        projectId = new URLSearchParams(window.location.search).get('project') ?? '';
+      } catch {
+        projectId = '';
+      }
+
+      if (projectId) {
+        if (cancelled) return;
+        setBootStatus('restoring');
+        setGeneratingStage('Loading your SparkPage…');
+        setAppState('generating');
+        try {
+          const project = await getProject(projectId);
+          const html = await composeFromOverrides(project.templateId, project.overrides);
+          if (cancelled) return;
+          setLandingPage({
+            html,
+            css: '',
+            preview: html,
+            v1: {
+              templateId: project.templateId,
+              overrides: project.overrides,
+              resultId: makeClientResultId(),
+              projectId: project.id,
+            },
+          });
+          setAppState('preview');
+        } catch (err) {
+          console.error('[v1 project load] Failed:', err);
+          if (cancelled) return;
+          setError(err instanceof Error ? err.message : 'Failed to load project');
+          setCurrentStep(0);
+          setLandingPage(null);
+          setAppState('form');
+        } finally {
+          if (!cancelled) setBootStatus('done');
+        }
+        return;
+      }
+
+      // 2) Local session fallback.
       const session = loadActiveV1EditorSession();
       if (!session) {
         if (!cancelled) setBootStatus('done');
@@ -69,25 +135,7 @@ export default function Home() {
       setAppState('generating');
 
       try {
-        const res = await fetch('/api/v1/compose', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            templateId: session.templateId,
-            overrides: session.overrides,
-          }),
-        });
-
-        if (!res.ok) {
-          const data = await res.json().catch(() => null);
-          const msg = (data as any)?.error || `Failed to restore saved session (${res.status})`;
-          throw new Error(msg);
-        }
-
-        const data = (await res.json()) as { html?: unknown };
-        const html = typeof data.html === 'string' ? data.html : '';
-        if (!html) throw new Error('Failed to restore saved session: missing HTML');
-
+        const html = await composeFromOverrides(session.templateId, session.overrides);
         if (cancelled) return;
         setLandingPage({
           html,

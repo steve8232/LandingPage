@@ -25,6 +25,9 @@ import {
   saveActiveV1EditorSession,
   saveV1PanelWidthPx,
 } from '@/lib/v1EditorStorage';
+import { useSession } from '@/lib/useSession';
+import { createProject, updateProject } from '@/lib/projects/remoteStorage';
+import { v1Templates } from '@/lib/v1Templates';
 
 type V1SpecSection = {
   type: string;
@@ -170,6 +173,13 @@ export default function PreviewDownload({
   );
   const [v1SaveStatus, setV1SaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [v1SaveError, setV1SaveError] = useState<string>('');
+
+  // Cloud-save (Phase 2): when the user is signed in, "Save changes" also
+  // persists to Supabase. First save auto-creates a project; subsequent saves
+  // patch the existing row and append a revision.
+  const { user } = useSession();
+  const [v1ProjectId, setV1ProjectId] = useState<string | undefined>(landingPage.v1?.projectId);
+  const [cloudSaved, setCloudSaved] = useState(false);
   const lastSavedOverridesJsonRef = useRef<string>(JSON.stringify(landingPage.v1?.overrides ?? {}, null, 0));
 	  const v1PreviewIframeRef = useRef<HTMLIFrameElement | null>(null);
 
@@ -283,7 +293,7 @@ export default function PreviewDownload({
       if (!html) throw new Error('Compose API returned invalid response');
       setEditedHtml(html);
 
-      // 2) Persist overrides for refresh/auto-resume.
+      // 2) Persist overrides locally for refresh/auto-resume (offline-safe).
       saveActiveV1EditorSession({
         version: 1,
         id: v1ResultId,
@@ -292,16 +302,52 @@ export default function PreviewDownload({
         savedAt: Date.now(),
       });
 
+      // 3) When signed in, mirror to Supabase. First save auto-creates the
+      // project and stamps ?project=<id> on the URL so a refresh resumes the
+      // same record. Subsequent saves PATCH and append a revision.
+      let cloudOk = false;
+      if (user) {
+        try {
+          if (v1ProjectId) {
+            await updateProject(v1ProjectId, { overrides: v1Overrides });
+          } else {
+            const tplName = v1Templates.find((t) => t.id === v1TemplateId)?.name ?? 'SparkPage';
+            const today = new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+            const created = await createProject({
+              templateId: v1TemplateId,
+              title: `${tplName} – ${today}`,
+              overrides: v1Overrides,
+            });
+            setV1ProjectId(created.id);
+            try {
+              const url = new URL(window.location.href);
+              url.searchParams.set('project', created.id);
+              window.history.replaceState(null, '', url.toString());
+            } catch {
+              // ignore URL update failures; the project is still saved
+            }
+          }
+          cloudOk = true;
+        } catch (err) {
+          // Cloud failure must not block local save success.
+          console.warn('[v1 cloud save] failed:', err);
+        }
+      }
+
       lastSavedOverridesJsonRef.current = currentOverridesJson;
+      setCloudSaved(cloudOk);
       setV1SaveStatus('saved');
-      window.setTimeout(() => setV1SaveStatus('idle'), 1500);
+      window.setTimeout(() => {
+        setV1SaveStatus('idle');
+        setCloudSaved(false);
+      }, 1800);
     } catch (err) {
       setV1SaveStatus('error');
       setV1SaveError(err instanceof Error ? err.message : 'Failed to save changes');
     } finally {
       setIsComposing(false);
     }
-  }, [currentOverridesJson, isV1, v1Overrides, v1ResultId, v1TemplateId, setComposeError, setIsComposing]);
+  }, [currentOverridesJson, isV1, v1Overrides, v1ResultId, v1TemplateId, setComposeError, setIsComposing, user, v1ProjectId]);
 
   // v1 spec defaults (for effective props = spec defaults + overrides)
   const [v1Spec, setV1Spec] = useState<V1SpecResponse | null>(null);
@@ -1227,17 +1273,30 @@ export default function PreviewDownload({
 					  onClick={handleSaveV1Overrides}
 					  disabled={!v1TemplateId || v1SaveStatus === 'saving' || isComposing}
 					  className="px-3 py-1.5 bg-gray-900 text-white rounded-lg hover:bg-black text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-1.5"
-					  title={!v1TemplateId ? 'Missing templateId for v1 persistence' : 'Save v1 overrides so they persist across refresh'}
+					  title={!v1TemplateId
+						? 'Missing templateId for v1 persistence'
+						: user
+							? 'Save changes locally and to your SparkPage account'
+							: 'Save v1 overrides so they persist across refresh'}
 					>
 					  <Save className="w-4 h-4" />
 					  {v1SaveStatus === 'saving'
 						? 'Saving…'
 						: v1SaveStatus === 'saved'
-							? 'Saved'
+							? (cloudSaved ? 'Saved to cloud' : 'Saved')
 							: 'Save changes'}
 					</button>
 					{hasUnsavedOverrides && (
 					  <span className="text-xs text-amber-700">Unsaved</span>
+					)}
+					{user && (
+					  <a
+						href="/dashboard"
+						className="text-xs text-gray-500 hover:text-orange-600 ml-1"
+						title="My SparkPages"
+					  >
+						My pages
+					  </a>
 					)}
                 <button
                   onClick={onStartOver}

@@ -1,14 +1,37 @@
 'use client';
 
-import { Sparkles, Zap, Download } from 'lucide-react';
+import Link from 'next/link';
+import { Sparkles, Zap, Download, LayoutGrid, LogIn } from 'lucide-react';
+import { useSession } from '@/lib/useSession';
 
 interface WelcomeScreenProps {
   onStart: () => void;
 }
 
 export default function WelcomeScreen({ onStart }: WelcomeScreenProps) {
+  const { user, loading } = useSession();
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-amber-100 p-4">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-orange-50 to-amber-100 p-4">
+      <header className="w-full max-w-2xl mx-auto flex items-center justify-end pt-2 pb-4 text-sm">
+        {!loading && (user ? (
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center gap-1.5 text-gray-700 hover:text-orange-600 font-medium"
+          >
+            <LayoutGrid className="w-4 h-4" />
+            My SparkPages
+          </Link>
+        ) : (
+          <Link
+            href="/login"
+            className="inline-flex items-center gap-1.5 text-gray-700 hover:text-orange-600 font-medium"
+          >
+            <LogIn className="w-4 h-4" />
+            Sign in
+          </Link>
+        ))}
+      </header>
+      <div className="flex-1 flex items-center justify-center">
       <div className="max-w-2xl w-full bg-white rounded-2xl shadow-xl p-8 md:p-12">
         <div className="text-center">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-orange-500 rounded-full mb-6">
@@ -63,6 +86,7 @@ export default function WelcomeScreen({ onStart }: WelcomeScreenProps) {
             Get Started →
           </button>
         </div>
+      </div>
       </div>
     </div>
   );

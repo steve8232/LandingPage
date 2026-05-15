@@ -63,6 +63,8 @@ export interface GeneratedLandingPage {
     overrides?: V1ContentOverrides;
     /** Optional helper data for UI editors (does not affect composition). */
     sectionTypes?: string[];
+    /** Supabase project id when this page is bound to a saved cloud project. */
+    projectId?: string;
   };
 }
 
