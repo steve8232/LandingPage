@@ -27,7 +27,9 @@ function corsHeaders(origin: string | null): Record<string, string> {
   return {
     'Access-Control-Allow-Origin': origin || '*',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    // The inlined form handler sends both headers. If `Accept` is omitted here,
+    // some browsers fail the preflight before the POST ever reaches this route.
+    'Access-Control-Allow-Headers': 'Content-Type, Accept',
     'Access-Control-Max-Age': '86400',
     Vary: 'Origin',
   };

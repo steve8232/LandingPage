@@ -36,16 +36,26 @@ function resolveAppBaseUrl(request: NextRequest): string {
   const configured = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || '';
   if (configured) return stripTrailingSlashes(configured);
 
-  // Vercel exposes the current app host without a scheme. This keeps newly
-  // published landing pages functional even if NEXT_PUBLIC_APP_URL was missed.
-  const vercelUrl = process.env.VERCEL_URL || '';
-  if (vercelUrl) {
-    const withScheme = /^https?:\/\//i.test(vercelUrl) ? vercelUrl : `https://${vercelUrl}`;
+  // Prefer the origin that received the authenticated publish request. It is
+  // usually the public app URL the user is actively using. `VERCEL_URL` can be
+  // a deployment-specific hostname with Deployment Protection enabled, which
+  // makes public form preflights fail with 401.
+  const requestOrigin = request.nextUrl.origin;
+  if (requestOrigin) return stripTrailingSlashes(requestOrigin);
+
+  // Last-resort Vercel fallbacks. Prefer the stable project production URL over
+  // a deployment URL when available.
+  const vercelProjectProductionUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL || '';
+  if (vercelProjectProductionUrl) {
+    const withScheme = /^https?:\/\//i.test(vercelProjectProductionUrl)
+      ? vercelProjectProductionUrl
+      : `https://${vercelProjectProductionUrl}`;
     return stripTrailingSlashes(withScheme);
   }
 
-  // Final fallback: the origin that received the authenticated publish request.
-  return stripTrailingSlashes(request.nextUrl.origin);
+  const vercelUrl = process.env.VERCEL_URL || '';
+  const withScheme = /^https?:\/\//i.test(vercelUrl) ? vercelUrl : `https://${vercelUrl}`;
+  return stripTrailingSlashes(withScheme);
 }
 
 export async function GET(
