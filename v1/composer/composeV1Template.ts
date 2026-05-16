@@ -87,11 +87,11 @@ function readCssFile(relativePath: string): string {
   }
 }
 
-function loadTokensCss(): string {
+export function loadTokensCss(): string {
   return readCssFile('v1/themes/tokens.css');
 }
 
-function loadThemeCss(themeName: string): string {
+export function loadThemeCss(themeName: string): string {
   return readCssFile(`v1/themes/${themeName}.css`);
 }
 
@@ -170,6 +170,17 @@ export interface V1ImageAttribution {
   licenseSummary?: string;
 }
 
+/**
+ * Editable copy for the per-project Thank You page rendered at /thank-you.
+ * Any unset field falls back to niche-aware defaults in composeV1ThankYou.
+ */
+export interface V1ThankYouOverrides {
+  headline?: string;
+  message?: string;
+  primaryCtaLabel?: string;
+  primaryCtaHref?: string;
+}
+
 export interface V1ContentOverrides {
   sections?: (Record<string, unknown> | null)[];
   assets?: Record<string, string>;
@@ -192,6 +203,8 @@ export interface V1ContentOverrides {
    * type and initial props.
    */
   addedSections?: Record<string, { type: string; props: Record<string, unknown> }>;
+  /** Editable copy for the secondary /thank-you page. */
+  thankYou?: V1ThankYouOverrides;
 }
 
 export interface ComposeV1Options {
@@ -418,7 +431,7 @@ export function composeV1Template(
   const attrHtml = renderAttributionFooter([], overrides?.meta?.imageAttributions);
 
   // 6. Wrap in full HTML document
-  const html = buildDocument(spec, tokensCss, themeCss, sectionsHtml, attrHtml, overrides?.meta);
+  const html = buildV1Document(spec, tokensCss, themeCss, sectionsHtml, attrHtml, overrides?.meta);
 
   return { html, templateId };
 }
@@ -436,7 +449,12 @@ function getFallbackForAssetKey(key: string, assets: Record<string, string>): st
 
 // ── Document wrapper ───────────────────────────────────────────────────────────
 
-function buildDocument(
+/**
+ * Wrap section HTML in a full HTML document with the standard v1 head:
+ * inlined tokens + theme CSS, edit-mode interaction styles, and meta tags.
+ * Exported so sibling composers (e.g. composeV1ThankYou) can reuse it.
+ */
+export function buildV1Document(
   spec: TemplateSpec,
   tokensCss: string,
   themeCss: string,
@@ -521,7 +539,7 @@ function renderAttributionFooter(
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
-function escapeHtml(str: string): string {
+export function escapeHtml(str: string): string {
   return str
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -529,7 +547,7 @@ function escapeHtml(str: string): string {
     .replace(/"/g, '&quot;');
 }
 
-function escapeAttr(str: string): string {
+export function escapeAttr(str: string): string {
   return str.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 

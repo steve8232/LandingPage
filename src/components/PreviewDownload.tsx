@@ -118,8 +118,17 @@ export default function PreviewDownload({
   // or structured override edits that round-trip through the v1 composer endpoint).
   const [v1Mode, setV1Mode] = useState<'preview' | 'edit'>('preview');
   const [v1Device, setV1Device] = useState<'desktop' | 'mobile'>('desktop');
-  const [v1PanelTab, setV1PanelTab] = useState<'content' | 'images' | 'seo' | 'advanced'>('content');
+  // Secondary /thank-you page lives alongside the landing page. Toggle controls
+  // which document the iframe renders; the panel "Thank You" tab edits its copy
+  // regardless of which page is currently previewed.
+  const [v1Page, setV1Page] = useState<'landing' | 'thank-you'>('landing');
+  const [v1PanelTab, setV1PanelTab] =
+    useState<'content' | 'images' | 'seo' | 'advanced' | 'thank-you'>('content');
   const [v1Overrides, setV1Overrides] = useState<V1ContentOverrides | undefined>(landingPage.v1?.overrides);
+  // Composed HTML for the thank-you preview iframe. Lazily filled on first
+  // toggle (and refreshed whenever overrides.thankYou changes).
+  const [thankYouHtml, setThankYouHtml] = useState<string>('');
+  const [isComposingThankYou, setIsComposingThankYou] = useState(false);
   const [v1OverridesJson, setV1OverridesJson] = useState(() =>
     JSON.stringify(landingPage.v1?.overrides ?? {}, null, 2)
   );
@@ -275,6 +284,48 @@ export default function PreviewDownload({
     [v1Overrides]
   );
   const hasUnsavedOverrides = currentOverridesJson !== lastSavedOverridesJsonRef.current;
+
+  // Stringified thank-you copy that drives recomposition. Wrapping all four
+  // editable fields in one memo keeps the effect's dependency simple.
+  const thankYouOverridesKey = useMemo(
+    () => JSON.stringify(v1Overrides?.thankYou ?? {}),
+    [v1Overrides?.thankYou]
+  );
+
+  // Compose the /thank-you HTML on demand: first time the user toggles to the
+  // thank-you preview, and whenever the editable copy changes while that view
+  // is active. Composes in the background so the toggle feels instant.
+  useEffect(() => {
+    if (!isV1 || !v1TemplateId) return;
+    if (v1Page !== 'thank-you') return;
+    let cancelled = false;
+    setIsComposingThankYou(true);
+    (async () => {
+      try {
+        const res = await fetch('/api/v1/compose-thank-you', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ templateId: v1TemplateId, overrides: v1Overrides }),
+        });
+        const data = await res.json().catch(() => null);
+        if (cancelled) return;
+        if (!res.ok) throw new Error((data as { error?: string } | null)?.error || 'compose failed');
+        const html = typeof (data as { html?: unknown } | null)?.html === 'string'
+          ? (data as { html: string }).html
+          : '';
+        if (html) setThankYouHtml(html);
+      } catch (err) {
+        if (cancelled) return;
+        console.warn('[v1 thank-you compose] failed:', err);
+      } finally {
+        if (!cancelled) setIsComposingThankYou(false);
+      }
+    })();
+    return () => { cancelled = true; };
+    // v1Overrides is referenced indirectly via thankYouOverridesKey; we also
+    // recompose on niche-affecting parts of overrides (e.g. SEO meta) — those
+    // are rare so we accept a small over-trigger here.
+  }, [isV1, v1TemplateId, v1Page, thankYouOverridesKey, v1Overrides]);
 
   // v1 resizable panel
   const [v1PanelWidthPx, setV1PanelWidthPx] = useState<number>(() => loadV1PanelWidthPx() ?? 420);
@@ -1423,6 +1474,28 @@ export default function PreviewDownload({
                     <Smartphone className="w-4 h-4" />
                   </button>
                 </div>
+
+                {/* Page Toggle (Landing / Thank You) */}
+                <div className="flex items-center bg-gray-100 rounded-lg p-1">
+                  <button
+                    onClick={() => setV1Page('landing')}
+                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                      v1Page === 'landing' ? 'bg-white shadow text-blue-600' : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                    title="Preview the landing page (index.html)"
+                  >
+                    Landing
+                  </button>
+                  <button
+                    onClick={() => setV1Page('thank-you')}
+                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                      v1Page === 'thank-you' ? 'bg-white shadow text-blue-600' : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                    title="Preview the Thank You page (/thank-you)"
+                  >
+                    Thank You
+                  </button>
+                </div>
               </div>
 
               <div className="flex items-center gap-2">
@@ -1541,16 +1614,21 @@ export default function PreviewDownload({
               <div className="flex-1 min-h-0 p-4 overflow-hidden">
                 <div className="bg-white rounded-xl shadow-xl overflow-hidden h-full">
                   <div
-                    className={`h-full mx-auto transition-all duration-300 ${
+                    className={`h-full mx-auto transition-all duration-300 relative ${
                       v1Device === 'mobile' ? 'max-w-[390px] border-x border-gray-200' : 'w-full'
                     }`}
                   >
                     <iframe
-                      title="v1 preview"
+                      title={v1Page === 'thank-you' ? 'v1 thank-you preview' : 'v1 preview'}
 						  ref={v1PreviewIframeRef}
-                      srcDoc={editedHtml}
+                      srcDoc={v1Page === 'thank-you' ? (thankYouHtml || '') : editedHtml}
                       className="w-full h-full border-0"
                     />
+                    {v1Page === 'thank-you' && !thankYouHtml && isComposingThankYou && (
+                      <div className="absolute inset-0 flex items-center justify-center text-sm text-gray-500 pointer-events-none">
+                        Composing thank-you page…
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1630,6 +1708,15 @@ export default function PreviewDownload({
                         }`}
                       >
                         Advanced
+                      </button>
+                      <button
+                        onClick={() => setV1PanelTab('thank-you')}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-medium ${
+                          v1PanelTab === 'thank-you' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700'
+                        }`}
+                        title="Edit the copy shown on the /thank-you page"
+                      >
+                        Thank You
                       </button>
                     </div>
 
@@ -2685,6 +2772,100 @@ export default function PreviewDownload({
                               Re-render
                             </button>
                           </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {v1PanelTab === 'thank-you' && (
+                      <div className="space-y-4">
+                        <div>
+                          <div className="text-sm font-semibold text-gray-900 mb-1">Thank You page</div>
+                          <div className="text-xs text-gray-500">
+                            Shown after a visitor submits the form. Served at{' '}
+                            <code className="font-mono">/thank-you</code>.{' '}
+                            {v1Page === 'thank-you' ? (
+                              <span className="text-gray-700">You&rsquo;re previewing it now.</span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setV1Page('thank-you')}
+                                className="text-indigo-600 hover:underline"
+                              >
+                                Preview it
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Headline</label>
+                          <input
+                            type="text"
+                            value={v1Overrides?.thankYou?.headline ?? ''}
+                            onChange={(e) =>
+                              setV1Overrides((prev) => ({
+                                ...(prev ?? {}),
+                                thankYou: { ...(prev?.thankYou ?? {}), headline: e.target.value },
+                              }))
+                            }
+                            placeholder="Thanks — we got your request"
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Message</label>
+                          <textarea
+                            value={v1Overrides?.thankYou?.message ?? ''}
+                            onChange={(e) =>
+                              setV1Overrides((prev) => ({
+                                ...(prev ?? {}),
+                                thankYou: { ...(prev?.thankYou ?? {}), message: e.target.value },
+                              }))
+                            }
+                            placeholder="We'll review your request and reach out shortly."
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                            rows={4}
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Button label</label>
+                            <input
+                              type="text"
+                              value={v1Overrides?.thankYou?.primaryCtaLabel ?? ''}
+                              onChange={(e) =>
+                                setV1Overrides((prev) => ({
+                                  ...(prev ?? {}),
+                                  thankYou: { ...(prev?.thankYou ?? {}), primaryCtaLabel: e.target.value },
+                                }))
+                              }
+                              placeholder="Back to home"
+                              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Button link</label>
+                            <input
+                              type="text"
+                              value={v1Overrides?.thankYou?.primaryCtaHref ?? ''}
+                              onChange={(e) =>
+                                setV1Overrides((prev) => ({
+                                  ...(prev ?? {}),
+                                  thankYou: { ...(prev?.thankYou ?? {}), primaryCtaHref: e.target.value },
+                                }))
+                              }
+                              placeholder="/"
+                              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="text-xs text-gray-500">
+                          Leave fields blank to use sensible defaults based on your template&rsquo;s
+                          niche. Save changes to persist; the next publish ships an updated{' '}
+                          <code className="font-mono">thank-you.html</code> alongside your page.
                         </div>
                       </div>
                     )}

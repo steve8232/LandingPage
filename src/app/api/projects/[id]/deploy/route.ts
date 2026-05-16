@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { composeV1Template } from '../../../../../../v1/composer/composeV1Template';
+import { composeV1ThankYou } from '../../../../../../v1/composer/composeV1ThankYou';
 import { isV1Template } from '../../../../../../v1/specs';
 import {
   createDeployment,
@@ -73,11 +74,15 @@ export async function POST(
 
   // Compose server-side — the server is the source of truth for HTML.
   let indexHtml: string;
+  let thankYouHtml: string;
   try {
     const composed = composeV1Template(project.template_id, project.overrides, {
       allowRemoteDemoImages: true,
     });
     indexHtml = composed.html;
+    // Thank-you page is always shipped; copy falls back to niche defaults
+    // when overrides.thankYou is unset.
+    thankYouHtml = composeV1ThankYou(project.template_id, project.overrides).html;
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Compose failed' },
@@ -89,7 +94,7 @@ export async function POST(
   const projectName = vercelProjectNameFor(project.id);
   let vercel;
   try {
-    vercel = await createDeployment({ projectName, indexHtml });
+    vercel = await createDeployment({ projectName, indexHtml, thankYouHtml });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Vercel deploy failed';
     return NextResponse.json({ error: message }, { status: 502 });

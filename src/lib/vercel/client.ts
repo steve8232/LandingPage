@@ -48,12 +48,21 @@ export function vercelProjectNameFor(projectId: string): string {
 export async function createDeployment(input: {
   projectName: string;
   indexHtml: string;
+  /** Optional secondary page shipped alongside index.html. Served at /thank-you. */
+  thankYouHtml?: string;
 }): Promise<VercelDeploymentResponse> {
   const { token, teamId } = readEnv();
 
+  const files: Array<{ file: string; data: string }> = [
+    { file: 'index.html', data: input.indexHtml },
+  ];
+  if (input.thankYouHtml) {
+    files.push({ file: 'thank-you.html', data: input.thankYouHtml });
+  }
+
   const body: VercelDeploymentCreateRequest = {
     name: input.projectName,
-    files: [{ file: 'index.html', data: input.indexHtml }],
+    files,
     target: 'production',
     // Static deploy — no framework, no build step.
     projectSettings: {
