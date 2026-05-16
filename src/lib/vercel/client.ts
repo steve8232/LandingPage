@@ -57,7 +57,9 @@ export async function createDeployment(input: {
     { file: 'index.html', data: input.indexHtml },
   ];
   if (input.thankYouHtml) {
-    files.push({ file: 'thank-you.html', data: input.thankYouHtml });
+    // Upload as a directory index so the file resolves natively at the
+    // clean URL `/thank-you` without needing a vercel.json cleanUrls rule.
+    files.push({ file: 'thank-you/index.html', data: input.thankYouHtml });
   }
 
   const body: VercelDeploymentCreateRequest = {

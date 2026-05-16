@@ -225,7 +225,7 @@ export interface ComposeV1Options {
   submitUrl?: string;
   /**
    * Path to redirect to on a successful submission. Defaults to
-   * `/thank-you` (served by the sibling thank-you.html on Vercel).
+   * `/thank-you` (served by the sibling thank-you/index.html on Vercel).
    */
   redirectTo?: string;
 }

@@ -2865,7 +2865,7 @@ export default function PreviewDownload({
                         <div className="text-xs text-gray-500">
                           Leave fields blank to use sensible defaults based on your template&rsquo;s
                           niche. Save changes to persist; the next publish ships an updated{' '}
-                          <code className="font-mono">thank-you.html</code> alongside your page.
+                          <code className="font-mono">/thank-you</code> page alongside your landing page.
                         </div>
                       </div>
                     )}
