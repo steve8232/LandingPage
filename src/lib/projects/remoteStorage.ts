@@ -62,3 +62,40 @@ export async function deleteProject(id: string): Promise<void> {
   const res = await fetch(`/api/projects/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error(await parseError(res));
 }
+
+export interface SubdomainAvailability {
+  available: boolean;
+  value?: string;
+  error?: string;
+}
+
+export async function checkSubdomainAvailability(
+  projectId: string,
+  candidate: string
+): Promise<SubdomainAvailability> {
+  const url = `/api/projects/${projectId}/subdomain?candidate=${encodeURIComponent(candidate)}`;
+  const res = await fetch(url, { method: 'GET', cache: 'no-store' });
+  if (!res.ok) throw new Error(await parseError(res));
+  return (await res.json()) as SubdomainAvailability;
+}
+
+export async function setProjectSubdomain(
+  projectId: string,
+  subdomain: string
+): Promise<ProjectDTO> {
+  const res = await fetch(`/api/projects/${projectId}/subdomain`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ subdomain }),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  const data = await res.json() as { project: ProjectDTO };
+  return data.project;
+}
+
+export async function clearProjectSubdomain(projectId: string): Promise<ProjectDTO> {
+  const res = await fetch(`/api/projects/${projectId}/subdomain`, { method: 'DELETE' });
+  if (!res.ok) throw new Error(await parseError(res));
+  const data = await res.json() as { project: ProjectDTO };
+  return data.project;
+}

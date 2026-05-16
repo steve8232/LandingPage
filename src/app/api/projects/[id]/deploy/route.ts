@@ -10,7 +10,9 @@ import {
 } from '@/lib/vercel/client';
 import { mapReadyState } from '@/lib/vercel/types';
 import { rowToDTO, type DeploymentRow } from '@/lib/deployments/types';
-import type { ProjectRow } from '@/lib/projects/types';
+import { PROJECT_COLS, type ProjectRow } from '@/lib/projects/types';
+import { buildPagesHost } from '@/lib/projects/subdomain';
+import { addProjectDomain } from '@/lib/vercel/domains';
 
 /**
  * POST /api/projects/[id]/deploy
@@ -57,7 +59,7 @@ export async function POST(
   // Ownership check + load latest overrides (RLS scopes this row to owner).
   const { data: projectRow, error: projectErr } = await supabase
     .from('projects')
-    .select('id, user_id, template_id, title, slug, overrides, created_at, updated_at')
+    .select(PROJECT_COLS)
     .eq('id', id)
     .maybeSingle();
 
@@ -114,6 +116,29 @@ export async function POST(
       { error: insertErr?.message || 'Failed to record deployment' },
       { status: 500 }
     );
+  }
+
+  // Phase 4: if the project has claimed a subdomain, attach the matching
+  // custom domain to the freshly-touched Vercel project. The actual alias
+  // assignment happens once the deployment reaches `ready` (handled by the
+  // deployments GET poll route). Failures here flip subdomain_status to
+  // 'error' but do not break the publish — the *.vercel.app URL still works.
+  if (project.subdomain) {
+    const host = buildPagesHost(project.subdomain);
+    try {
+      await addProjectDomain(projectName, host);
+      await admin
+        .from('projects')
+        .update({ subdomain_status: 'pending', subdomain_error: null })
+        .eq('id', project.id);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to attach domain';
+      await admin
+        .from('projects')
+        .update({ subdomain_status: 'error', subdomain_error: message })
+        .eq('id', project.id);
+      console.warn('[deploy] addProjectDomain failed:', message);
+    }
   }
 
   return NextResponse.json(

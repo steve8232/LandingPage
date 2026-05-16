@@ -29,10 +29,13 @@ import {
   saveV1PanelWidthPx,
 } from '@/lib/v1EditorStorage';
 import { useSession } from '@/lib/useSession';
-import { createProject, updateProject } from '@/lib/projects/remoteStorage';
+import { createProject, getProject, updateProject } from '@/lib/projects/remoteStorage';
 import { createDeploymentForProject, getDeployment } from '@/lib/deployments/client';
 import type { DeploymentDTO } from '@/lib/deployments/types';
 import { isTerminalStatus } from '@/lib/deployments/types';
+import type { ProjectDTO, SubdomainStatus } from '@/lib/projects/types';
+import { PAGES_PARENT_DOMAIN, suggestSubdomain } from '@/lib/projects/subdomain';
+import SubdomainPicker from '@/components/SubdomainPicker';
 import { v1Templates } from '@/lib/v1Templates';
 
 type V1SpecSection = {
@@ -185,8 +188,36 @@ export default function PreviewDownload({
   // patch the existing row and append a revision.
   const { user } = useSession();
   const [v1ProjectId, setV1ProjectId] = useState<string | undefined>(landingPage.v1?.projectId);
+  const [v1Subdomain, setV1Subdomain] = useState<string | null>(null);
+  const [v1SubdomainStatus, setV1SubdomainStatus] = useState<SubdomainStatus | null>(null);
   const [cloudSaved, setCloudSaved] = useState(false);
   const lastSavedOverridesJsonRef = useRef<string>(JSON.stringify(landingPage.v1?.overrides ?? {}, null, 0));
+
+  // Refresh subdomain state whenever the project changes (load / first save).
+  useEffect(() => {
+    if (!user || !v1ProjectId) {
+      setV1Subdomain(null);
+      setV1SubdomainStatus(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const p = await getProject(v1ProjectId);
+        if (cancelled) return;
+        setV1Subdomain(p.subdomain);
+        setV1SubdomainStatus(p.subdomainStatus);
+      } catch {
+        // non-fatal: picker will degrade to "no subdomain claimed"
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user, v1ProjectId]);
+
+  const handleSubdomainChange = useCallback((p: ProjectDTO) => {
+    setV1Subdomain(p.subdomain);
+    setV1SubdomainStatus(p.subdomainStatus);
+  }, []);
 
   // Publish-to-Vercel (Phase 3). The button: implicitly saves to cloud if
   // needed, kicks off /api/projects/[id]/deploy, then polls the deployment
@@ -453,6 +484,17 @@ export default function PreviewDownload({
           setPublishStatus(next.status === 'ready' ? 'ready' : 'error');
           if (next.status !== 'ready' && next.errorMessage) {
             setPublishError(next.errorMessage);
+          }
+          // Phase 4: refresh subdomain_status — the polling route flips it
+          // to 'ready' once the alias has been assigned at Vercel.
+          if (next.status === 'ready' && projectId) {
+            try {
+              const fresh = await getProject(projectId);
+              setV1Subdomain(fresh.subdomain);
+              setV1SubdomainStatus(fresh.subdomainStatus);
+            } catch {
+              // non-fatal — picker still shows the previous state.
+            }
           }
           publishPollTimerRef.current = null;
           return;
@@ -1426,6 +1468,17 @@ export default function PreviewDownload({
 						My pages
 					  </a>
 					)}
+					{user && v1ProjectId && (
+					  <SubdomainPicker
+						projectId={v1ProjectId}
+						initialSubdomain={v1Subdomain}
+						initialStatus={v1SubdomainStatus}
+						suggestion={suggestSubdomain(
+						  v1Templates.find((t) => t.id === v1TemplateId)?.name ?? ''
+						)}
+						onChange={handleSubdomainChange}
+					  />
+					)}
 					{user && (
 					  <button
 						onClick={handlePublish}
@@ -1437,7 +1490,9 @@ export default function PreviewDownload({
 						className="px-3 py-1.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-1.5"
 						title={!v1TemplateId
 						  ? 'Missing templateId for v1 publishing'
-						  : 'Publish this page to a *.vercel.app URL'}
+						  : v1Subdomain
+							? `Publish to ${v1Subdomain}.${PAGES_PARENT_DOMAIN}`
+							: 'Publish this page to a *.vercel.app URL'}
 					  >
 						{publishStatus === 'publishing' || publishStatus === 'polling' ? (
 						  <Loader2 className="w-4 h-4 animate-spin" />
@@ -1453,14 +1508,24 @@ export default function PreviewDownload({
 					)}
 					{publishStatus === 'ready' && publishedDeployment?.url && (
 					  <a
-						href={publishedDeployment.url}
+						href={
+						  v1Subdomain && v1SubdomainStatus === 'ready'
+							? `https://${v1Subdomain}.${PAGES_PARENT_DOMAIN}`
+							: publishedDeployment.url
+						}
 						target="_blank"
 						rel="noopener noreferrer"
 						className="text-xs text-orange-700 hover:text-orange-800 inline-flex items-center gap-1 max-w-[260px] truncate"
-						title={publishedDeployment.url}
+						title={
+						  v1Subdomain && v1SubdomainStatus === 'ready'
+							? `${v1Subdomain}.${PAGES_PARENT_DOMAIN}`
+							: publishedDeployment.url
+						}
 					  >
 						<ExternalLink className="w-3 h-3" />
-						{publishedDeployment.url.replace(/^https?:\/\//, '')}
+						{v1Subdomain && v1SubdomainStatus === 'ready'
+						  ? `${v1Subdomain}.${PAGES_PARENT_DOMAIN}`
+						  : publishedDeployment.url.replace(/^https?:\/\//, '')}
 					  </a>
 					)}
 					{publishStatus === 'error' && (

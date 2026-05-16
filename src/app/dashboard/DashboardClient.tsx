@@ -7,6 +7,7 @@ import { Sparkles, Plus, Pencil, Trash2, ExternalLink, LogOut, Loader2 } from 'l
 import type { ProjectDTO } from '@/lib/projects/types';
 import type { DeploymentDTO } from '@/lib/deployments/types';
 import { deleteProject, updateProject } from '@/lib/projects/remoteStorage';
+import { PAGES_PARENT_DOMAIN } from '@/lib/projects/subdomain';
 import { v1Templates } from '@/lib/v1Templates';
 import { createClient } from '@/lib/supabase/client';
 
@@ -244,19 +245,34 @@ function ProjectList({
                       {templateName(p.templateId)} · updated {formatRelative(p.updatedAt)}
                     </span>
                   </div>
-                  {dep?.status === 'ready' && dep.url && (
-                    <a
-                      href={dep.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                      className="text-xs text-orange-700 hover:text-orange-800 inline-flex items-center gap-1 mt-1 max-w-full truncate"
-                      title={dep.url}
-                    >
-                      <ExternalLink className="w-3 h-3 shrink-0" />
-                      {dep.url.replace(/^https?:\/\//, '')}
-                    </a>
-                  )}
+                  {(() => {
+                    // Prefer the stable subdomain URL whenever the alias is
+                    // ready; fall back to the immutable *.vercel.app URL.
+                    const stableHost =
+                      p.subdomain && p.subdomainStatus === 'ready'
+                        ? `${p.subdomain}.${PAGES_PARENT_DOMAIN}`
+                        : null;
+                    const displayUrl = stableHost
+                      ? `https://${stableHost}`
+                      : dep?.status === 'ready' && dep.url
+                        ? dep.url
+                        : null;
+                    if (!displayUrl) return null;
+                    const label = stableHost ?? displayUrl.replace(/^https?:\/\//, '');
+                    return (
+                      <a
+                        href={displayUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-xs text-orange-700 hover:text-orange-800 inline-flex items-center gap-1 mt-1 max-w-full truncate"
+                        title={displayUrl}
+                      >
+                        <ExternalLink className="w-3 h-3 shrink-0" />
+                        {label}
+                      </a>
+                    );
+                  })()}
                 </button>
               )}
             </div>

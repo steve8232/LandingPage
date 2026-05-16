@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { rowToDTO, type ProjectRow } from '@/lib/projects/types';
+import { rowToDTO, PROJECT_COLS, type ProjectRow } from '@/lib/projects/types';
 import {
   rowToDTO as deploymentRowToDTO,
   type DeploymentDTO,
@@ -20,7 +20,7 @@ export default async function DashboardPage() {
 
   const { data, error } = await supabase
     .from('projects')
-    .select('id, user_id, template_id, title, slug, overrides, created_at, updated_at')
+    .select(PROJECT_COLS)
     .order('updated_at', { ascending: false });
 
   const projects = error ? [] : ((data ?? []) as ProjectRow[]).map(rowToDTO);

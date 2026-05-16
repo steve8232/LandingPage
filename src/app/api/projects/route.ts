@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { isV1Template } from '../../../../v1/specs';
-import { makeSlug, rowToDTO, type ProjectRow } from '@/lib/projects/types';
+import { makeSlug, rowToDTO, PROJECT_COLS, type ProjectRow } from '@/lib/projects/types';
 
 /**
  * GET  /api/projects        — list current user's projects (most-recent first)
@@ -18,7 +18,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from('projects')
-    .select('id, user_id, template_id, title, slug, overrides, created_at, updated_at')
+    .select(PROJECT_COLS)
     .order('updated_at', { ascending: false });
 
   if (error) {
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
       slug,
       overrides,
     })
-    .select('id, user_id, template_id, title, slug, overrides, created_at, updated_at')
+    .select(PROJECT_COLS)
     .single();
 
   if (error || !data) {

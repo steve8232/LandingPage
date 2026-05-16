@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getDeployment, toFullUrl } from '@/lib/vercel/client';
 import { mapReadyState } from '@/lib/vercel/types';
+import { assignAlias } from '@/lib/vercel/domains';
+import { buildPagesHost } from '@/lib/projects/subdomain';
 import {
   isTerminalStatus,
   rowToDTO,
@@ -76,6 +78,13 @@ export async function GET(
         .single();
 
       if (!upErr && updated) {
+        // Phase 4: on first transition to `ready`, point the project's
+        // custom alias at this deployment (if a subdomain is claimed).
+        // Best-effort — alias errors flip subdomain_status to 'error' but
+        // do not affect the deployment payload returned to the client.
+        if (nextStatus === 'ready' && current.vercel_deployment_id) {
+          await maybeAssignAlias(admin, current.project_id, current.vercel_deployment_id);
+        }
         return NextResponse.json({ deployment: rowToDTO(updated as DeploymentRow) });
       }
     }
@@ -84,4 +93,43 @@ export async function GET(
   }
 
   return NextResponse.json({ deployment: rowToDTO(current) });
+}
+
+/**
+ * Look up the project's claimed subdomain and, if set, alias the deployment
+ * to `<subdomain>.pages.sparkpage.us`. Updates subdomain_status on success or
+ * failure. Never throws — caller is in a polling hot path.
+ */
+async function maybeAssignAlias(
+  admin: ReturnType<typeof createAdminClient>,
+  projectId: string,
+  vercelDeploymentId: string
+): Promise<void> {
+  try {
+    const { data: proj } = await admin
+      .from('projects')
+      .select('id, subdomain, subdomain_status')
+      .eq('id', projectId)
+      .maybeSingle();
+    const row = proj as { subdomain: string | null; subdomain_status: string | null } | null;
+    if (!row || !row.subdomain) return;
+    if (row.subdomain_status === 'ready') return; // already wired up
+    const host = buildPagesHost(row.subdomain);
+    await assignAlias(vercelDeploymentId, host);
+    await admin
+      .from('projects')
+      .update({ subdomain_status: 'ready', subdomain_error: null })
+      .eq('id', projectId);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Alias assignment failed';
+    try {
+      await admin
+        .from('projects')
+        .update({ subdomain_status: 'error', subdomain_error: message })
+        .eq('id', projectId);
+    } catch {
+      // ignore secondary failure — already logging below.
+    }
+    console.warn('[api/deployments] assignAlias failed:', message);
+  }
 }
