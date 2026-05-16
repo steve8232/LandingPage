@@ -214,6 +214,20 @@ export interface ComposeV1Options {
    * composed HTML contains no remote demo image URLs.
    */
   allowRemoteDemoImages?: boolean;
+  /**
+   * Absolute URL of the lead-capture endpoint (e.g.
+   * `https://app.sparkpage.us/api/leads/<projectId>`). When set, form
+   * sections render a `<form action="…" method="POST">` and the document
+   * inlines a small submit-handler script that POSTs the fields and
+   * redirects to `redirectTo` on success. Omit for preview/editor mode
+   * where submissions stay inert.
+   */
+  submitUrl?: string;
+  /**
+   * Path to redirect to on a successful submission. Defaults to
+   * `/thank-you` (served by the sibling thank-you.html on Vercel).
+   */
+  redirectTo?: string;
 }
 
 export function composeV1Template(
@@ -222,6 +236,11 @@ export function composeV1Template(
   options?: ComposeV1Options
 ): ComposeResult {
   const allowRemoteDemoImages = options?.allowRemoteDemoImages === true;
+  const submitUrl = typeof options?.submitUrl === 'string' ? options.submitUrl : '';
+  const redirectTo =
+    typeof options?.redirectTo === 'string' && options.redirectTo
+      ? options.redirectTo
+      : '/thank-you';
 
   // 1. Load spec
   const spec = getV1Spec(templateId);
@@ -418,6 +437,13 @@ export function composeV1Template(
       // Inject form HTML into sections that embed the spec.form
       if (entry.type === 'FinalCTA' || entry.type === 'HeroLeadForm') {
         props._formHtml = formHtml;
+        // When a lead-capture endpoint is configured, the section renders
+        // a live `<form action method>`; otherwise the form stays inert
+        // (preview/editor mode).
+        if (submitUrl) {
+          props._submitUrl = submitUrl;
+          props._redirectTo = redirectTo;
+        }
       }
 
       const innerHtml = renderer(props);
@@ -430,8 +456,17 @@ export function composeV1Template(
   // (We intentionally do not render demo image attributions/links.)
   const attrHtml = renderAttributionFooter([], overrides?.meta?.imageAttributions);
 
-  // 6. Wrap in full HTML document
-  const html = buildV1Document(spec, tokensCss, themeCss, sectionsHtml, attrHtml, overrides?.meta);
+  // 6. Wrap in full HTML document. The submit-handler script is only
+  // inlined when a lead-capture endpoint is configured.
+  const html = buildV1Document(
+    spec,
+    tokensCss,
+    themeCss,
+    sectionsHtml,
+    attrHtml,
+    overrides?.meta,
+    submitUrl ? { submitUrl, redirectTo } : undefined
+  );
 
   return { html, templateId };
 }
@@ -450,6 +485,17 @@ function getFallbackForAssetKey(key: string, assets: Record<string, string>): st
 // ── Document wrapper ───────────────────────────────────────────────────────────
 
 /**
+ * Options that control runtime form behaviour. When `submitUrl` is set,
+ * `buildV1Document` inlines a small vanilla-JS handler that intercepts
+ * `<form data-v1-lead-form>` submissions, POSTs them as JSON, manages a
+ * Sending… button state, and redirects to `redirectTo` on success.
+ */
+export interface BuildV1DocumentFormConfig {
+  submitUrl: string;
+  redirectTo: string;
+}
+
+/**
  * Wrap section HTML in a full HTML document with the standard v1 head:
  * inlined tokens + theme CSS, edit-mode interaction styles, and meta tags.
  * Exported so sibling composers (e.g. composeV1ThankYou) can reuse it.
@@ -460,12 +506,17 @@ export function buildV1Document(
   themeCss: string,
   sectionsHtml: string,
   attributionHtml: string,
-  meta?: V1MetaOverrides
+  meta?: V1MetaOverrides,
+  formConfig?: BuildV1DocumentFormConfig
 ): string {
   const pageTitle = meta?.pageTitle || spec.metadata.name;
   const metaDesc = meta?.metaDescription || spec.metadata.description;
   const taglineTag = meta?.tagline
     ? `\n  <meta name="v1-tagline" content="${escapeAttr(meta.tagline)}">`
+    : '';
+
+  const submitScript = formConfig
+    ? renderLeadFormScript(formConfig.redirectTo)
     : '';
 
   return `<!DOCTYPE html>
@@ -489,15 +540,79 @@ body.v1-edit-mode [data-v1-section-id].v1-section-selected { outline: 2px solid 
 body.v1-edit-mode [data-v1-field-key] { cursor: text; }
 body.v1-edit-mode [data-v1-field-key]:hover { outline: 1px dashed rgba(99,102,241,0.5); outline-offset: 2px; }
 body.v1-edit-mode [data-v1-field-key][contenteditable="true"] { outline: 2px solid rgba(99,102,241,0.8); outline-offset: 2px; background: rgba(99,102,241,0.06); min-width: 20px; }
+/* === v1 lead-form runtime states === */
+.v1-form-error { color: #b91c1c; font-size: var(--v1-font-size-sm); margin-top: var(--v1-space-2); display: none; }
+.v1-form-error.is-visible { display: block; }
   </style>
 </head>
 <body>
   <div class="v1-page">
 ${sectionsHtml}
 ${attributionHtml}
-  </div>
+  </div>${submitScript}
 </body>
 </html>`;
+}
+
+/**
+ * Inlined submit handler for published pages. Intentionally vanilla JS so
+ * the deployed HTML stays single-file and dependency-free.
+ *
+ * Wires every `<form data-v1-lead-form>` on the page:
+ *  - prevents default submission
+ *  - serialises fields to JSON
+ *  - POSTs to the form's `action` attribute (baked in by the section)
+ *  - flips the submit button to "Sending…" while in flight
+ *  - on 2xx → redirects to `redirectTo` (server response can override via
+ *    the `redirect` field)
+ *  - on failure → restores the button and shows an inline error
+ */
+function renderLeadFormScript(redirectTo: string): string {
+  // The redirect path is JSON-encoded so any special characters survive
+  // the round-trip through the <script> tag verbatim.
+  return `
+  <script>
+  (function(){
+    var DEFAULT_REDIRECT = ${JSON.stringify(redirectTo)};
+    function handle(form){
+      if (form.dataset.v1Bound === '1') return;
+      form.dataset.v1Bound = '1';
+      form.addEventListener('submit', function(ev){
+        ev.preventDefault();
+        var action = form.getAttribute('action');
+        if (!action) return;
+        var btn = form.querySelector('button[type="submit"], button:not([type])');
+        var errEl = form.querySelector('[data-v1-form-error]');
+        var originalLabel = btn ? btn.innerHTML : '';
+        if (btn) { btn.disabled = true; btn.innerHTML = 'Sending…'; }
+        if (errEl) { errEl.classList.remove('is-visible'); errEl.textContent = ''; }
+        var data = {};
+        var fd = new FormData(form);
+        fd.forEach(function(value, key){ data[key] = value; });
+        fetch(action, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify(data)
+        }).then(function(res){
+          if (!res.ok) throw new Error('Request failed (' + res.status + ')');
+          return res.json().catch(function(){ return {}; });
+        }).then(function(body){
+          var target = (body && body.redirect) ? body.redirect : DEFAULT_REDIRECT;
+          window.location.href = target;
+        }).catch(function(err){
+          if (btn) { btn.disabled = false; btn.innerHTML = originalLabel; }
+          if (errEl) {
+            errEl.textContent = 'Sorry — we couldn’t send that. Please try again.';
+            errEl.classList.add('is-visible');
+          }
+          if (window.console) console.warn('[v1 lead-form]', err);
+        });
+      });
+    }
+    var forms = document.querySelectorAll('form[data-v1-lead-form]');
+    for (var i = 0; i < forms.length; i++) handle(forms[i]);
+  })();
+  </script>`;
 }
 
 // ── Attribution footer ──────────────────────────────────────────────────────

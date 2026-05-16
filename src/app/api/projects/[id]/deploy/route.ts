@@ -73,11 +73,23 @@ export async function POST(
   }
 
   // Compose server-side — the server is the source of truth for HTML.
+  // The lead-capture endpoint is absolute so submissions from the
+  // *.pages.sparkpage.us / *.vercel.app hosts reach the SparkPage API.
+  const appBase = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/+$/, '');
+  const submitUrl = appBase ? `${appBase}/api/leads/${project.id}` : undefined;
+  if (!submitUrl) {
+    console.warn(
+      '[deploy] NEXT_PUBLIC_APP_URL is not set — forms will render inert on the deployed page.'
+    );
+  }
+
   let indexHtml: string;
   let thankYouHtml: string;
   try {
     const composed = composeV1Template(project.template_id, project.overrides, {
       allowRemoteDemoImages: true,
+      submitUrl,
+      redirectTo: '/thank-you',
     });
     indexHtml = composed.html;
     // Thank-you page is always shipped; copy falls back to niche defaults

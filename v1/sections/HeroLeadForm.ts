@@ -37,6 +37,10 @@ export interface HeroLeadFormProps {
   _fallbackImageUrl?: string;
   _altText?: string;
   _formHtml?: string;
+  /** Lead-capture endpoint URL. When set, the form posts live. */
+  _submitUrl?: string;
+  /** Path to redirect to after a successful submission. */
+  _redirectTo?: string;
 }
 
 export function renderHeroLeadForm(props: HeroLeadFormProps): string {
@@ -146,13 +150,36 @@ export function renderHeroLeadForm(props: HeroLeadFormProps): string {
           color: var(--v1-color-text-muted);
           margin-bottom: var(--v1-space-5);
         ">${escapeHtml(formSubheading)}</p>
-        <form class="v1-contact-form" onsubmit="return false;" style="text-align: left;">
-          ${formBody}
-        </form>
+        ${renderLeadForm(formBody, props._submitUrl, props._redirectTo)}
       </div>
     </div>
   </div>
 </section>`;
+}
+
+/**
+ * Emit the `<form>` element. When `submitUrl` is set we render a live
+ * lead-capture form (the inlined document script picks it up via the
+ * `data-v1-lead-form` hook); otherwise the form stays inert for editor /
+ * preview contexts.
+ */
+function renderLeadForm(
+  innerHtml: string,
+  submitUrl?: string,
+  redirectTo?: string
+): string {
+  if (submitUrl) {
+    const redirectAttr = redirectTo
+      ? ` data-v1-redirect="${escapeAttr(redirectTo)}"`
+      : '';
+    return `<form class="v1-contact-form" data-v1-lead-form action="${escapeAttr(submitUrl)}" method="POST"${redirectAttr} style="text-align: left;">
+          ${innerHtml}
+          <p class="v1-form-error" data-v1-form-error role="alert" aria-live="polite"></p>
+        </form>`;
+  }
+  return `<form class="v1-contact-form" onsubmit="return false;" style="text-align: left;">
+          ${innerHtml}
+        </form>`;
 }
 
 function escapeHtml(str: string): string {

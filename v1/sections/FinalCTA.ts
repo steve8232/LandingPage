@@ -25,6 +25,10 @@ export interface FinalCTAProps {
   privacyNote?: string;
   /** Injected by the composer — pre-rendered form field HTML from spec.form */
   _formHtml?: string;
+  /** Lead-capture endpoint URL. When set, the form posts live. */
+  _submitUrl?: string;
+  /** Path to redirect to after a successful submission. */
+  _redirectTo?: string;
 }
 
 export function renderFinalCTA(props: FinalCTAProps): string {
@@ -44,14 +48,9 @@ export function renderFinalCTA(props: FinalCTAProps): string {
     : '';
 
   // If the composer injected form HTML, use it; otherwise render a simple button
+  const submitBtn = `<button type="submit" class="v1-btn v1-btn--primary" data-v1-field-key="ctaLabel" style="width: 100%; font-size: var(--v1-font-size-lg); padding: var(--v1-space-4) var(--v1-space-8);">${escapeHtml(ctaLabel)}</button>`;
   const formBlock = props._formHtml
-    ? `
-    <form class="v1-contact-form" onsubmit="return false;" style="text-align: left;">
-      ${props._formHtml}
-      <button type="submit" class="v1-btn v1-btn--primary" data-v1-field-key="ctaLabel" style="width: 100%; font-size: var(--v1-font-size-lg); padding: var(--v1-space-4) var(--v1-space-8);">
-        ${escapeHtml(ctaLabel)}
-      </button>
-    </form>`
+    ? `\n    ${renderLeadForm(`${props._formHtml}\n      ${submitBtn}`, props._submitUrl, props._redirectTo)}`
     : `
     <a href="#contact" class="v1-btn v1-btn--primary" data-v1-field-key="ctaLabel" style="font-size: var(--v1-font-size-lg); padding: var(--v1-space-4) var(--v1-space-8);">
       ${escapeHtml(ctaLabel)}
@@ -115,11 +114,40 @@ export function renderFinalCTA(props: FinalCTAProps): string {
 </section>`;
 }
 
+/**
+ * Emit the `<form>` element. When `submitUrl` is set we render a live
+ * lead-capture form (the inlined document script picks it up via the
+ * `data-v1-lead-form` hook); otherwise the form stays inert for editor /
+ * preview contexts.
+ */
+function renderLeadForm(
+  innerHtml: string,
+  submitUrl?: string,
+  redirectTo?: string
+): string {
+  if (submitUrl) {
+    const redirectAttr = redirectTo
+      ? ` data-v1-redirect="${escapeAttr(redirectTo)}"`
+      : '';
+    return `<form class="v1-contact-form" data-v1-lead-form action="${escapeAttr(submitUrl)}" method="POST"${redirectAttr} style="text-align: left;">
+      ${innerHtml}
+      <p class="v1-form-error" data-v1-form-error role="alert" aria-live="polite"></p>
+    </form>`;
+  }
+  return `<form class="v1-contact-form" onsubmit="return false;" style="text-align: left;">
+      ${innerHtml}
+    </form>`;
+}
+
 function escapeHtml(str: string): string {
   return str
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+function escapeAttr(str: string): string {
+  return str.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
