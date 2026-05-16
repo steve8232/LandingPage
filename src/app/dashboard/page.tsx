@@ -1,11 +1,13 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { rowToDTO, PROJECT_COLS, type ProjectRow } from '@/lib/projects/types';
 import {
   rowToDTO as deploymentRowToDTO,
   type DeploymentDTO,
   type DeploymentRow,
 } from '@/lib/deployments/types';
+import { selfHealManyProjects } from '@/lib/projects/subdomainHealth';
 import DashboardClient from './DashboardClient';
 
 export const dynamic = 'force-dynamic';
@@ -23,7 +25,11 @@ export default async function DashboardPage() {
     .select(PROJECT_COLS)
     .order('updated_at', { ascending: false });
 
-  const projects = error ? [] : ((data ?? []) as ProjectRow[]).map(rowToDTO);
+  // Self-heal rows stuck on `subdomain_status='error'` whose URL is actually
+  // reachable. Cheap HEAD probes; runs in parallel and only on errored rows.
+  const rawRows = error ? [] : ((data ?? []) as ProjectRow[]);
+  const healedRows = await selfHealManyProjects(createAdminClient(), rawRows);
+  const projects = healedRows.map(rowToDTO);
 
   // Latest deployment per project. RLS scopes deployments SELECT to the owner
   // chain, so a single ordered query is enough — we pick the first row for

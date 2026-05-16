@@ -99,3 +99,10 @@ export async function clearProjectSubdomain(projectId: string): Promise<ProjectD
   const data = await res.json() as { project: ProjectDTO };
   return data.project;
 }
+
+export async function retryProjectSubdomain(projectId: string): Promise<ProjectDTO> {
+  const res = await fetch(`/api/projects/${projectId}/subdomain/retry`, { method: 'POST' });
+  if (!res.ok) throw new Error(await parseError(res));
+  const data = await res.json() as { project: ProjectDTO };
+  return data.project;
+}

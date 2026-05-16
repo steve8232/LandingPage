@@ -3,13 +3,12 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getDeployment, toFullUrl } from '@/lib/vercel/client';
 import { mapReadyState } from '@/lib/vercel/types';
-import { assignAlias } from '@/lib/vercel/domains';
-import { buildPagesHost } from '@/lib/projects/subdomain';
 import {
   isTerminalStatus,
   rowToDTO,
   type DeploymentRow,
 } from '@/lib/deployments/types';
+import { selfHealSubdomainStatus } from '@/lib/projects/subdomainHealth';
 
 /**
  * GET /api/deployments/[id]
@@ -78,12 +77,15 @@ export async function GET(
         .single();
 
       if (!upErr && updated) {
-        // Phase 4: on first transition to `ready`, point the project's
-        // custom alias at this deployment (if a subdomain is claimed).
-        // Best-effort — alias errors flip subdomain_status to 'error' but
-        // do not affect the deployment payload returned to the client.
-        if (nextStatus === 'ready' && current.vercel_deployment_id) {
-          await maybeAssignAlias(admin, current.project_id, current.vercel_deployment_id);
+        // Phase 4: when the deployment reaches `ready` and the project has a
+        // subdomain claimed, mark `subdomain_status='ready'`. Vercel auto-
+        // aliases production deployments to project-level custom domains, so
+        // no explicit `assignAlias` call is needed in the publish flow — that
+        // call was the most common source of false-positive `error` rows.
+        // For projects already flagged 'error' (e.g. from an earlier transient
+        // failure), trust HEAD-reachability as the source of truth.
+        if (nextStatus === 'ready') {
+          await markSubdomainReadyIfClaimed(admin, current.project_id);
         }
         return NextResponse.json({ deployment: rowToDTO(updated as DeploymentRow) });
       }
@@ -96,14 +98,14 @@ export async function GET(
 }
 
 /**
- * Look up the project's claimed subdomain and, if set, alias the deployment
- * to `<subdomain>.pages.sparkpage.us`. Updates subdomain_status on success or
- * failure. Never throws — caller is in a polling hot path.
+ * Promote `subdomain_status` to `'ready'` when a deployment finishes building
+ * and the project has a subdomain claimed. If the row is currently in 'error',
+ * fall back to the HEAD self-heal so we only flip it once the URL actually
+ * resolves. Never throws — caller is in a polling hot path.
  */
-async function maybeAssignAlias(
+async function markSubdomainReadyIfClaimed(
   admin: ReturnType<typeof createAdminClient>,
-  projectId: string,
-  vercelDeploymentId: string
+  projectId: string
 ): Promise<void> {
   try {
     const { data: proj } = await admin
@@ -111,25 +113,27 @@ async function maybeAssignAlias(
       .select('id, subdomain, subdomain_status')
       .eq('id', projectId)
       .maybeSingle();
-    const row = proj as { subdomain: string | null; subdomain_status: string | null } | null;
+    const row = proj as {
+      subdomain: string | null;
+      subdomain_status: 'pending' | 'ready' | 'error' | null;
+    } | null;
     if (!row || !row.subdomain) return;
-    if (row.subdomain_status === 'ready') return; // already wired up
-    const host = buildPagesHost(row.subdomain);
-    await assignAlias(vercelDeploymentId, host);
+    if (row.subdomain_status === 'ready') return;
+
+    if (row.subdomain_status === 'error') {
+      // Don't blindly flip a known-bad row green — only when the URL actually
+      // responds. selfHealSubdomainStatus handles the HEAD + DB update.
+      await selfHealSubdomainStatus(admin, projectId, row.subdomain, 'error');
+      return;
+    }
+
+    // 'pending' (or null) → ready: deploy finished and Vercel auto-aliases
+    // production builds, so the URL is live as soon as the build is ready.
     await admin
       .from('projects')
       .update({ subdomain_status: 'ready', subdomain_error: null })
       .eq('id', projectId);
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Alias assignment failed';
-    try {
-      await admin
-        .from('projects')
-        .update({ subdomain_status: 'error', subdomain_error: message })
-        .eq('id', projectId);
-    } catch {
-      // ignore secondary failure — already logging below.
-    }
-    console.warn('[api/deployments] assignAlias failed:', message);
+    console.warn('[api/deployments] markSubdomainReadyIfClaimed failed:', err);
   }
 }

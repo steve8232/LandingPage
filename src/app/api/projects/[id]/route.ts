@@ -1,9 +1,11 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { rowToDTO, PROJECT_COLS, type ProjectRow } from '@/lib/projects/types';
 import { buildPagesHost } from '@/lib/projects/subdomain';
 import { removeProjectDomain } from '@/lib/vercel/domains';
 import { vercelProjectNameFor } from '@/lib/vercel/client';
+import { selfHealSubdomainStatus } from '@/lib/projects/subdomainHealth';
 
 /**
  * GET    /api/projects/[id]  — fetch one project (owner only, enforced by RLS)
@@ -33,7 +35,22 @@ export async function GET(
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   if (!data) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-  return NextResponse.json({ project: rowToDTO(data as ProjectRow) });
+  const row = data as ProjectRow;
+  if (row.subdomain && row.subdomain_status === 'error') {
+    const admin = createAdminClient();
+    const healed = await selfHealSubdomainStatus(
+      admin,
+      row.id,
+      row.subdomain,
+      row.subdomain_status
+    );
+    if (healed !== row.subdomain_status) {
+      row.subdomain_status = healed;
+      row.subdomain_error = null;
+    }
+  }
+
+  return NextResponse.json({ project: rowToDTO(row) });
 }
 
 export async function PATCH(

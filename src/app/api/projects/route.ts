@@ -1,7 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { isV1Template } from '../../../../v1/specs';
 import { makeSlug, rowToDTO, PROJECT_COLS, type ProjectRow } from '@/lib/projects/types';
+import { selfHealManyProjects } from '@/lib/projects/subdomainHealth';
 
 /**
  * GET  /api/projects        — list current user's projects (most-recent first)
@@ -25,8 +27,10 @@ export async function GET() {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  const rows = (data ?? []) as ProjectRow[];
-  return NextResponse.json({ projects: rows.map(rowToDTO) });
+  // Self-heal any rows stuck in `subdomain_status='error'` whose URL is
+  // actually reachable (Phase 4 UX hardening — false-positive errors).
+  const healed = await selfHealManyProjects(createAdminClient(), (data ?? []) as ProjectRow[]);
+  return NextResponse.json({ projects: healed.map(rowToDTO) });
 }
 
 export async function POST(request: NextRequest) {

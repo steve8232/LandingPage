@@ -35,7 +35,7 @@ import type { DeploymentDTO } from '@/lib/deployments/types';
 import { isTerminalStatus } from '@/lib/deployments/types';
 import type { ProjectDTO, SubdomainStatus } from '@/lib/projects/types';
 import { PAGES_PARENT_DOMAIN, suggestSubdomain } from '@/lib/projects/subdomain';
-import SubdomainPicker from '@/components/SubdomainPicker';
+import SubdomainPicker, { type SubdomainPickerHandle } from '@/components/SubdomainPicker';
 import { v1Templates } from '@/lib/v1Templates';
 
 type V1SpecSection = {
@@ -190,6 +190,9 @@ export default function PreviewDownload({
   const [v1ProjectId, setV1ProjectId] = useState<string | undefined>(landingPage.v1?.projectId);
   const [v1Subdomain, setV1Subdomain] = useState<string | null>(null);
   const [v1SubdomainStatus, setV1SubdomainStatus] = useState<SubdomainStatus | null>(null);
+  const [v1SubdomainError, setV1SubdomainError] = useState<string | null>(null);
+  const [subdomainDraftPending, setSubdomainDraftPending] = useState(false);
+  const subdomainPickerRef = useRef<SubdomainPickerHandle | null>(null);
   const [cloudSaved, setCloudSaved] = useState(false);
   const lastSavedOverridesJsonRef = useRef<string>(JSON.stringify(landingPage.v1?.overrides ?? {}, null, 0));
 
@@ -198,6 +201,7 @@ export default function PreviewDownload({
     if (!user || !v1ProjectId) {
       setV1Subdomain(null);
       setV1SubdomainStatus(null);
+      setV1SubdomainError(null);
       return;
     }
     let cancelled = false;
@@ -207,6 +211,7 @@ export default function PreviewDownload({
         if (cancelled) return;
         setV1Subdomain(p.subdomain);
         setV1SubdomainStatus(p.subdomainStatus);
+        setV1SubdomainError(p.subdomainError);
       } catch {
         // non-fatal: picker will degrade to "no subdomain claimed"
       }
@@ -217,6 +222,7 @@ export default function PreviewDownload({
   const handleSubdomainChange = useCallback((p: ProjectDTO) => {
     setV1Subdomain(p.subdomain);
     setV1SubdomainStatus(p.subdomainStatus);
+    setV1SubdomainError(p.subdomainError);
   }, []);
 
   // Publish-to-Vercel (Phase 3). The button: implicitly saves to cloud if
@@ -433,8 +439,14 @@ export default function PreviewDownload({
   }, [user, v1TemplateId, v1ProjectId, hasUnsavedOverrides, v1Overrides, currentOverridesJson]);
 
   /**
-   * Publish: implicit save → POST /api/projects/[id]/deploy → poll status.
-   * Cancels any in-flight poll on re-entry / unmount.
+   * Publish: optional implicit subdomain-claim → implicit overrides save →
+   * POST /api/projects/[id]/deploy → poll status. Cancels any in-flight poll
+   * on re-entry / unmount.
+   *
+   * If the SubdomainPicker holds an uncommitted draft (the user typed a new
+   * URL but didn't click "Claim URL"), the publish button auto-commits it
+   * first. A commit failure short-circuits the publish so we never deploy to
+   * a stale subdomain.
    */
   const handlePublish = useCallback(async () => {
     if (publishStatus === 'publishing' || publishStatus === 'polling') return;
@@ -446,6 +458,17 @@ export default function PreviewDownload({
 
     setPublishError('');
     setPublishStatus('publishing');
+
+    // Claim & Publish: commit any pending subdomain draft before deploying.
+    try {
+      if (subdomainPickerRef.current?.hasPendingDraft()) {
+        await subdomainPickerRef.current.commitPendingDraft();
+      }
+    } catch (err) {
+      setPublishStatus('error');
+      setPublishError(err instanceof Error ? err.message : 'Couldn’t claim the URL');
+      return;
+    }
 
     let projectId: string;
     try {
@@ -486,12 +509,14 @@ export default function PreviewDownload({
             setPublishError(next.errorMessage);
           }
           // Phase 4: refresh subdomain_status — the polling route flips it
-          // to 'ready' once the alias has been assigned at Vercel.
+          // to 'ready' once the deployment finishes (Vercel auto-aliases
+          // production builds to project-level custom domains).
           if (next.status === 'ready' && projectId) {
             try {
               const fresh = await getProject(projectId);
               setV1Subdomain(fresh.subdomain);
               setV1SubdomainStatus(fresh.subdomainStatus);
+              setV1SubdomainError(fresh.subdomainError);
             } catch {
               // non-fatal — picker still shows the previous state.
             }
@@ -1470,42 +1495,51 @@ export default function PreviewDownload({
 					)}
 					{user && v1ProjectId && (
 					  <SubdomainPicker
+						ref={subdomainPickerRef}
 						projectId={v1ProjectId}
 						initialSubdomain={v1Subdomain}
 						initialStatus={v1SubdomainStatus}
+						initialError={v1SubdomainError}
 						suggestion={suggestSubdomain(
 						  v1Templates.find((t) => t.id === v1TemplateId)?.name ?? ''
 						)}
 						onChange={handleSubdomainChange}
+						onDraftPendingChange={setSubdomainDraftPending}
 					  />
 					)}
-					{user && (
-					  <button
-						onClick={handlePublish}
-						disabled={
-						  !v1TemplateId ||
-						  publishStatus === 'publishing' ||
-						  publishStatus === 'polling'
-						}
-						className="px-3 py-1.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-1.5"
-						title={!v1TemplateId
-						  ? 'Missing templateId for v1 publishing'
+					{user && (() => {
+					  const publishing = publishStatus === 'publishing' || publishStatus === 'polling';
+					  const claimAndPublish = subdomainDraftPending && !publishing;
+					  const buttonLabel = publishStatus === 'publishing'
+						? (claimAndPublish ? 'Claiming…' : 'Publishing…')
+						: publishStatus === 'polling'
+						  ? 'Building…'
+						  : claimAndPublish
+							? 'Claim & Publish'
+							: 'Publish';
+					  const buttonTitle = !v1TemplateId
+						? 'Missing templateId for v1 publishing'
+						: claimAndPublish
+						  ? 'Save the URL change, then publish'
 						  : v1Subdomain
 							? `Publish to ${v1Subdomain}.${PAGES_PARENT_DOMAIN}`
-							: 'Publish this page to a *.vercel.app URL'}
-					  >
-						{publishStatus === 'publishing' || publishStatus === 'polling' ? (
-						  <Loader2 className="w-4 h-4 animate-spin" />
-						) : (
-						  <Rocket className="w-4 h-4" />
-						)}
-						{publishStatus === 'publishing'
-						  ? 'Publishing…'
-						  : publishStatus === 'polling'
-							? 'Building…'
-							: 'Publish'}
-					  </button>
-					)}
+							: 'Publish this page to a *.vercel.app URL';
+					  return (
+						<button
+						  onClick={handlePublish}
+						  disabled={!v1TemplateId || publishing}
+						  className="px-3 py-1.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-1.5"
+						  title={buttonTitle}
+						>
+						  {publishing ? (
+							<Loader2 className="w-4 h-4 animate-spin" />
+						  ) : (
+							<Rocket className="w-4 h-4" />
+						  )}
+						  {buttonLabel}
+						</button>
+					  );
+					})()}
 					{publishStatus === 'ready' && publishedDeployment?.url && (
 					  <a
 						href={
