@@ -15,7 +15,6 @@ import {
   Plus,
   Sparkles,
   Rocket,
-  ExternalLink,
   Loader2,
 } from 'lucide-react';
 import { GeneratedLandingPage, FormData } from '@/types';
@@ -1350,18 +1349,6 @@ export default function PreviewDownload({
     setEditedCss(css);
   }, []);
 
-  const handleDownloadV1Html = useCallback(() => {
-    const blob = new Blob([editedHtml], { type: 'text/html;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'index.html';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }, [editedHtml]);
-
   // Create edited landing page object for the legacy editor.
   // For v1 HTML documents, we bypass VisualEditor entirely (see below).
   const editedLandingPage: GeneratedLandingPage = useMemo(() => ({
@@ -1391,15 +1378,6 @@ export default function PreviewDownload({
                       <div className="text-xs text-gray-500">Edits are v1-safe (no HTML parsing; full document preserved)</div>
                     </div>
                   </div>
-                  <span
-                    className={`text-xs font-medium px-2 py-0.5 rounded-full border ${
-                      isV1
-                        ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
-                        : 'bg-gray-50 text-gray-700 border-gray-200'
-                    }`}
-                  >
-                    Pipeline: {isV1 ? 'v1' : 'legacy'}
-                  </span>
                 </div>
 
                 {/* Mode Toggle */}
@@ -1540,28 +1518,6 @@ export default function PreviewDownload({
 						</button>
 					  );
 					})()}
-					{publishStatus === 'ready' && publishedDeployment?.url && (
-					  <a
-						href={
-						  v1Subdomain && v1SubdomainStatus === 'ready'
-							? `https://${v1Subdomain}.${PAGES_PARENT_DOMAIN}`
-							: publishedDeployment.url
-						}
-						target="_blank"
-						rel="noopener noreferrer"
-						className="text-xs text-orange-700 hover:text-orange-800 inline-flex items-center gap-1 max-w-[260px] truncate"
-						title={
-						  v1Subdomain && v1SubdomainStatus === 'ready'
-							? `${v1Subdomain}.${PAGES_PARENT_DOMAIN}`
-							: publishedDeployment.url
-						}
-					  >
-						<ExternalLink className="w-3 h-3" />
-						{v1Subdomain && v1SubdomainStatus === 'ready'
-						  ? `${v1Subdomain}.${PAGES_PARENT_DOMAIN}`
-						  : publishedDeployment.url.replace(/^https?:\/\//, '')}
-					  </a>
-					)}
 					{publishStatus === 'error' && (
 					  <div
 						className="text-xs text-red-600 max-w-[260px] truncate"
@@ -1575,12 +1531,6 @@ export default function PreviewDownload({
                   className="px-3 py-1.5 text-gray-600 hover:text-gray-900 text-sm"
                 >
                   Start Over
-                </button>
-                <button
-                  onClick={handleDownloadV1Html}
-                  className="px-4 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
-                >
-                  Download HTML
                 </button>
               </div>
             </div>
