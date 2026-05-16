@@ -28,6 +28,26 @@ import { addProjectDomain } from '@/lib/vercel/domains';
 const SELECT_COLS =
   'id, project_id, revision_id, vercel_deployment_id, url, status, error_message, created_at, updated_at';
 
+function stripTrailingSlashes(value: string): string {
+  return value.replace(/\/+$/, '');
+}
+
+function resolveAppBaseUrl(request: NextRequest): string {
+  const configured = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || '';
+  if (configured) return stripTrailingSlashes(configured);
+
+  // Vercel exposes the current app host without a scheme. This keeps newly
+  // published landing pages functional even if NEXT_PUBLIC_APP_URL was missed.
+  const vercelUrl = process.env.VERCEL_URL || '';
+  if (vercelUrl) {
+    const withScheme = /^https?:\/\//i.test(vercelUrl) ? vercelUrl : `https://${vercelUrl}`;
+    return stripTrailingSlashes(withScheme);
+  }
+
+  // Final fallback: the origin that received the authenticated publish request.
+  return stripTrailingSlashes(request.nextUrl.origin);
+}
+
 export async function GET(
   _request: NextRequest,
   context: { params: Promise<{ id: string }> }
@@ -49,7 +69,7 @@ export async function GET(
 }
 
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   const { id } = await context.params;
@@ -75,13 +95,8 @@ export async function POST(
   // Compose server-side — the server is the source of truth for HTML.
   // The lead-capture endpoint is absolute so submissions from the
   // *.pages.sparkpage.us / *.vercel.app hosts reach the SparkPage API.
-  const appBase = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/+$/, '');
-  const submitUrl = appBase ? `${appBase}/api/leads/${project.id}` : undefined;
-  if (!submitUrl) {
-    console.warn(
-      '[deploy] NEXT_PUBLIC_APP_URL is not set — forms will render inert on the deployed page.'
-    );
-  }
+  const appBase = resolveAppBaseUrl(request);
+  const submitUrl = `${appBase}/api/leads/${project.id}`;
 
   let indexHtml: string;
   let thankYouHtml: string;
