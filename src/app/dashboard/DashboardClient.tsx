@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Sparkles, Plus, Pencil, Trash2, ExternalLink, LogOut, Loader2 } from 'lucide-react';
+import { Sparkles, Plus, Pencil, Trash2, ExternalLink, LogOut, Loader2, Inbox } from 'lucide-react';
 import type { ProjectDTO } from '@/lib/projects/types';
 import type { DeploymentDTO } from '@/lib/deployments/types';
 import { deleteProject, updateProject } from '@/lib/projects/remoteStorage';
@@ -113,6 +113,14 @@ export default function DashboardClient({
           </Link>
           <div className="flex items-center gap-3 text-sm">
             <span className="text-gray-500 hidden sm:inline">{userEmail}</span>
+            <Link
+              href="/dashboard/leads"
+              className="text-gray-600 hover:text-gray-900 flex items-center gap-1.5"
+              title="View leads"
+            >
+              <Inbox className="w-4 h-4" />
+              Leads
+            </Link>
             <button
               onClick={handleSignOut}
               className="text-gray-600 hover:text-gray-900 flex items-center gap-1.5"
