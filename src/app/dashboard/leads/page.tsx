@@ -1,12 +1,15 @@
 import { Suspense } from 'react';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { leadRowToDTO, type LeadRow } from '@/lib/leads/types';
 import { lookupPixelV4 } from '@/lib/audiencelab/client';
 import {
   normalizeIdentifiedVisitors,
   type IdentifiedVisitorDTO,
 } from '@/lib/audiencelab/identified';
+import { CallRailAuthError, listCalls } from '@/lib/callrail/client';
+import { normalizeCallsFromApi, type CallDTO } from '@/lib/callrail/calls';
 import LeadsClient from './LeadsClient';
 
 export const dynamic = 'force-dynamic';
@@ -30,7 +33,7 @@ export default async function LeadsPage() {
     redirect('/login?next=/dashboard/leads');
   }
 
-  const [leadsRes, projectsRes] = await Promise.all([
+  const [leadsRes, projectsRes, callsRes] = await Promise.all([
     supabase
       .from('leads')
       .select('id, project_id, payload, user_agent, referer, ip, created_at')
@@ -38,13 +41,23 @@ export default async function LeadsPage() {
       .limit(500),
     supabase
       .from('projects')
-      .select('id, title, slug, audiencelab_pixel_id')
+      .select('id, title, slug, audiencelab_pixel_id, callrail_company_id, callrail_company_name')
       .order('updated_at', { ascending: false }),
+    supabase
+      .from('calls')
+      .select(
+        'project_id, callrail_call_id, start_time, direction, answered, duration, customer_name, customer_phone, customer_city, customer_state, tracking_phone, source, campaign, landing_page_url, recording_url, transcription'
+      )
+      .order('start_time', { ascending: false, nullsFirst: false })
+      .limit(500),
   ]);
 
   const leads = ((leadsRes.data ?? []) as LeadRow[]).map(leadRowToDTO);
   const projectRows = (projectsRes.data ?? []) as Array<{
-    id: string; title: string; slug: string; audiencelab_pixel_id: string | null;
+    id: string; title: string; slug: string;
+    audiencelab_pixel_id: string | null;
+    callrail_company_id: string | null;
+    callrail_company_name: string | null;
   }>;
   const projects = projectRows.map(({ id, title, slug }) => ({ id, title, slug }));
 
@@ -71,14 +84,99 @@ export default async function LeadsPage() {
     .flat()
     .sort((a, b) => b.lastSeenAt.localeCompare(a.lastSeenAt));
 
+  // DB-cached calls (webhook ingest).  RLS scopes by project owner.
+  const dbCallRows = (callsRes.data ?? []) as Array<{
+    project_id: string;
+    callrail_call_id: string;
+    start_time: string | null;
+    direction: string | null;
+    answered: boolean | null;
+    duration: number | null;
+    customer_name: string | null;
+    customer_phone: string | null;
+    customer_city: string | null;
+    customer_state: string | null;
+    tracking_phone: string | null;
+    source: string | null;
+    campaign: string | null;
+    landing_page_url: string | null;
+    recording_url: string | null;
+    transcription: string | null;
+  }>;
+  const dbCalls: CallDTO[] = dbCallRows.map((r) => ({
+    id: r.callrail_call_id,
+    projectId: r.project_id,
+    startTime: r.start_time ?? '',
+    direction: r.direction === 'outbound' ? 'outbound' : 'inbound',
+    answered: r.answered === true,
+    duration: typeof r.duration === 'number' ? r.duration : 0,
+    voicemail: false,
+    customerName: r.customer_name,
+    customerPhone: r.customer_phone,
+    customerCity: r.customer_city,
+    customerState: r.customer_state,
+    trackingPhone: r.tracking_phone,
+    source: r.source,
+    campaign: r.campaign,
+    landingPageUrl: r.landing_page_url,
+    recordingUrl: r.recording_url,
+    transcription: r.transcription,
+  }));
+
+  // Live tail for each bound project so the dashboard reflects calls that
+  // haven't yet been webhooked.  Requires the user-scoped integration row.
+  const boundProjects = projectRows.filter((p) => !!p.callrail_company_id);
+  let liveCalls: CallDTO[] = [];
+  if (boundProjects.length > 0) {
+    const admin = createAdminClient();
+    const { data: integ } = await admin
+      .from('user_integrations')
+      .select('callrail_api_key, callrail_account_id')
+      .eq('user_id', user.id)
+      .maybeSingle<{ callrail_api_key: string | null; callrail_account_id: string | null }>();
+    if (integ?.callrail_api_key && integ?.callrail_account_id) {
+      const apiKey = integ.callrail_api_key;
+      const accountId = integ.callrail_account_id;
+      const perProject = await Promise.all(
+        boundProjects.map(async (p) => {
+          try {
+            const res = await listCalls({
+              apiKey,
+              accountId,
+              companyId: p.callrail_company_id as string,
+              dateRange: 'last_30_days',
+              perPage: 100,
+            });
+            return normalizeCallsFromApi(res.calls, p.id);
+          } catch (err) {
+            if (!(err instanceof CallRailAuthError)) {
+              console.warn(`[leads] listCalls failed for project ${p.id}:`, err);
+            }
+            return [] as CallDTO[];
+          }
+        })
+      );
+      liveCalls = perProject.flat();
+    }
+  }
+
+  // Merge: live wins on overlap (fresher recording_player + transcription).
+  const callsById = new Map<string, CallDTO>();
+  for (const c of dbCalls) callsById.set(c.id, c);
+  for (const c of liveCalls) callsById.set(c.id, c);
+  const calls = [...callsById.values()].sort((a, b) =>
+    (b.startTime || '').localeCompare(a.startTime || '')
+  );
+
   const loadError =
-    leadsRes.error?.message || projectsRes.error?.message || '';
+    leadsRes.error?.message || projectsRes.error?.message || callsRes.error?.message || '';
 
   return (
     <Suspense fallback={null}>
       <LeadsClient
         initialLeads={leads}
         initialIdentified={identifiedVisitors}
+        initialCalls={calls}
         projects={projects}
         userEmail={user.email ?? ''}
         loadError={loadError}

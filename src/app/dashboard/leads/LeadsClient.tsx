@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Sparkles, LogOut, Download, Inbox, ChevronDown, ChevronRight, ArrowLeft,
-  Users, FileText,
+  Users, FileText, Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed, Voicemail,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import type { LeadDTO } from '@/lib/leads/types';
@@ -20,14 +20,19 @@ import {
   identifiedPrimaryPhone,
   type IdentifiedVisitorDTO,
 } from '@/lib/audiencelab/identified';
+import {
+  buildCallsCsv, callOutcomeLabel, formatCallLocation, formatDuration,
+  type CallDTO,
+} from '@/lib/callrail/calls';
 
 interface ProjectLite { id: string; title: string; slug: string }
 
-type TabKey = 'form' | 'identified';
+type TabKey = 'form' | 'identified' | 'calls';
 
 interface LeadsClientProps {
   initialLeads: LeadDTO[];
   initialIdentified: IdentifiedVisitorDTO[];
+  initialCalls: CallDTO[];
   projects: ProjectLite[];
   userEmail: string;
   loadError: string;
@@ -50,13 +55,16 @@ function truncate(s: string, n: number): string {
 }
 
 export default function LeadsClient({
-  initialLeads, initialIdentified, projects, userEmail, loadError,
+  initialLeads, initialIdentified, initialCalls, projects, userEmail, loadError,
 }: LeadsClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const projectFilter = searchParams.get('project') || '';
   const tabParam = searchParams.get('tab');
-  const tab: TabKey = tabParam === 'identified' ? 'identified' : 'form';
+  const tab: TabKey =
+    tabParam === 'identified' ? 'identified'
+    : tabParam === 'calls' ? 'calls'
+    : 'form';
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   const projectTitleById = useMemo(() => {
@@ -74,6 +82,11 @@ export default function LeadsClient({
     if (!projectFilter) return initialIdentified;
     return initialIdentified.filter((v) => v.projectId === projectFilter);
   }, [initialIdentified, projectFilter]);
+
+  const filteredCalls = useMemo(() => {
+    if (!projectFilter) return initialCalls;
+    return initialCalls.filter((c) => c.projectId === projectFilter);
+  }, [initialCalls, projectFilter]);
 
   async function handleSignOut() {
     const supabase = createClient();
@@ -95,7 +108,12 @@ export default function LeadsClient({
   }
 
   function handleTabChange(next: TabKey) {
-    setParam('tab', next === 'identified' ? 'identified' : '');
+    setParam(
+      'tab',
+      next === 'identified' ? 'identified'
+      : next === 'calls' ? 'calls'
+      : ''
+    );
   }
 
   function downloadCsv(csv: string, prefix: string) {
@@ -116,6 +134,11 @@ export default function LeadsClient({
         buildIdentifiedCsv({ visitors: filteredIdentified, projectTitleById }),
         'sparkpage-identified',
       );
+    } else if (tab === 'calls') {
+      downloadCsv(
+        buildCallsCsv({ calls: filteredCalls, projectTitleById }),
+        'sparkpage-calls',
+      );
     } else {
       downloadCsv(
         buildLeadsCsv({ leads: filteredLeads, projectTitleById }),
@@ -124,11 +147,16 @@ export default function LeadsClient({
     }
   }
 
-  const currentCount = tab === 'identified' ? filteredIdentified.length : filteredLeads.length;
+  const currentCount =
+    tab === 'identified' ? filteredIdentified.length
+    : tab === 'calls' ? filteredCalls.length
+    : filteredLeads.length;
   const currentLabel =
     tab === 'identified'
       ? (currentCount === 1 ? 'visitor' : 'visitors')
-      : (currentCount === 1 ? 'submission' : 'submissions');
+      : tab === 'calls'
+        ? (currentCount === 1 ? 'call' : 'calls')
+        : (currentCount === 1 ? 'submission' : 'submissions');
   const exportDisabled = currentCount === 0;
 
   return (
@@ -208,6 +236,13 @@ export default function LeadsClient({
             label="Identified visitors"
             count={initialIdentified.length}
           />
+          <TabButton
+            active={tab === 'calls'}
+            onClick={() => handleTabChange('calls')}
+            icon={<Phone className="w-4 h-4" />}
+            label="Calls"
+            count={initialCalls.length}
+          />
         </div>
 
         {loadError && (
@@ -223,9 +258,16 @@ export default function LeadsClient({
             expanded={expanded}
             onToggle={(id) => setExpanded((prev) => ({ ...prev, [id]: !prev[id] }))}
           />
-        ) : (
+        ) : tab === 'identified' ? (
           <IdentifiedTable
             visitors={filteredIdentified}
+            projectTitleById={projectTitleById}
+            expanded={expanded}
+            onToggle={(id) => setExpanded((prev) => ({ ...prev, [id]: !prev[id] }))}
+          />
+        ) : (
+          <CallsTable
+            calls={filteredCalls}
             projectTitleById={projectTitleById}
             expanded={expanded}
             onToggle={(id) => setExpanded((prev) => ({ ...prev, [id]: !prev[id] }))}
@@ -603,3 +645,210 @@ function IdentifiedDetail({ visitor }: { visitor: IdentifiedVisitorDTO }) {
     </div>
   );
 }
+
+
+interface CallsTableProps {
+  calls: CallDTO[];
+  projectTitleById: Record<string, string>;
+  expanded: Record<string, boolean>;
+  onToggle: (id: string) => void;
+}
+
+function CallsTable({ calls, projectTitleById, expanded, onToggle }: CallsTableProps) {
+  if (calls.length === 0) {
+    return (
+      <div className="bg-white rounded-2xl shadow-sm p-10 text-center">
+        <div className="inline-flex items-center justify-center w-12 h-12 bg-orange-100 rounded-full mb-4">
+          <Phone className="w-6 h-6 text-orange-600" />
+        </div>
+        <h2 className="text-lg font-semibold text-gray-900 mb-1">No calls yet</h2>
+        <p className="text-sm text-gray-600">
+          Connect CallRail in the editor and bind a company to a SparkPage.
+          Calls placed to your tracking numbers will appear here.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50 text-gray-600 text-xs uppercase tracking-wide">
+            <tr>
+              <th className="px-3 py-2 text-left font-medium w-8"></th>
+              <th className="px-3 py-2 text-left font-medium">Started</th>
+              <th className="px-3 py-2 text-left font-medium">Project</th>
+              <th className="px-3 py-2 text-left font-medium">Outcome</th>
+              <th className="px-3 py-2 text-left font-medium">Caller</th>
+              <th className="px-3 py-2 text-left font-medium">Phone</th>
+              <th className="px-3 py-2 text-left font-medium">Location</th>
+              <th className="px-3 py-2 text-left font-medium">Duration</th>
+              <th className="px-3 py-2 text-left font-medium">Source</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {calls.map((c) => (
+              <CallRow
+                key={c.id}
+                call={c}
+                projectTitle={projectTitleById[c.projectId] ?? '—'}
+                expanded={!!expanded[c.id]}
+                onToggle={() => onToggle(c.id)}
+              />
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+interface CallRowProps {
+  call: CallDTO;
+  projectTitle: string;
+  expanded: boolean;
+  onToggle: () => void;
+}
+
+function CallRow({ call, projectTitle, expanded, onToggle }: CallRowProps) {
+  const outcome = callOutcomeLabel(call);
+  const location = formatCallLocation(call);
+  return (
+    <>
+      <tr onClick={onToggle} className="hover:bg-gray-50 cursor-pointer">
+        <td className="px-3 py-2 text-gray-400">
+          {expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+        </td>
+        <td
+          className="px-3 py-2 text-gray-700 whitespace-nowrap"
+          title={call.startTime ? new Date(call.startTime).toLocaleString() : ''}
+        >
+          {call.startTime ? formatRelative(call.startTime) : '—'}
+        </td>
+        <td className="px-3 py-2 text-gray-900 font-medium">{projectTitle}</td>
+        <td className="px-3 py-2">
+          <OutcomePill outcome={outcome} direction={call.direction} />
+        </td>
+        <td className="px-3 py-2 text-gray-800">{call.customerName || '—'}</td>
+        <td className="px-3 py-2">
+          {call.customerPhone ? (
+            <a
+              href={`tel:${call.customerPhone}`}
+              onClick={(e) => e.stopPropagation()}
+              className="text-orange-600 hover:underline"
+            >
+              {call.customerPhone}
+            </a>
+          ) : '—'}
+        </td>
+        <td className="px-3 py-2 text-gray-700">{location || '—'}</td>
+        <td className="px-3 py-2 text-gray-700 whitespace-nowrap">{formatDuration(call.duration)}</td>
+        <td className="px-3 py-2 text-gray-700" title={call.source || ''}>
+          {call.source ? truncate(call.source, 24) : '—'}
+        </td>
+      </tr>
+      {expanded && (
+        <tr className="bg-gray-50">
+          <td colSpan={9} className="px-6 py-4">
+            <CallDetail call={call} />
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
+function OutcomePill({
+  outcome, direction,
+}: { outcome: 'Answered' | 'Voicemail' | 'Missed'; direction: 'inbound' | 'outbound' }) {
+  const cls =
+    outcome === 'Answered'
+      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+      : outcome === 'Voicemail'
+        ? 'bg-amber-50 text-amber-700 border-amber-200'
+        : 'bg-red-50 text-red-700 border-red-200';
+  const Icon =
+    outcome === 'Voicemail' ? Voicemail
+    : outcome === 'Missed' ? PhoneMissed
+    : direction === 'outbound' ? PhoneOutgoing
+    : PhoneIncoming;
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-xs font-medium ${cls}`}>
+      <Icon className="w-3 h-3" aria-hidden />
+      {outcome}
+    </span>
+  );
+}
+
+function CallDetail({ call }: { call: CallDTO }) {
+  return (
+    <div className="grid md:grid-cols-2 gap-4 text-xs">
+      <div className="space-y-3">
+        <div>
+          <h3 className="font-medium text-gray-700 mb-2">Recording</h3>
+          {call.recordingUrl ? (
+            <audio
+              controls
+              preload="none"
+              src={call.recordingUrl}
+              className="w-full"
+            >
+              Your browser does not support inline audio.
+            </audio>
+          ) : (
+            <p className="text-gray-500">(no recording available)</p>
+          )}
+        </div>
+        {call.transcription && (
+          <div>
+            <h3 className="font-medium text-gray-700 mb-2">Transcription</h3>
+            <p className="text-gray-800 whitespace-pre-wrap">{call.transcription}</p>
+          </div>
+        )}
+      </div>
+      <div>
+        <h3 className="font-medium text-gray-700 mb-2">Call</h3>
+        <dl className="space-y-1">
+          <div className="flex gap-2">
+            <dt className="font-mono text-gray-500 min-w-[7rem] shrink-0">started</dt>
+            <dd className="text-gray-800">
+              {call.startTime ? new Date(call.startTime).toLocaleString() : '—'}
+            </dd>
+          </div>
+          <div className="flex gap-2">
+            <dt className="font-mono text-gray-500 min-w-[7rem] shrink-0">direction</dt>
+            <dd className="text-gray-800">{call.direction}</dd>
+          </div>
+          <div className="flex gap-2">
+            <dt className="font-mono text-gray-500 min-w-[7rem] shrink-0">duration</dt>
+            <dd className="text-gray-800">{formatDuration(call.duration)} ({call.duration}s)</dd>
+          </div>
+          {call.trackingPhone && (
+            <div className="flex gap-2">
+              <dt className="font-mono text-gray-500 min-w-[7rem] shrink-0">tracking #</dt>
+              <dd className="text-gray-800">{call.trackingPhone}</dd>
+            </div>
+          )}
+          {call.campaign && (
+            <div className="flex gap-2">
+              <dt className="font-mono text-gray-500 min-w-[7rem] shrink-0">campaign</dt>
+              <dd className="text-gray-800">{call.campaign}</dd>
+            </div>
+          )}
+          {call.landingPageUrl && (
+            <div className="flex gap-2">
+              <dt className="font-mono text-gray-500 min-w-[7rem] shrink-0">landing url</dt>
+              <dd className="text-gray-800 break-all">{call.landingPageUrl}</dd>
+            </div>
+          )}
+          <div className="flex gap-2">
+            <dt className="font-mono text-gray-500 min-w-[7rem] shrink-0">call id</dt>
+            <dd className="text-gray-800 font-mono break-all">{call.id}</dd>
+          </div>
+        </dl>
+      </div>
+    </div>
+  );
+}
+

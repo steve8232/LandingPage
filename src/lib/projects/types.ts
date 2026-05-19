@@ -29,6 +29,9 @@ export interface ProjectRow {
   custom_domain_apex: boolean;
   audiencelab_pixel_id: string | null;
   audiencelab_install_url: string | null;
+  callrail_company_id: string | null;
+  callrail_company_name: string | null;
+  callrail_webhook_signing_key: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -49,6 +52,8 @@ export interface ProjectDTO {
   customDomainApex: boolean;
   audiencelabPixelId: string | null;
   audiencelabInstallUrl: string | null;
+  callrailCompanyId: string | null;
+  callrailCompanyName: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -69,14 +74,20 @@ export function rowToDTO(row: ProjectRow): ProjectDTO {
     customDomainApex: row.custom_domain_apex ?? false,
     audiencelabPixelId: row.audiencelab_pixel_id ?? null,
     audiencelabInstallUrl: row.audiencelab_install_url ?? null,
+    callrailCompanyId: row.callrail_company_id ?? null,
+    callrailCompanyName: row.callrail_company_name ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
 }
 
-/** Column list shared by `/api/projects` queries — keep in sync with ProjectRow. */
+/**
+ * Column list shared by `/api/projects` queries — keep in sync with ProjectRow.
+ * `callrail_webhook_signing_key` is intentionally omitted: it's a secret and
+ * lives only in server-side reads (see remoteStorage helpers).
+ */
 export const PROJECT_COLS =
-  'id, user_id, template_id, title, slug, overrides, subdomain, subdomain_status, subdomain_error, custom_domain, custom_domain_status, custom_domain_error, custom_domain_apex, audiencelab_pixel_id, audiencelab_install_url, created_at, updated_at';
+  'id, user_id, template_id, title, slug, overrides, subdomain, subdomain_status, subdomain_error, custom_domain, custom_domain_status, custom_domain_error, custom_domain_apex, audiencelab_pixel_id, audiencelab_install_url, callrail_company_id, callrail_company_name, created_at, updated_at';
 
 /**
  * Slug from a free-form title plus a short random suffix so two projects with

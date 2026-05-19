@@ -35,6 +35,7 @@ import type { CustomDomainStatus, ProjectDTO, SubdomainStatus } from '@/lib/proj
 import { PAGES_PARENT_DOMAIN, suggestSubdomain } from '@/lib/projects/subdomain';
 import SubdomainPicker, { type SubdomainPickerHandle } from '@/components/SubdomainPicker';
 import CustomDomainPicker from '@/components/CustomDomainPicker';
+import CallRailPicker from '@/components/CallRailPicker';
 import { v1Templates } from '@/lib/v1Templates';
 
 type V1SpecSection = {
@@ -205,6 +206,8 @@ export default function PreviewDownload({
   const [v1CustomDomainApex, setV1CustomDomainApex] = useState<boolean>(false);
   const [v1AudiencelabPixelId, setV1AudiencelabPixelId] = useState<string | null>(null);
   const [v1AudiencelabInstallUrl, setV1AudiencelabInstallUrl] = useState<string | null>(null);
+  const [v1CallrailCompanyId, setV1CallrailCompanyId] = useState<string | null>(null);
+  const [v1CallrailCompanyName, setV1CallrailCompanyName] = useState<string | null>(null);
   const [subdomainDraftPending, setSubdomainDraftPending] = useState(false);
   const subdomainPickerRef = useRef<SubdomainPickerHandle | null>(null);
   const [cloudSaved, setCloudSaved] = useState(false);
@@ -223,6 +226,8 @@ export default function PreviewDownload({
       setV1CustomDomainApex(false);
       setV1AudiencelabPixelId(null);
       setV1AudiencelabInstallUrl(null);
+      setV1CallrailCompanyId(null);
+      setV1CallrailCompanyName(null);
       return;
     }
     let cancelled = false;
@@ -239,6 +244,8 @@ export default function PreviewDownload({
         setV1CustomDomainApex(p.customDomainApex);
         setV1AudiencelabPixelId(p.audiencelabPixelId);
         setV1AudiencelabInstallUrl(p.audiencelabInstallUrl);
+        setV1CallrailCompanyId(p.callrailCompanyId);
+        setV1CallrailCompanyName(p.callrailCompanyName);
       } catch {
         // non-fatal: picker will degrade to "no subdomain claimed"
       }
@@ -257,6 +264,11 @@ export default function PreviewDownload({
     setV1CustomDomainStatus(p.customDomainStatus);
     setV1CustomDomainError(p.customDomainError);
     setV1CustomDomainApex(p.customDomainApex);
+  }, []);
+
+  const handleCallrailChange = useCallback((p: ProjectDTO) => {
+    setV1CallrailCompanyId(p.callrailCompanyId);
+    setV1CallrailCompanyName(p.callrailCompanyName);
   }, []);
 
   // Publish-to-Vercel (Phase 3). The button: implicitly saves to cloud if
@@ -599,6 +611,8 @@ export default function PreviewDownload({
               setV1CustomDomainApex(fresh.customDomainApex);
               setV1AudiencelabPixelId(fresh.audiencelabPixelId);
               setV1AudiencelabInstallUrl(fresh.audiencelabInstallUrl);
+              setV1CallrailCompanyId(fresh.callrailCompanyId);
+              setV1CallrailCompanyName(fresh.callrailCompanyName);
             } catch {
               // non-fatal — picker still shows the previous state.
             }
@@ -1586,6 +1600,14 @@ export default function PreviewDownload({
 						initialError={v1CustomDomainError}
 						initialApex={v1CustomDomainApex}
 						onChange={handleCustomDomainChange}
+					  />
+					)}
+					{user && v1ProjectId && (
+					  <CallRailPicker
+						projectId={v1ProjectId}
+						initialCompanyId={v1CallrailCompanyId}
+						initialCompanyName={v1CallrailCompanyName}
+						onChange={handleCallrailChange}
 					  />
 					)}
 					{user && (() => {

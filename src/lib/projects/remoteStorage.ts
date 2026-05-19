@@ -1,4 +1,5 @@
 import type { V1ContentOverrides } from '../../../v1/composer/composeV1Template';
+import type { CallDTO } from '../callrail/calls';
 import type { ProjectDTO } from './types';
 
 /**
@@ -145,4 +146,76 @@ export async function pollProjectCustomDomainStatus(
   });
   if (!res.ok) throw new Error(await parseError(res));
   return (await res.json()) as CustomDomainStatusResponse;
+}
+
+// ── CallRail integration ───────────────────────────────────────────────────
+
+/** Company option surfaced for binding (server-fetched via the user's key). */
+export interface CallrailCompanyOption {
+  id: string;
+  name: string;
+  status: string | null;
+}
+
+export interface CallrailIntegrationStatus {
+  connected: boolean;
+  accountId: string | null;
+  accountName: string | null;
+  companies: CallrailCompanyOption[];
+  /** Surfaced when the stored key fails authentication on this request. */
+  error: string | null;
+}
+
+export async function getCallrailIntegrationStatus(): Promise<CallrailIntegrationStatus> {
+  const res = await fetch('/api/integrations/callrail', { method: 'GET', cache: 'no-store' });
+  if (!res.ok) throw new Error(await parseError(res));
+  return (await res.json()) as CallrailIntegrationStatus;
+}
+
+export async function connectCallrailIntegration(apiKey: string): Promise<CallrailIntegrationStatus> {
+  const res = await fetch('/api/integrations/callrail', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ apiKey }),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return (await res.json()) as CallrailIntegrationStatus;
+}
+
+export async function disconnectCallrailIntegration(): Promise<void> {
+  const res = await fetch('/api/integrations/callrail', { method: 'DELETE' });
+  if (!res.ok) throw new Error(await parseError(res));
+}
+
+export async function setProjectCallrailBinding(
+  projectId: string,
+  companyId: string
+): Promise<ProjectDTO> {
+  const res = await fetch(`/api/projects/${projectId}/callrail`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ companyId }),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  const data = await res.json() as { project: ProjectDTO };
+  return data.project;
+}
+
+export async function clearProjectCallrailBinding(projectId: string): Promise<ProjectDTO> {
+  const res = await fetch(`/api/projects/${projectId}/callrail`, { method: 'DELETE' });
+  if (!res.ok) throw new Error(await parseError(res));
+  const data = await res.json() as { project: ProjectDTO };
+  return data.project;
+}
+
+export interface ProjectCallsResponse {
+  calls: CallDTO[];
+  /** True when this page was served straight from `public.calls`. */
+  cached: boolean;
+}
+
+export async function listProjectCalls(projectId: string): Promise<ProjectCallsResponse> {
+  const res = await fetch(`/api/projects/${projectId}/calls`, { method: 'GET', cache: 'no-store' });
+  if (!res.ok) throw new Error(await parseError(res));
+  return (await res.json()) as ProjectCallsResponse;
 }
