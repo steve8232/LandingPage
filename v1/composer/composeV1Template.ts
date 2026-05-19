@@ -228,6 +228,13 @@ export interface ComposeV1Options {
    * `/thank-you` (served by the sibling thank-you/index.html on Vercel).
    */
   redirectTo?: string;
+  /**
+   * AudienceLab pixel `install_url` (a JS file). When set, a single
+   * `<script async src="…">` is injected into the document `<head>` so
+   * visits to the published page are tracked. Omit for preview/editor
+   * mode where pixels should not fire.
+   */
+  pixelUrl?: string;
 }
 
 export function composeV1Template(
@@ -241,6 +248,7 @@ export function composeV1Template(
     typeof options?.redirectTo === 'string' && options.redirectTo
       ? options.redirectTo
       : '/thank-you';
+  const pixelUrl = typeof options?.pixelUrl === 'string' ? options.pixelUrl : '';
 
   // 1. Load spec
   const spec = getV1Spec(templateId);
@@ -465,7 +473,8 @@ export function composeV1Template(
     sectionsHtml,
     attrHtml,
     overrides?.meta,
-    submitUrl ? { submitUrl, redirectTo } : undefined
+    submitUrl ? { submitUrl, redirectTo } : undefined,
+    pixelUrl || undefined
   );
 
   return { html, templateId };
@@ -507,7 +516,8 @@ export function buildV1Document(
   sectionsHtml: string,
   attributionHtml: string,
   meta?: V1MetaOverrides,
-  formConfig?: BuildV1DocumentFormConfig
+  formConfig?: BuildV1DocumentFormConfig,
+  pixelUrl?: string
 ): string {
   const pageTitle = meta?.pageTitle || spec.metadata.name;
   const metaDesc = meta?.metaDescription || spec.metadata.description;
@@ -519,12 +529,18 @@ export function buildV1Document(
     ? renderLeadFormScript(formConfig.redirectTo)
     : '';
 
+  // AudienceLab pixel tag — single `<script async>` in <head> per AudienceLab
+  // guidance. Only emitted on published deploys (deploy route opts in).
+  const pixelTag = pixelUrl
+    ? `\n  <script async src="${escapeAttr(pixelUrl)}"></script>`
+    : '';
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="${escapeAttr(metaDesc)}">${taglineTag}
+  <meta name="description" content="${escapeAttr(metaDesc)}">${taglineTag}${pixelTag}
   <title>${escapeHtml(pageTitle)}</title>
   <style>
 /* === v1 tokens === */

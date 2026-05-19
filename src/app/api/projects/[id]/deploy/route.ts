@@ -12,8 +12,9 @@ import {
 import { mapReadyState } from '@/lib/vercel/types';
 import { rowToDTO, type DeploymentRow } from '@/lib/deployments/types';
 import { PROJECT_COLS, type ProjectRow } from '@/lib/projects/types';
-import { buildPagesHost } from '@/lib/projects/subdomain';
+import { buildPagesHost, buildPagesUrl } from '@/lib/projects/subdomain';
 import { addProjectDomain } from '@/lib/vercel/domains';
+import { createPixel } from '@/lib/audiencelab/client';
 
 /**
  * POST /api/projects/[id]/deploy
@@ -107,6 +108,38 @@ export async function POST(
   // *.pages.sparkpage.us / *.vercel.app hosts reach the SparkPage API.
   const appBase = resolveAppBaseUrl(request);
   const submitUrl = `${appBase}/api/leads/${project.id}`;
+  const projectName = vercelProjectNameFor(project.id);
+
+  // Auto-provision an AudienceLab pixel on first deploy (Angle A). Reuses the
+  // stored pixel on subsequent deploys so we never create duplicates. Failures
+  // here are non-fatal: the page still ships without a tracking script.
+  const admin = createAdminClient();
+  let pixelInstallUrl = project.audiencelab_install_url ?? null;
+  if (!pixelInstallUrl && process.env.AUDIENCELAB_API_KEY) {
+    const publishedUrl = project.subdomain
+      ? buildPagesUrl(project.subdomain)
+      : `https://${projectName}.vercel.app`;
+    try {
+      const pixel = await createPixel({
+        websiteName: project.title || projectName,
+        websiteUrl: publishedUrl,
+      });
+      pixelInstallUrl = pixel.install_url;
+      const { error: updateErr } = await admin
+        .from('projects')
+        .update({
+          audiencelab_pixel_id: pixel.pixel_id,
+          audiencelab_install_url: pixel.install_url,
+        })
+        .eq('id', project.id);
+      if (updateErr) {
+        console.warn('[deploy] persist audiencelab pixel failed:', updateErr.message);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.warn('[deploy] createPixel failed:', message);
+    }
+  }
 
   let indexHtml: string;
   let thankYouHtml: string;
@@ -115,11 +148,14 @@ export async function POST(
       allowRemoteDemoImages: true,
       submitUrl,
       redirectTo: '/thank-you',
+      pixelUrl: pixelInstallUrl || undefined,
     });
     indexHtml = composed.html;
     // Thank-you page is always shipped; copy falls back to niche defaults
     // when overrides.thankYou is unset.
-    thankYouHtml = composeV1ThankYou(project.template_id, project.overrides).html;
+    thankYouHtml = composeV1ThankYou(project.template_id, project.overrides, {
+      pixelUrl: pixelInstallUrl || undefined,
+    }).html;
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Compose failed' },
@@ -128,7 +164,6 @@ export async function POST(
   }
 
   // Fire the Vercel deployment.
-  const projectName = vercelProjectNameFor(project.id);
   let vercel;
   try {
     vercel = await createDeployment({ projectName, indexHtml, thankYouHtml });
@@ -140,8 +175,8 @@ export async function POST(
   const status = mapReadyState(vercel.readyState ?? vercel.status ?? 'QUEUED');
   const url = toFullUrl(vercel.url) || null;
 
-  // deployments table is service-role write per migration RLS.
-  const admin = createAdminClient();
+  // deployments table is service-role write per migration RLS. `admin` was
+  // already created above for the audiencelab provisioning step.
   const { data: inserted, error: insertErr } = await admin
     .from('deployments')
     .insert({

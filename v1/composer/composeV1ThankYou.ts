@@ -30,9 +30,19 @@ export interface ComposeV1ThankYouResult {
   templateId: string;
 }
 
+export interface ComposeV1ThankYouOptions {
+  /**
+   * AudienceLab pixel `install_url` (a JS file). When set, injected as a
+   * single `<script async>` in the document <head> so thank-you visits are
+   * tracked alongside the landing page. Omit for preview mode.
+   */
+  pixelUrl?: string;
+}
+
 export function composeV1ThankYou(
   templateId: string,
-  overrides?: V1ContentOverrides
+  overrides?: V1ContentOverrides,
+  options?: ComposeV1ThankYouOptions
 ): ComposeV1ThankYouResult {
   // 1. Load + validate spec (so theme + niche/category resolve correctly)
   const spec = getV1Spec(templateId);
@@ -76,13 +86,17 @@ export function composeV1ThankYou(
     // this page (it's a confirmation, not an SEO entry point).
   };
 
+  const pixelUrl = typeof options?.pixelUrl === 'string' ? options.pixelUrl : '';
+
   const html = buildV1Document(
     spec,
     tokensCss,
     themeCss,
     sectionsHtml,
     '', // no attribution footer on the thank-you page
-    thankYouMeta
+    thankYouMeta,
+    undefined,
+    pixelUrl || undefined
   );
 
   return { html, templateId };

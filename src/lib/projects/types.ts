@@ -18,6 +18,8 @@ export interface ProjectRow {
   subdomain: string | null;
   subdomain_status: SubdomainStatus | null;
   subdomain_error: string | null;
+  audiencelab_pixel_id: string | null;
+  audiencelab_install_url: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -32,6 +34,8 @@ export interface ProjectDTO {
   subdomain: string | null;
   subdomainStatus: SubdomainStatus | null;
   subdomainError: string | null;
+  audiencelabPixelId: string | null;
+  audiencelabInstallUrl: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -46,6 +50,8 @@ export function rowToDTO(row: ProjectRow): ProjectDTO {
     subdomain: row.subdomain ?? null,
     subdomainStatus: row.subdomain_status ?? null,
     subdomainError: row.subdomain_error ?? null,
+    audiencelabPixelId: row.audiencelab_pixel_id ?? null,
+    audiencelabInstallUrl: row.audiencelab_install_url ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -53,7 +59,7 @@ export function rowToDTO(row: ProjectRow): ProjectDTO {
 
 /** Column list shared by `/api/projects` queries — keep in sync with ProjectRow. */
 export const PROJECT_COLS =
-  'id, user_id, template_id, title, slug, overrides, subdomain, subdomain_status, subdomain_error, created_at, updated_at';
+  'id, user_id, template_id, title, slug, overrides, subdomain, subdomain_status, subdomain_error, audiencelab_pixel_id, audiencelab_install_url, created_at, updated_at';
 
 /**
  * Slug from a free-form title plus a short random suffix so two projects with
