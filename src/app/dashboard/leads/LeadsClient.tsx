@@ -5,17 +5,29 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Sparkles, LogOut, Download, Inbox, ChevronDown, ChevronRight, ArrowLeft,
+  Users, FileText,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import type { LeadDTO } from '@/lib/leads/types';
 import {
   buildLeadsCsv, csvFilenameForToday, payloadString, pickChoiceField,
 } from '@/lib/leads/csv';
+import {
+  buildIdentifiedCsv,
+  identifiedDisplayName,
+  identifiedLocation,
+  identifiedPrimaryEmail,
+  identifiedPrimaryPhone,
+  type IdentifiedVisitorDTO,
+} from '@/lib/audiencelab/identified';
 
 interface ProjectLite { id: string; title: string; slug: string }
 
+type TabKey = 'form' | 'identified';
+
 interface LeadsClientProps {
   initialLeads: LeadDTO[];
+  initialIdentified: IdentifiedVisitorDTO[];
   projects: ProjectLite[];
   userEmail: string;
   loadError: string;
@@ -38,11 +50,13 @@ function truncate(s: string, n: number): string {
 }
 
 export default function LeadsClient({
-  initialLeads, projects, userEmail, loadError,
+  initialLeads, initialIdentified, projects, userEmail, loadError,
 }: LeadsClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const projectFilter = searchParams.get('project') || '';
+  const tabParam = searchParams.get('tab');
+  const tab: TabKey = tabParam === 'identified' ? 'identified' : 'form';
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   const projectTitleById = useMemo(() => {
@@ -56,6 +70,11 @@ export default function LeadsClient({
     return initialLeads.filter((l) => l.projectId === projectFilter);
   }, [initialLeads, projectFilter]);
 
+  const filteredIdentified = useMemo(() => {
+    if (!projectFilter) return initialIdentified;
+    return initialIdentified.filter((v) => v.projectId === projectFilter);
+  }, [initialIdentified, projectFilter]);
+
   async function handleSignOut() {
     const supabase = createClient();
     await supabase.auth.signOut();
@@ -63,26 +82,54 @@ export default function LeadsClient({
     router.refresh();
   }
 
-  function handleFilterChange(next: string) {
+  function setParam(key: string, value: string) {
     const params = new URLSearchParams(searchParams.toString());
-    if (next) params.set('project', next);
-    else params.delete('project');
+    if (value) params.set(key, value);
+    else params.delete(key);
     const qs = params.toString();
     router.push(qs ? `/dashboard/leads?${qs}` : '/dashboard/leads');
   }
 
-  function handleExportCsv() {
-    const csv = buildLeadsCsv({ leads: filteredLeads, projectTitleById });
+  function handleFilterChange(next: string) {
+    setParam('project', next);
+  }
+
+  function handleTabChange(next: TabKey) {
+    setParam('tab', next === 'identified' ? 'identified' : '');
+  }
+
+  function downloadCsv(csv: string, prefix: string) {
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = csvFilenameForToday();
+    a.download = csvFilenameForToday(prefix);
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   }
+
+  function handleExportCsv() {
+    if (tab === 'identified') {
+      downloadCsv(
+        buildIdentifiedCsv({ visitors: filteredIdentified, projectTitleById }),
+        'sparkpage-identified',
+      );
+    } else {
+      downloadCsv(
+        buildLeadsCsv({ leads: filteredLeads, projectTitleById }),
+        'sparkpage-leads',
+      );
+    }
+  }
+
+  const currentCount = tab === 'identified' ? filteredIdentified.length : filteredLeads.length;
+  const currentLabel =
+    tab === 'identified'
+      ? (currentCount === 1 ? 'visitor' : 'visitors')
+      : (currentCount === 1 ? 'submission' : 'submissions');
+  const exportDisabled = currentCount === 0;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-100">
@@ -120,7 +167,7 @@ export default function LeadsClient({
             </Link>
             <h1 className="text-2xl font-bold text-gray-900">Leads</h1>
             <span className="text-sm text-gray-500">
-              {filteredLeads.length} {filteredLeads.length === 1 ? 'submission' : 'submissions'}
+              {currentCount} {currentLabel}
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -137,7 +184,7 @@ export default function LeadsClient({
             </select>
             <button
               onClick={handleExportCsv}
-              disabled={filteredLeads.length === 0}
+              disabled={exportDisabled}
               className="inline-flex items-center gap-1.5 px-3 py-2 bg-orange-500 text-white text-sm font-medium rounded-lg hover:bg-orange-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
             >
               <Download className="w-4 h-4" />
@@ -146,20 +193,73 @@ export default function LeadsClient({
           </div>
         </div>
 
+        <div className="mb-4 flex items-center gap-1 border-b border-gray-200">
+          <TabButton
+            active={tab === 'form'}
+            onClick={() => handleTabChange('form')}
+            icon={<FileText className="w-4 h-4" />}
+            label="Form leads"
+            count={initialLeads.length}
+          />
+          <TabButton
+            active={tab === 'identified'}
+            onClick={() => handleTabChange('identified')}
+            icon={<Users className="w-4 h-4" />}
+            label="Identified visitors"
+            count={initialIdentified.length}
+          />
+        </div>
+
         {loadError && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
             {loadError}
           </div>
         )}
 
-        <LeadsTable
-          leads={filteredLeads}
-          projectTitleById={projectTitleById}
-          expanded={expanded}
-          onToggle={(id) => setExpanded((prev) => ({ ...prev, [id]: !prev[id] }))}
-        />
+        {tab === 'form' ? (
+          <LeadsTable
+            leads={filteredLeads}
+            projectTitleById={projectTitleById}
+            expanded={expanded}
+            onToggle={(id) => setExpanded((prev) => ({ ...prev, [id]: !prev[id] }))}
+          />
+        ) : (
+          <IdentifiedTable
+            visitors={filteredIdentified}
+            projectTitleById={projectTitleById}
+            expanded={expanded}
+            onToggle={(id) => setExpanded((prev) => ({ ...prev, [id]: !prev[id] }))}
+          />
+        )}
       </main>
     </div>
+  );
+}
+
+interface TabButtonProps {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
+  count: number;
+}
+
+function TabButton({ active, onClick, icon, label, count }: TabButtonProps) {
+  return (
+    <button
+      onClick={onClick}
+      className={`inline-flex items-center gap-1.5 px-3 py-2 -mb-px border-b-2 text-sm font-medium ${
+        active
+          ? 'border-orange-500 text-orange-600'
+          : 'border-transparent text-gray-600 hover:text-gray-900'
+      }`}
+    >
+      {icon}
+      {label}
+      <span className={`ml-1 text-xs ${active ? 'text-orange-500' : 'text-gray-400'}`}>
+        {count}
+      </span>
+    </button>
   );
 }
 
@@ -324,6 +424,178 @@ function LeadDetail({ lead }: { lead: LeadDTO }) {
             <div className="flex gap-2">
               <dt className="font-mono text-gray-500 min-w-[6rem] shrink-0">referer</dt>
               <dd className="text-gray-800 break-all">{lead.referer}</dd>
+            </div>
+          )}
+        </dl>
+      </div>
+    </div>
+  );
+}
+
+
+interface IdentifiedTableProps {
+  visitors: IdentifiedVisitorDTO[];
+  projectTitleById: Record<string, string>;
+  expanded: Record<string, boolean>;
+  onToggle: (id: string) => void;
+}
+
+function IdentifiedTable({
+  visitors, projectTitleById, expanded, onToggle,
+}: IdentifiedTableProps) {
+  if (visitors.length === 0) {
+    return (
+      <div className="bg-white rounded-2xl shadow-sm p-10 text-center">
+        <div className="inline-flex items-center justify-center w-12 h-12 bg-orange-100 rounded-full mb-4">
+          <Users className="w-6 h-6 text-orange-600" />
+        </div>
+        <h2 className="text-lg font-semibold text-gray-900 mb-1">No identified visitors yet</h2>
+        <p className="text-sm text-gray-600">
+          Once anonymous visitors land on a published page with tracking,
+          AudienceLab resolutions will appear here.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50 text-gray-600 text-xs uppercase tracking-wide">
+            <tr>
+              <th className="px-3 py-2 text-left font-medium w-8"></th>
+              <th className="px-3 py-2 text-left font-medium">Last seen</th>
+              <th className="px-3 py-2 text-left font-medium">Project</th>
+              <th className="px-3 py-2 text-left font-medium">Name</th>
+              <th className="px-3 py-2 text-left font-medium">Email</th>
+              <th className="px-3 py-2 text-left font-medium">Phone</th>
+              <th className="px-3 py-2 text-left font-medium">Location</th>
+              <th className="px-3 py-2 text-left font-medium">Company</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {visitors.map((v) => (
+              <IdentifiedRow
+                key={v.id}
+                visitor={v}
+                projectTitle={projectTitleById[v.projectId] ?? '—'}
+                expanded={!!expanded[v.id]}
+                onToggle={() => onToggle(v.id)}
+              />
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+interface IdentifiedRowProps {
+  visitor: IdentifiedVisitorDTO;
+  projectTitle: string;
+  expanded: boolean;
+  onToggle: () => void;
+}
+
+function IdentifiedRow({ visitor, projectTitle, expanded, onToggle }: IdentifiedRowProps) {
+  const name = identifiedDisplayName(visitor);
+  const email = identifiedPrimaryEmail(visitor);
+  const phone = identifiedPrimaryPhone(visitor);
+  const location = identifiedLocation(visitor);
+  const company = visitor.resolution.COMPANY_NAME?.trim() || '';
+
+  return (
+    <>
+      <tr onClick={onToggle} className="hover:bg-gray-50 cursor-pointer">
+        <td className="px-3 py-2 text-gray-400">
+          {expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+        </td>
+        <td
+          className="px-3 py-2 text-gray-700 whitespace-nowrap"
+          title={visitor.lastSeenAt ? new Date(visitor.lastSeenAt).toLocaleString() : ''}
+        >
+          {visitor.lastSeenAt ? formatRelative(visitor.lastSeenAt) : '—'}
+        </td>
+        <td className="px-3 py-2 text-gray-900 font-medium">{projectTitle}</td>
+        <td className="px-3 py-2 text-gray-800">{name}</td>
+        <td className="px-3 py-2">
+          {email ? (
+            <a
+              href={`mailto:${email}`}
+              onClick={(e) => e.stopPropagation()}
+              className="text-orange-600 hover:underline"
+            >
+              {truncate(email, 28)}
+            </a>
+          ) : '—'}
+        </td>
+        <td className="px-3 py-2">
+          {phone ? (
+            <a
+              href={`tel:${phone}`}
+              onClick={(e) => e.stopPropagation()}
+              className="text-orange-600 hover:underline"
+            >
+              {phone}
+            </a>
+          ) : '—'}
+        </td>
+        <td className="px-3 py-2 text-gray-700">{location || '—'}</td>
+        <td className="px-3 py-2 text-gray-700" title={company}>
+          {company ? truncate(company, 24) : '—'}
+        </td>
+      </tr>
+      {expanded && (
+        <tr className="bg-gray-50">
+          <td colSpan={8} className="px-6 py-4">
+            <IdentifiedDetail visitor={visitor} />
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
+function IdentifiedDetail({ visitor }: { visitor: IdentifiedVisitorDTO }) {
+  const entries = Object.entries(visitor.resolution)
+    .filter(([, v]) => typeof v === 'string' && v.trim() !== '');
+  return (
+    <div className="grid md:grid-cols-2 gap-4 text-xs">
+      <div>
+        <h3 className="font-medium text-gray-700 mb-2">Resolution</h3>
+        {entries.length === 0 ? (
+          <p className="text-gray-500">(no resolution fields)</p>
+        ) : (
+          <dl className="space-y-1">
+            {entries.map(([k, v]) => (
+              <div key={k} className="flex gap-2">
+                <dt className="font-mono text-gray-500 min-w-[10rem] shrink-0">{k}</dt>
+                <dd className="text-gray-800 break-words">{v as string}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
+      </div>
+      <div>
+        <h3 className="font-medium text-gray-700 mb-2">Event</h3>
+        <dl className="space-y-1">
+          <div className="flex gap-2">
+            <dt className="font-mono text-gray-500 min-w-[6rem] shrink-0">last seen</dt>
+            <dd className="text-gray-800">
+              {visitor.lastSeenAt ? new Date(visitor.lastSeenAt).toLocaleString() : '—'}
+            </dd>
+          </div>
+          {visitor.lastUrl && (
+            <div className="flex gap-2">
+              <dt className="font-mono text-gray-500 min-w-[6rem] shrink-0">last url</dt>
+              <dd className="text-gray-800 break-all">{visitor.lastUrl}</dd>
+            </div>
+          )}
+          {visitor.edid && (
+            <div className="flex gap-2">
+              <dt className="font-mono text-gray-500 min-w-[6rem] shrink-0">edid</dt>
+              <dd className="text-gray-800 break-all font-mono">{visitor.edid}</dd>
             </div>
           )}
         </dl>

@@ -8,6 +8,7 @@
  * Docs:
  *   https://audiencelab.mintlify.app/api-reference/pixel/create-pixel
  *   https://audiencelab.mintlify.app/api-reference/pixel/get-pixels
+ *   https://audiencelab.mintlify.app/api-reference/pixel/pixel-lookup-v4
  */
 
 const AUDIENCELAB_API = 'https://api.audiencelab.io';
@@ -77,4 +78,100 @@ export async function createPixel(input: CreatePixelInput): Promise<CreatePixelR
     throw new Error('createPixel: response missing pixel_id / install_url');
   }
   return data;
+}
+
+/**
+ * Curated subset of the V4 resolution payload — all UPPER_CASE keys are
+ * optional strings per the AudienceLab schema. Captured here so the rest of
+ * the app can refer to a typed shape instead of `Record<string, unknown>`.
+ */
+export interface V4Resolution {
+  FIRST_NAME?: string;
+  LAST_NAME?: string;
+  PERSONAL_ADDRESS?: string;
+  PERSONAL_CITY?: string;
+  PERSONAL_STATE?: string;
+  PERSONAL_ZIP?: string;
+  AGE_RANGE?: string;
+  CHILDREN?: string;
+  GENDER?: string;
+  HOMEOWNER?: string;
+  MARRIED?: string;
+  NET_WORTH?: string;
+  INCOME_RANGE?: string;
+  ALL_LANDLINES?: string;
+  ALL_MOBILES?: string;
+  PERSONAL_EMAILS?: string;
+  PERSONAL_VERIFIED_EMAILS?: string;
+  COMPANY_NAME?: string;
+  COMPANY_DOMAIN?: string;
+  COMPANY_INDUSTRY?: string;
+  BUSINESS_EMAIL?: string;
+  JOB_TITLE?: string;
+  SENIORITY_LEVEL?: string;
+  INDIVIDUAL_LINKEDIN_URL?: string;
+  [key: string]: string | undefined;
+}
+
+export interface V4Event {
+  pixel_id: string;
+  hem_sha256?: string;
+  event_timestamp?: string;
+  referrer_url?: string;
+  full_url?: string;
+  edid?: string;
+  resolution?: V4Resolution;
+}
+
+export interface V4LookupResponse {
+  total_records: number;
+  page_size: number;
+  page: number;
+  total_pages: number;
+  events: V4Event[];
+}
+
+export interface LookupPixelV4Input {
+  pixelId: string;
+  page?: number;
+  pageSize?: number;
+}
+
+/**
+ * GET /pixels/{id}/v4 — paginated list of resolved pixel events with full
+ * V4 resolution payload (name, email, address, demographics, employer, etc).
+ * Returns at most `pageSize` events per call (max 1000, default 100).
+ */
+export async function lookupPixelV4(
+  input: LookupPixelV4Input
+): Promise<V4LookupResponse> {
+  const apiKey = readApiKey();
+  const params = new URLSearchParams();
+  if (input.page) params.set('page', String(input.page));
+  if (input.pageSize) params.set('page_size', String(input.pageSize));
+  const qs = params.toString();
+  const url = `${AUDIENCELAB_API}/pixels/${encodeURIComponent(input.pixelId)}/v4${qs ? `?${qs}` : ''}`;
+
+  const res = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'X-Api-Key': apiKey,
+      'Accept': 'application/json',
+    },
+    // V4 events refresh near-real-time on AudienceLab's side; let the
+    // dashboard page-level cache control TTL here.
+    cache: 'no-store',
+  });
+
+  if (!res.ok) {
+    throw new Error(`lookupPixelV4 failed: ${await parseError(res)}`);
+  }
+  const data = (await res.json()) as V4LookupResponse;
+  return {
+    total_records: data?.total_records ?? 0,
+    page_size: data?.page_size ?? 0,
+    page: data?.page ?? 1,
+    total_pages: data?.total_pages ?? 0,
+    events: Array.isArray(data?.events) ? data.events : [],
+  };
 }
