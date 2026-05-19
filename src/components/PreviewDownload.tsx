@@ -199,6 +199,8 @@ export default function PreviewDownload({
   const [v1Subdomain, setV1Subdomain] = useState<string | null>(null);
   const [v1SubdomainStatus, setV1SubdomainStatus] = useState<SubdomainStatus | null>(null);
   const [v1SubdomainError, setV1SubdomainError] = useState<string | null>(null);
+  const [v1AudiencelabPixelId, setV1AudiencelabPixelId] = useState<string | null>(null);
+  const [v1AudiencelabInstallUrl, setV1AudiencelabInstallUrl] = useState<string | null>(null);
   const [subdomainDraftPending, setSubdomainDraftPending] = useState(false);
   const subdomainPickerRef = useRef<SubdomainPickerHandle | null>(null);
   const [cloudSaved, setCloudSaved] = useState(false);
@@ -210,6 +212,8 @@ export default function PreviewDownload({
       setV1Subdomain(null);
       setV1SubdomainStatus(null);
       setV1SubdomainError(null);
+      setV1AudiencelabPixelId(null);
+      setV1AudiencelabInstallUrl(null);
       return;
     }
     let cancelled = false;
@@ -220,6 +224,8 @@ export default function PreviewDownload({
         setV1Subdomain(p.subdomain);
         setV1SubdomainStatus(p.subdomainStatus);
         setV1SubdomainError(p.subdomainError);
+        setV1AudiencelabPixelId(p.audiencelabPixelId);
+        setV1AudiencelabInstallUrl(p.audiencelabInstallUrl);
       } catch {
         // non-fatal: picker will degrade to "no subdomain claimed"
       }
@@ -567,6 +573,8 @@ export default function PreviewDownload({
               setV1Subdomain(fresh.subdomain);
               setV1SubdomainStatus(fresh.subdomainStatus);
               setV1SubdomainError(fresh.subdomainError);
+              setV1AudiencelabPixelId(fresh.audiencelabPixelId);
+              setV1AudiencelabInstallUrl(fresh.audiencelabInstallUrl);
             } catch {
               // non-fatal — picker still shows the previous state.
             }
@@ -1599,6 +1607,37 @@ export default function PreviewDownload({
 						{publishError || 'Publish failed'}
 					  </div>
 					)}
+					{user && v1ProjectId && (() => {
+					  const tracked = !!v1AudiencelabInstallUrl;
+					  const shortId = v1AudiencelabPixelId
+						? `${v1AudiencelabPixelId.slice(0, 8)}…`
+						: '';
+					  const title = tracked
+						? `AudienceLab pixel ${v1AudiencelabPixelId} is live on this page`
+						: 'AudienceLab pixel will be provisioned on your next publish';
+					  return (
+						<div
+						  className={`text-xs px-2 py-1 rounded-md inline-flex items-center gap-1.5 ${
+							tracked
+							  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+							  : 'bg-gray-50 text-gray-500 border border-gray-200'
+						  }`}
+						  title={title}
+						>
+						  <span
+							className={`w-1.5 h-1.5 rounded-full ${
+							  tracked ? 'bg-emerald-500' : 'bg-gray-400'
+							}`}
+							aria-hidden
+						  />
+						  {tracked ? (
+							<span>Tracking · {shortId}</span>
+						  ) : (
+							<span>Tracking off</span>
+						  )}
+						</div>
+					  );
+					})()}
                 <button
                   onClick={onStartOver}
                   className="px-3 py-1.5 text-gray-600 hover:text-gray-900 text-sm"
