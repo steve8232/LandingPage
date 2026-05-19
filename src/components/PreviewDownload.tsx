@@ -13,7 +13,6 @@ import {
   GripVertical,
   Trash2,
   Plus,
-  Sparkles,
   Rocket,
   Loader2,
 } from 'lucide-react';
@@ -1427,18 +1426,6 @@ export default function PreviewDownload({
             {/* v1 Toolbar */}
             <div className="bg-white border-b border-gray-200 px-4 py-2 flex items-center justify-between flex-none">
               <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-orange-500 text-white">
-                      <Sparkles className="w-4 h-4" />
-                    </span>
-                    <div>
-                      <div className="text-sm font-semibold text-gray-900">SparkPage</div>
-                      <div className="text-xs text-gray-500">Edits are v1-safe (no HTML parsing; full document preserved)</div>
-                    </div>
-                  </div>
-                </div>
-
                 {/* Mode Toggle */}
                 <div className="flex items-center bg-gray-100 rounded-lg p-1">
                   <button
