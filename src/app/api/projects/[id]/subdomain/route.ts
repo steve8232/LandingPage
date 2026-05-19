@@ -11,6 +11,7 @@ import {
   addProjectDomain,
   removeProjectDomain,
   assignAlias,
+  ProjectNotProvisionedError,
 } from '@/lib/vercel/domains';
 import { vercelProjectNameFor } from '@/lib/vercel/client';
 
@@ -110,38 +111,59 @@ export async function PUT(
   // Best-effort: detach old, attach new, and alias the latest ready deploy if
   // one exists. Any failure flips subdomain_status to 'error' — the DB row
   // change still succeeds so the user sees their new claim.
+  //
+  // Pre-publish guard: Vercel projects are created lazily on the first
+  // createDeployment call, so if this SparkPage has never been published we
+  // skip the attach entirely. The deploy route's own addProjectDomain call
+  // takes care of it on first publish, leaving the row in the friendly
+  // 'pending' / "Setting up…" state in the meantime.
   const projectName = vercelProjectNameFor(id);
   const newHost = buildPagesHost(value);
-  try {
-    if (previousSubdomain && previousSubdomain !== value) {
-      await removeProjectDomain(projectName, buildPagesHost(previousSubdomain));
-    }
-    await addProjectDomain(projectName, newHost);
+  const { count: deploymentCount } = await admin
+    .from('deployments')
+    .select('id', { count: 'exact', head: true })
+    .eq('project_id', id);
+  const projectExistsOnVercel = (deploymentCount ?? 0) > 0;
 
-    // If a previous deployment is already ready, alias it now so the URL
-    // works without the user re-clicking Publish.
-    const { data: latest } = await admin
-      .from('deployments')
-      .select('vercel_deployment_id, status')
-      .eq('project_id', id)
-      .eq('status', 'ready')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    const dep = latest as { vercel_deployment_id: string | null } | null;
-    if (dep?.vercel_deployment_id) {
-      await assignAlias(dep.vercel_deployment_id, newHost);
-      await admin
-        .from('projects')
-        .update({ subdomain_status: 'ready' })
-        .eq('id', id);
+  if (projectExistsOnVercel) {
+    try {
+      if (previousSubdomain && previousSubdomain !== value) {
+        await removeProjectDomain(projectName, buildPagesHost(previousSubdomain));
+      }
+      await addProjectDomain(projectName, newHost);
+
+      // If a previous deployment is already ready, alias it now so the URL
+      // works without the user re-clicking Publish.
+      const { data: latest } = await admin
+        .from('deployments')
+        .select('vercel_deployment_id, status')
+        .eq('project_id', id)
+        .eq('status', 'ready')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const dep = latest as { vercel_deployment_id: string | null } | null;
+      if (dep?.vercel_deployment_id) {
+        await assignAlias(dep.vercel_deployment_id, newHost);
+        await admin
+          .from('projects')
+          .update({ subdomain_status: 'ready' })
+          .eq('id', id);
+      }
+    } catch (err) {
+      // Race: the row was counted as deployed but Vercel has since GC'd the
+      // project (or it never finished provisioning). Treat the same as a
+      // fresh pre-publish claim and leave the row pending.
+      if (err instanceof ProjectNotProvisionedError) {
+        // status is already 'pending' from the update above; nothing to do.
+      } else {
+        const message = err instanceof Error ? err.message : 'Failed to attach domain';
+        await admin
+          .from('projects')
+          .update({ subdomain_status: 'error', subdomain_error: message })
+          .eq('id', id);
+      }
     }
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Failed to attach domain';
-    await admin
-      .from('projects')
-      .update({ subdomain_status: 'error', subdomain_error: message })
-      .eq('id', id);
   }
 
   // Re-read so the response reflects the final subdomain_status.

@@ -7,7 +7,11 @@ import {
   type ProjectRow,
 } from '@/lib/projects/types';
 import { buildPagesHost } from '@/lib/projects/subdomain';
-import { addProjectDomain, assignAlias } from '@/lib/vercel/domains';
+import {
+  addProjectDomain,
+  assignAlias,
+  ProjectNotProvisionedError,
+} from '@/lib/vercel/domains';
 import { vercelProjectNameFor } from '@/lib/vercel/client';
 import { selfHealSubdomainStatus } from '@/lib/projects/subdomainHealth';
 
@@ -58,17 +62,25 @@ export async function POST(
     .update({ subdomain_status: 'pending', subdomain_error: null })
     .eq('id', id);
 
+  // `notProvisioned` is the pre-publish case: Vercel project doesn't exist
+  // yet. Leave the row in 'pending' so the UI shows "Setting up…" instead of
+  // a red error; the deploy route will run addProjectDomain on first publish.
   let attachError: string | null = null;
+  let notProvisioned = false;
   try {
     await addProjectDomain(projectName, host);
   } catch (err) {
-    attachError = err instanceof Error ? err.message : 'Failed to attach domain';
+    if (err instanceof ProjectNotProvisionedError) {
+      notProvisioned = true;
+    } else {
+      attachError = err instanceof Error ? err.message : 'Failed to attach domain';
+    }
   }
 
   // If a previous deployment is already ready, alias it now so the URL works
   // without a fresh Publish. Best-effort — Vercel auto-aliases new deploys
   // anyway, so a failure here is recoverable on next publish.
-  if (!attachError) {
+  if (!attachError && !notProvisioned) {
     const { data: latest } = await admin
       .from('deployments')
       .select('vercel_deployment_id')
@@ -92,6 +104,9 @@ export async function POST(
       .from('projects')
       .update({ subdomain_status: 'error', subdomain_error: attachError })
       .eq('id', id);
+  } else if (notProvisioned) {
+    // Stay 'pending'; first publish will trigger the attach. subdomain_error
+    // was already cleared at the top of this handler.
   } else {
     await admin
       .from('projects')

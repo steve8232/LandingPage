@@ -66,7 +66,28 @@ export async function addProjectDomain(projectName: string, domain: string): Pro
   if (res.status === 409 && /already.*project|already attached/i.test(message)) {
     return;
   }
+  // 404 / not_found = the Vercel project hasn't been provisioned yet. Projects
+  // are created lazily by the first createDeployment call, so callers that may
+  // run pre-publish (subdomain claim, retry) should treat this as soft: the
+  // deploy route re-attaches on first publish.
+  if (res.status === 404 || /not_found/i.test(code ?? '')) {
+    throw new ProjectNotProvisionedError(projectName);
+  }
   throw new Error(`addProjectDomain failed (${code ?? res.status}): ${message}`);
+}
+
+/**
+ * Thrown by domain helpers when the underlying Vercel project does not exist
+ * yet (i.e. nothing has been deployed for this SparkPage project). Callers
+ * that may run before the first publish should catch this and leave the
+ * subdomain row in `pending` state — the deploy route will re-attempt the
+ * attach when the Vercel project is created on first deploy.
+ */
+export class ProjectNotProvisionedError extends Error {
+  constructor(public readonly projectName: string) {
+    super(`Vercel project not provisioned: ${projectName}`);
+    this.name = 'ProjectNotProvisionedError';
+  }
 }
 
 /**
