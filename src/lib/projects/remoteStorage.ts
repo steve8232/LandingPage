@@ -106,3 +106,43 @@ export async function retryProjectSubdomain(projectId: string): Promise<ProjectD
   const data = await res.json() as { project: ProjectDTO };
   return data.project;
 }
+
+// ── BYO custom domain ───────────────────────────────────────────────────────
+
+export interface CustomDomainStatusResponse {
+  project: ProjectDTO;
+  /** TXT challenge surfaced by Vercel when the domain needs verification. */
+  verification: { txtName: string; txtValue: string } | null;
+}
+
+export async function setProjectCustomDomain(
+  projectId: string,
+  domain: string
+): Promise<ProjectDTO> {
+  const res = await fetch(`/api/projects/${projectId}/custom-domain`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ domain }),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  const data = await res.json() as { project: ProjectDTO };
+  return data.project;
+}
+
+export async function clearProjectCustomDomain(projectId: string): Promise<ProjectDTO> {
+  const res = await fetch(`/api/projects/${projectId}/custom-domain`, { method: 'DELETE' });
+  if (!res.ok) throw new Error(await parseError(res));
+  const data = await res.json() as { project: ProjectDTO };
+  return data.project;
+}
+
+export async function pollProjectCustomDomainStatus(
+  projectId: string
+): Promise<CustomDomainStatusResponse> {
+  const res = await fetch(`/api/projects/${projectId}/custom-domain/status`, {
+    method: 'GET',
+    cache: 'no-store',
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return (await res.json()) as CustomDomainStatusResponse;
+}

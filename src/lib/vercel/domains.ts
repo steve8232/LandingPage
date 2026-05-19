@@ -1,10 +1,13 @@
 /**
  * Vercel domain + alias helpers (Phase 4). Server-only.
  *
- * Two endpoints we consume:
- *   POST /v10/projects/{name}/domains       — attach a custom domain
- *   POST /v2/deployments/{id}/aliases       — point alias at deployment
- *   DELETE /v9/projects/{name}/domains/{d}  — detach a custom domain
+ * Endpoints we consume:
+ *   POST   /v10/projects/{name}/domains              — attach a custom domain
+ *   POST   /v2/deployments/{id}/aliases              — point alias at deployment
+ *   DELETE /v9/projects/{name}/domains/{d}           — detach a custom domain
+ *   GET    /v9/projects/{name}/domains/{d}/config    — DNS misconfig probe
+ *   GET    /v9/projects/{name}/domains/{d}           — verification challenge
+ *   POST   /v9/projects/{name}/domains/{d}/verify    — re-check TXT challenge
  *
  * Docs: https://vercel.com/docs/rest-api
  */
@@ -133,4 +136,121 @@ export async function assignAlias(deploymentId: string, alias: string): Promise<
   if (res.status === 409) return;
   const { code, message } = await parseError(res);
   throw new Error(`assignAlias failed (${code ?? res.status}): ${message}`);
+}
+
+/**
+ * Result of GET /v9/projects/{name}/domains/{domain}/config. `misconfigured`
+ * is the single source of truth Vercel exposes — `true` means the user's DNS
+ * isn't (yet) pointing at us. The expected records are surfaced so the UI can
+ * show "add CNAME to cname.vercel-dns.com" without us hard-coding them in
+ * multiple places.
+ */
+export interface DomainConfig {
+  misconfigured: boolean;
+  aRecord: string | null;
+  cname: string | null;
+}
+
+export async function getDomainConfig(
+  projectName: string,
+  domain: string
+): Promise<DomainConfig> {
+  const { token, teamId } = readEnv();
+  const url = withTeam(
+    `${VERCEL_API}/v9/projects/${encodeURIComponent(projectName)}/domains/${encodeURIComponent(domain)}/config`,
+    teamId
+  );
+  const res = await fetch(url, {
+    method: 'GET',
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+  if (res.status === 404) {
+    throw new ProjectNotProvisionedError(projectName);
+  }
+  if (!res.ok) {
+    const { code, message } = await parseError(res);
+    throw new Error(`getDomainConfig failed (${code ?? res.status}): ${message}`);
+  }
+  const data = await res.json() as {
+    misconfigured?: boolean;
+    aValues?: string[];
+    cnames?: string[];
+  };
+  return {
+    misconfigured: data.misconfigured === true,
+    aRecord: data.aValues?.[0] ?? null,
+    cname: data.cnames?.[0] ?? null,
+  };
+}
+
+/**
+ * Result of GET /v9/projects/{name}/domains/{domain}. When `verification` is
+ * non-empty Vercel needs the user to publish a TXT record to prove ownership
+ * (typically because the domain is already attached to another team). When
+ * `verified` is true the attach is complete; DNS may still be misconfigured.
+ */
+export interface DomainVerification {
+  verified: boolean;
+  txtName: string | null;
+  txtValue: string | null;
+}
+
+export async function getDomainVerification(
+  projectName: string,
+  domain: string
+): Promise<DomainVerification> {
+  const { token, teamId } = readEnv();
+  const url = withTeam(
+    `${VERCEL_API}/v9/projects/${encodeURIComponent(projectName)}/domains/${encodeURIComponent(domain)}`,
+    teamId
+  );
+  const res = await fetch(url, {
+    method: 'GET',
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+  if (res.status === 404) {
+    throw new ProjectNotProvisionedError(projectName);
+  }
+  if (!res.ok) {
+    const { code, message } = await parseError(res);
+    throw new Error(`getDomainVerification failed (${code ?? res.status}): ${message}`);
+  }
+  const data = await res.json() as {
+    verified?: boolean;
+    verification?: Array<{ type?: string; domain?: string; value?: string }>;
+  };
+  const challenge = (data.verification || []).find((v) => v?.type === 'TXT');
+  return {
+    verified: data.verified === true,
+    txtName: typeof challenge?.domain === 'string' ? challenge.domain : null,
+    txtValue: typeof challenge?.value === 'string' ? challenge.value : null,
+  };
+}
+
+/**
+ * Re-runs Vercel's TXT challenge check. Returns true if the domain is now
+ * verified. Throws on any non-404 error; treats 404 as ProjectNotProvisioned.
+ */
+export async function verifyProjectDomain(
+  projectName: string,
+  domain: string
+): Promise<boolean> {
+  const { token, teamId } = readEnv();
+  const url = withTeam(
+    `${VERCEL_API}/v9/projects/${encodeURIComponent(projectName)}/domains/${encodeURIComponent(domain)}/verify`,
+    teamId
+  );
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+  if (res.status === 404) {
+    throw new ProjectNotProvisionedError(projectName);
+  }
+  if (!res.ok) {
+    const { code, message } = await parseError(res);
+    throw new Error(`verifyProjectDomain failed (${code ?? res.status}): ${message}`);
+  }
+  const data = await res.json() as { verified?: boolean };
+  return data.verified === true;
 }

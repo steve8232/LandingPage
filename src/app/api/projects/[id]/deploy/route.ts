@@ -218,6 +218,23 @@ export async function POST(
     }
   }
 
+  // BYO custom domain — same idea as the subdomain attach above. Status is
+  // left as 'pending_dns' (or 'pending_verification' if Vercel still needs
+  // the TXT challenge); the /status endpoint flips it to 'ready' once the
+  // user's DNS resolves.
+  if (project.custom_domain) {
+    try {
+      await addProjectDomain(projectName, project.custom_domain);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to attach custom domain';
+      await admin
+        .from('projects')
+        .update({ custom_domain_status: 'error', custom_domain_error: message })
+        .eq('id', project.id);
+      console.warn('[deploy] addProjectDomain (custom) failed:', message);
+    }
+  }
+
   return NextResponse.json(
     { deployment: rowToDTO(inserted as DeploymentRow) },
     { status: 202 }

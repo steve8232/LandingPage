@@ -31,9 +31,10 @@ import { createProject, getProject, updateProject } from '@/lib/projects/remoteS
 import { createDeploymentForProject, getDeployment } from '@/lib/deployments/client';
 import type { DeploymentDTO } from '@/lib/deployments/types';
 import { isTerminalStatus } from '@/lib/deployments/types';
-import type { ProjectDTO, SubdomainStatus } from '@/lib/projects/types';
+import type { CustomDomainStatus, ProjectDTO, SubdomainStatus } from '@/lib/projects/types';
 import { PAGES_PARENT_DOMAIN, suggestSubdomain } from '@/lib/projects/subdomain';
 import SubdomainPicker, { type SubdomainPickerHandle } from '@/components/SubdomainPicker';
+import CustomDomainPicker from '@/components/CustomDomainPicker';
 import { v1Templates } from '@/lib/v1Templates';
 
 type V1SpecSection = {
@@ -198,6 +199,10 @@ export default function PreviewDownload({
   const [v1Subdomain, setV1Subdomain] = useState<string | null>(null);
   const [v1SubdomainStatus, setV1SubdomainStatus] = useState<SubdomainStatus | null>(null);
   const [v1SubdomainError, setV1SubdomainError] = useState<string | null>(null);
+  const [v1CustomDomain, setV1CustomDomain] = useState<string | null>(null);
+  const [v1CustomDomainStatus, setV1CustomDomainStatus] = useState<CustomDomainStatus | null>(null);
+  const [v1CustomDomainError, setV1CustomDomainError] = useState<string | null>(null);
+  const [v1CustomDomainApex, setV1CustomDomainApex] = useState<boolean>(false);
   const [v1AudiencelabPixelId, setV1AudiencelabPixelId] = useState<string | null>(null);
   const [v1AudiencelabInstallUrl, setV1AudiencelabInstallUrl] = useState<string | null>(null);
   const [subdomainDraftPending, setSubdomainDraftPending] = useState(false);
@@ -205,12 +210,17 @@ export default function PreviewDownload({
   const [cloudSaved, setCloudSaved] = useState(false);
   const lastSavedOverridesJsonRef = useRef<string>(JSON.stringify(landingPage.v1?.overrides ?? {}, null, 0));
 
-  // Refresh subdomain state whenever the project changes (load / first save).
+  // Refresh subdomain + custom-domain state whenever the project changes
+  // (load / first save).
   useEffect(() => {
     if (!user || !v1ProjectId) {
       setV1Subdomain(null);
       setV1SubdomainStatus(null);
       setV1SubdomainError(null);
+      setV1CustomDomain(null);
+      setV1CustomDomainStatus(null);
+      setV1CustomDomainError(null);
+      setV1CustomDomainApex(false);
       setV1AudiencelabPixelId(null);
       setV1AudiencelabInstallUrl(null);
       return;
@@ -223,6 +233,10 @@ export default function PreviewDownload({
         setV1Subdomain(p.subdomain);
         setV1SubdomainStatus(p.subdomainStatus);
         setV1SubdomainError(p.subdomainError);
+        setV1CustomDomain(p.customDomain);
+        setV1CustomDomainStatus(p.customDomainStatus);
+        setV1CustomDomainError(p.customDomainError);
+        setV1CustomDomainApex(p.customDomainApex);
         setV1AudiencelabPixelId(p.audiencelabPixelId);
         setV1AudiencelabInstallUrl(p.audiencelabInstallUrl);
       } catch {
@@ -236,6 +250,13 @@ export default function PreviewDownload({
     setV1Subdomain(p.subdomain);
     setV1SubdomainStatus(p.subdomainStatus);
     setV1SubdomainError(p.subdomainError);
+  }, []);
+
+  const handleCustomDomainChange = useCallback((p: ProjectDTO) => {
+    setV1CustomDomain(p.customDomain);
+    setV1CustomDomainStatus(p.customDomainStatus);
+    setV1CustomDomainError(p.customDomainError);
+    setV1CustomDomainApex(p.customDomainApex);
   }, []);
 
   // Publish-to-Vercel (Phase 3). The button: implicitly saves to cloud if
@@ -572,6 +593,10 @@ export default function PreviewDownload({
               setV1Subdomain(fresh.subdomain);
               setV1SubdomainStatus(fresh.subdomainStatus);
               setV1SubdomainError(fresh.subdomainError);
+              setV1CustomDomain(fresh.customDomain);
+              setV1CustomDomainStatus(fresh.customDomainStatus);
+              setV1CustomDomainError(fresh.customDomainError);
+              setV1CustomDomainApex(fresh.customDomainApex);
               setV1AudiencelabPixelId(fresh.audiencelabPixelId);
               setV1AudiencelabInstallUrl(fresh.audiencelabInstallUrl);
             } catch {
@@ -1551,6 +1576,16 @@ export default function PreviewDownload({
 						)}
 						onChange={handleSubdomainChange}
 						onDraftPendingChange={setSubdomainDraftPending}
+					  />
+					)}
+					{user && v1ProjectId && (
+					  <CustomDomainPicker
+						projectId={v1ProjectId}
+						initialDomain={v1CustomDomain}
+						initialStatus={v1CustomDomainStatus}
+						initialError={v1CustomDomainError}
+						initialApex={v1CustomDomainApex}
+						onChange={handleCustomDomainChange}
 					  />
 					)}
 					{user && (() => {
