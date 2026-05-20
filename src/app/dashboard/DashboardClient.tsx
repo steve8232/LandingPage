@@ -8,6 +8,7 @@ import type { ProjectDTO } from '@/lib/projects/types';
 import type { DeploymentDTO } from '@/lib/deployments/types';
 import { deleteProject, updateProject } from '@/lib/projects/remoteStorage';
 import { PAGES_PARENT_DOMAIN } from '@/lib/projects/subdomain';
+import { resolveProjectDisplayUrls } from '@/lib/projects/displayUrl';
 import { v1Templates } from '@/lib/v1Templates';
 import { createClient } from '@/lib/supabase/client';
 
@@ -254,50 +255,26 @@ function ProjectList({
                     </span>
                   </div>
                   {(() => {
-                    // Precedence: live custom domain → live SparkPage
-                    // subdomain → immutable *.vercel.app. A custom domain
-                    // that's attached-but-not-yet-live gets a pending pill
-                    // so the user sees that DNS / verification is still in
-                    // flight. When the custom domain is primary AND the
-                    // SparkPage subdomain is also live, the latter is shown
-                    // as a muted secondary line.
-                    const customReady = !!p.customDomain && p.customDomainStatus === 'ready';
-                    const subdomainReady = !!p.subdomain && p.subdomainStatus === 'ready';
-                    const primaryHost = customReady
-                      ? (p.customDomain as string)
-                      : subdomainReady
-                        ? `${p.subdomain}.${PAGES_PARENT_DOMAIN}`
-                        : null;
-                    const primaryUrl = primaryHost
-                      ? `https://${primaryHost}`
-                      : dep?.status === 'ready' && dep.url
-                        ? dep.url
-                        : null;
-                    const secondaryHost =
-                      customReady && subdomainReady
-                        ? `${p.subdomain}.${PAGES_PARENT_DOMAIN}`
-                        : null;
-                    const pending =
-                      !!p.customDomain && p.customDomainStatus && p.customDomainStatus !== 'ready'
-                        ? p.customDomainStatus === 'error'
-                          ? { label: 'Domain error', cls: 'bg-red-50 text-red-700 border-red-200' }
-                          : p.customDomainStatus === 'pending_dns'
-                            ? { label: 'DNS pending', cls: 'bg-amber-50 text-amber-700 border-amber-200' }
-                            : { label: 'Verifying…', cls: 'bg-amber-50 text-amber-700 border-amber-200' }
-                        : null;
-                    if (!primaryUrl && !pending) return null;
-                    const primaryLabel = primaryHost ?? (primaryUrl ? primaryUrl.replace(/^https?:\/\//, '') : '');
+                    // See src/lib/projects/displayUrl.ts for the precedence
+                    // rules + matrix of behaviors.
+                    const urls = resolveProjectDisplayUrls(p, dep, PAGES_PARENT_DOMAIN);
+                    if (!urls.primaryUrl && !urls.pending) return null;
+                    const pendingCls = urls.pending?.kind === 'error'
+                      ? 'bg-red-50 text-red-700 border-red-200'
+                      : 'bg-amber-50 text-amber-700 border-amber-200';
+                    const primaryLabel = urls.primaryHost
+                      ?? (urls.primaryUrl ? urls.primaryUrl.replace(/^https?:\/\//, '') : '');
                     return (
                       <div className="mt-1 flex flex-col gap-0.5 min-w-0">
                         <div className="flex items-center gap-1.5 min-w-0">
-                          {primaryUrl ? (
+                          {urls.primaryUrl ? (
                             <a
-                              href={primaryUrl}
+                              href={urls.primaryUrl}
                               target="_blank"
                               rel="noopener noreferrer"
                               onClick={(e) => e.stopPropagation()}
                               className="text-xs text-orange-700 hover:text-orange-800 inline-flex items-center gap-1 max-w-full truncate"
-                              title={primaryUrl}
+                              title={urls.primaryUrl}
                             >
                               <ExternalLink className="w-3 h-3 shrink-0" />
                               {primaryLabel}
@@ -311,25 +288,25 @@ function ProjectList({
                               {p.customDomain}
                             </span>
                           )}
-                          {pending && (
+                          {urls.pending && (
                             <span
-                              className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full border shrink-0 ${pending.cls}`}
-                              title={p.customDomainError || pending.label}
+                              className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full border shrink-0 ${pendingCls}`}
+                              title={p.customDomainError || urls.pending.label}
                             >
-                              {pending.label}
+                              {urls.pending.label}
                             </span>
                           )}
                         </div>
-                        {secondaryHost && (
+                        {urls.secondaryHost && (
                           <a
-                            href={`https://${secondaryHost}`}
+                            href={`https://${urls.secondaryHost}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={(e) => e.stopPropagation()}
                             className="text-[11px] text-gray-500 hover:text-gray-700 inline-flex items-center gap-1 max-w-full truncate"
-                            title={`https://${secondaryHost}`}
+                            title={`https://${urls.secondaryHost}`}
                           >
-                            also at {secondaryHost}
+                            also at {urls.secondaryHost}
                           </a>
                         )}
                       </div>
