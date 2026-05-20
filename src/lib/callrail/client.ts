@@ -269,7 +269,12 @@ export interface CallRailTracker {
   name: string;
   type: string;
   status: string;
-  company_id: string;
+  /**
+   * Nested company object as returned by the API. There is no top-level
+   * `company_id` response field \u2014 only `company.{id,name}`. `company_id`
+   * exists as a request-only filter on the list endpoint.
+   */
+  company?: { id: string; name: string } | null;
   destination_number: string | null;
   tracking_numbers: string[];
   [key: string]: unknown;
@@ -350,9 +355,11 @@ export async function createTracker(
 /**
  * Fields we explicitly request from the trackers index. The default response
  * omits `swap_targets`, which we need to detect adoption candidates, so we
- * pass `fields=` via the CallRail field-selection convention.
+ * pass `fields=` via the CallRail field-selection convention. `company` is
+ * a nested {id,name} object; CallRail rejects `company_id` here because the
+ * latter is only valid as a request filter, not a response field.
  */
-const TRACKER_FIELDS = ['swap_targets', 'company_id'].join(',');
+const TRACKER_FIELDS = ['swap_targets', 'company'].join(',');
 
 /**
  * GET /v3/a/{account_id}/trackers.json — paginated list. We fetch up to 250

@@ -176,9 +176,7 @@ export async function POST(
     : 'America/New_York';
 
   if (adopted) {
-    const adoptedCompanyId = typeof adopted.company_id === 'string' && adopted.company_id
-      ? adopted.company_id
-      : (adopted as { company?: { id?: string } }).company?.id ?? null;
+    const adoptedCompanyId = adopted.company?.id ?? null;
     if (adoptedCompanyId) companyId = adoptedCompanyId;
   }
 
