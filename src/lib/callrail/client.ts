@@ -48,6 +48,19 @@ export class CallRailNoInventoryError extends Error {
   }
 }
 
+/**
+ * Thrown when the requested swap target is already in use by another tracker
+ * on the same CallRail account (CallRail enforces global uniqueness). The
+ * provisioning route catches this to adopt the existing tracker instead of
+ * surfacing the raw error to the user.
+ */
+export class CallRailSwapTargetTakenError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'CallRailSwapTargetTakenError';
+  }
+}
+
 function authHeaders(apiKey: string): Record<string, string> {
   return {
     Authorization: `Token token="${apiKey}"`,
@@ -310,13 +323,117 @@ export async function createTracker(
     swap_targets,
   };
   const res = await callrailPost(url, apiKey, body);
-  if (res.status === 422) {
-    throw new CallRailNoInventoryError(await parseError(res));
-  }
   if (!res.ok) {
-    throw new Error(`createTracker failed: ${await parseError(res)}`);
+    const msg = await parseError(res);
+    const lower = msg.toLowerCase();
+    // CallRail sometimes stacks multiple validation errors in one response,
+    // so check both signals on every 4xx.
+    if (lower.includes('swap target') && lower.includes('taken')) {
+      throw new CallRailSwapTargetTakenError(msg);
+    }
+    if (
+      res.status === 422 ||
+      lower.includes('unable to obtain number') ||
+      lower.includes('no phone numbers available') ||
+      lower.includes('no number available') ||
+      lower.includes('no inventory')
+    ) {
+      throw new CallRailNoInventoryError(msg);
+    }
+    throw new Error(`createTracker failed: ${msg}`);
   }
   return (await res.json()) as CallRailTracker;
+}
+
+// ── Listing & lookup ───────────────────────────────────────────────────────
+
+/**
+ * Fields we explicitly request from the trackers index. The default response
+ * omits `swap_targets`, which we need to detect adoption candidates, so we
+ * pass `fields=` via the CallRail field-selection convention.
+ */
+const TRACKER_FIELDS = ['swap_targets', 'company_id'].join(',');
+
+/**
+ * GET /v3/a/{account_id}/trackers.json — paginated list. We fetch up to 250
+ * per page (CallRail's max) and stop after a few pages for safety; accounts
+ * with thousands of trackers would need follow-up paging but that's well
+ * outside our current target. Pass `companyId` to filter to a single company.
+ */
+export async function listTrackers(
+  apiKey: string,
+  accountId: string,
+  options: { companyId?: string; status?: 'active' | 'disabled'; maxPages?: number } = {}
+): Promise<CallRailTracker[]> {
+  const { companyId, status = 'active', maxPages = 4 } = options;
+  const out: CallRailTracker[] = [];
+  for (let page = 1; page <= maxPages; page++) {
+    const params = new URLSearchParams({
+      per_page: '250',
+      page: String(page),
+      fields: TRACKER_FIELDS,
+      status,
+    });
+    if (companyId) params.set('company_id', companyId);
+    const url = `${CALLRAIL_API}/v3/a/${encodeURIComponent(accountId)}/trackers.json?${params.toString()}`;
+    const res = await callrailFetch(url, apiKey);
+    if (!res.ok) {
+      throw new Error(`listTrackers failed: ${await parseError(res)}`);
+    }
+    const data = (await res.json()) as { trackers?: CallRailTracker[]; total_pages?: number };
+    const batch = Array.isArray(data?.trackers) ? data.trackers : [];
+    out.push(...batch);
+    if (batch.length < 250) break;
+    if (typeof data.total_pages === 'number' && page >= data.total_pages) break;
+  }
+  return out;
+}
+
+/** GET /v3/a/{account_id}/trackers/{id}.json — single tracker lookup. */
+export async function getTracker(
+  apiKey: string,
+  accountId: string,
+  trackerId: string
+): Promise<CallRailTracker | null> {
+  const params = new URLSearchParams({ fields: TRACKER_FIELDS });
+  const url = `${CALLRAIL_API}/v3/a/${encodeURIComponent(accountId)}/trackers/${encodeURIComponent(trackerId)}.json?${params.toString()}`;
+  try {
+    const res = await callrailFetch(url, apiKey);
+    if (!res.ok) {
+      throw new Error(`getTracker failed: ${await parseError(res)}`);
+    }
+    return (await res.json()) as CallRailTracker;
+  } catch (err) {
+    if (err instanceof CallRailNotFoundError) return null;
+    throw err;
+  }
+}
+
+/**
+ * Find a tracker on the account whose destination or swap_targets already
+ * cover the wizard phone. Matches across all common phone formats — the
+ * provisioning route walks the same set when registering swap targets.
+ */
+export function findAdoptableTracker(
+  trackers: CallRailTracker[],
+  destinationDigits: string
+): CallRailTracker | null {
+  const target = destinationDigits.replace(/\D/g, '').slice(-10);
+  if (target.length < 10) return null;
+  for (const t of trackers) {
+    const destDigits = (typeof t.destination_number === 'string' ? t.destination_number : '')
+      .replace(/\D/g, '')
+      .slice(-10);
+    if (destDigits === target) return t;
+    const swaps = Array.isArray((t as { swap_targets?: unknown }).swap_targets)
+      ? ((t as { swap_targets?: unknown[] }).swap_targets as unknown[])
+      : [];
+    for (const s of swaps) {
+      const sd = (typeof s === 'string' ? s : '').replace(/\D/g, '').slice(-10);
+      if (sd === target) return t;
+    }
+  }
+  return null;
 }
 
 /**

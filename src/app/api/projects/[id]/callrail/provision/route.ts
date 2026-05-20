@@ -9,11 +9,16 @@ import {
 import {
   CallRailAuthError,
   CallRailNoInventoryError,
+  CallRailSwapTargetTakenError,
   createCompany,
   createTracker,
+  findAdoptableTracker,
+  getTracker,
   listCompanies,
+  listTrackers,
   normalizeCallRailScriptUrl,
   type CallRailNumberPreference,
+  type CallRailTracker,
 } from '@/lib/callrail/client';
 import {
   CallRailNotConfiguredError,
@@ -141,13 +146,41 @@ export async function POST(
     throw err;
   }
 
-  // Step 1: ensure a Company. Reuse the binding if present; otherwise create.
+  // Step 1: adopt an existing tracker if one already covers this phone.
+  // CallRail enforces global uniqueness on swap_targets per account, so a
+  // second provision attempt with the same wizard phone would otherwise hit
+  // "swap targets already taken". Adopt-first also fixes accidental double
+  // provisions (e.g. the DB update failed after a prior successful create).
+  let adopted: CallRailTracker | null = null;
+  try {
+    if (project.callrail_tracker_id) {
+      adopted = await getTracker(apiKey, accountId, project.callrail_tracker_id);
+      if (adopted && adopted.status !== 'active') adopted = null;
+    }
+    if (!adopted) {
+      const all = await listTrackers(apiKey, accountId, { status: 'active' });
+      adopted = findAdoptableTracker(all, destPhone);
+    }
+  } catch (err) {
+    return mapErrorResponse(err);
+  }
+
+  // Step 2: ensure a Company. Adoption may have surfaced a tracker bound to
+  // a different company than the project — bind to that company instead of
+  // creating a duplicate. Otherwise reuse the project's company or create one.
   let companyId = project.callrail_company_id;
   let companyName = project.callrail_company_name;
   let scriptUrl = project.callrail_script_url;
   const timeZone = typeof body.timeZone === 'string' && body.timeZone.trim()
     ? body.timeZone.trim()
     : 'America/New_York';
+
+  if (adopted) {
+    const adoptedCompanyId = typeof adopted.company_id === 'string' && adopted.company_id
+      ? adopted.company_id
+      : (adopted as { company?: { id?: string } }).company?.id ?? null;
+    if (adoptedCompanyId) companyId = adoptedCompanyId;
+  }
 
   try {
     if (!companyId) {
@@ -158,13 +191,15 @@ export async function POST(
       companyId = created.id;
       companyName = created.name;
       scriptUrl = normalizeCallRailScriptUrl(created.script_url);
-    } else if (!scriptUrl) {
-      // Existing binding but we never captured the script URL — fetch it now.
+    } else if (!scriptUrl || (adopted && companyId !== project.callrail_company_id)) {
+      // Either: existing binding without a cached script URL, or we just
+      // switched companies via adoption. Refresh the name + script_url.
       const all = await listCompanies(apiKey, accountId);
       const match = all.find((c) => c.id === companyId);
       if (match) {
+        companyName = match.name;
         const full = match as unknown as { script_url?: string | null };
-        scriptUrl = normalizeCallRailScriptUrl(full.script_url ?? null);
+        scriptUrl = normalizeCallRailScriptUrl(full.script_url ?? null) ?? scriptUrl;
       }
     }
   } catch (err) {
@@ -175,37 +210,62 @@ export async function POST(
     return NextResponse.json({ error: 'Failed to resolve CallRail company.' }, { status: 502 });
   }
 
-  // Step 2: provision the tracker. swap_targets covers every common visual
-  // form of the wizard phone so DNI matches whatever the page renders.
-  let tracker;
-  try {
-    tracker = await createTracker(apiKey, accountId, {
-      companyId,
-      name: `SparkPage — ${project.title || project.id.slice(0, 8)}`,
-      destinationNumber: destPhone,
-      preference,
-      swapTargets: buildSwapTargets(destPhone),
-    });
-  } catch (err) {
-    if (err instanceof CallRailNoInventoryError) {
-      // Persist whatever we managed to create (company + scriptUrl) so a
-      // retry with a different area code skips company creation.
-      const admin = createAdminClient();
-      await admin
-        .from('projects')
-        .update({
-          callrail_company_id: companyId,
-          callrail_company_name: companyName,
-          callrail_script_url: scriptUrl,
-          business_phone: destPhone,
-        })
-        .eq('id', id);
-      return NextResponse.json(
-        { error: err.message, code: 'no_inventory' },
-        { status: 409 }
-      );
+  // Step 3: provision the tracker (unless we adopted one above). swap_targets
+  // covers every common visual form of the wizard phone so DNI matches
+  // whatever the page renders.
+  let tracker: CallRailTracker;
+  if (adopted) {
+    tracker = adopted;
+  } else {
+    try {
+      tracker = await createTracker(apiKey, accountId, {
+        companyId,
+        name: `SparkPage — ${project.title || project.id.slice(0, 8)}`,
+        destinationNumber: destPhone,
+        preference,
+        swapTargets: buildSwapTargets(destPhone),
+      });
+    } catch (err) {
+      if (err instanceof CallRailNoInventoryError) {
+        // Persist whatever we managed to create (company + scriptUrl) so a
+        // retry with a different area code skips company creation.
+        const admin = createAdminClient();
+        await admin
+          .from('projects')
+          .update({
+            callrail_company_id: companyId,
+            callrail_company_name: companyName,
+            callrail_script_url: scriptUrl,
+            business_phone: destPhone,
+          })
+          .eq('id', id);
+        return NextResponse.json(
+          { error: err.message, code: 'no_inventory' },
+          { status: 409 }
+        );
+      }
+      if (err instanceof CallRailSwapTargetTakenError) {
+        // The race-narrow: a tracker was created elsewhere between our list
+        // call and now. Re-scan and adopt if possible; otherwise surface a
+        // clear message instead of the raw CallRail error.
+        try {
+          const refreshed = await listTrackers(apiKey, accountId, { status: 'active' });
+          const found = findAdoptableTracker(refreshed, destPhone);
+          if (found) {
+            tracker = found;
+          } else {
+            return NextResponse.json(
+              { error: 'This phone number is already in use by another tracker on your CallRail account.', code: 'swap_target_taken' },
+              { status: 409 }
+            );
+          }
+        } catch (innerErr) {
+          return mapErrorResponse(innerErr);
+        }
+      } else {
+        return mapErrorResponse(err);
+      }
     }
-    return mapErrorResponse(err);
   }
 
   const issuedNumber = Array.isArray(tracker.tracking_numbers) && tracker.tracking_numbers.length
