@@ -116,7 +116,7 @@ export async function GET(
       apiKey,
       accountId,
       companyId: projectMeta.callrail_company_id,
-      dateRange: 'last_30_days',
+      dateRange: 'recent',
       perPage: 100,
     });
     liveCalls = res.calls;

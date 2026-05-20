@@ -615,8 +615,9 @@ export interface ListCallsInput {
   apiKey: string;
   accountId: string;
   companyId: string;
-  /** Standard date filter; default 'last_30_days' so we stay well inside the
-   *  25-month retention window. */
+  /** Standard date filter; default 'recent' (prior 30 days *including*
+   *  today) so a call placed minutes ago shows up on the live tail.
+   *  `last_30_days` excludes the current date per CallRail's docs. */
   dateRange?: 'today' | 'yesterday' | 'last_7_days' | 'last_30_days' | 'this_month' | 'last_month' | 'this_year' | 'last_year' | 'all_time' | 'recent';
   perPage?: number;
 }
@@ -636,7 +637,7 @@ export interface ListCallsResponse {
  * can render the player and source pill without an extra round trip.
  */
 export async function listCalls(input: ListCallsInput): Promise<ListCallsResponse> {
-  const { apiKey, accountId, companyId, dateRange = 'last_30_days', perPage = 100 } = input;
+  const { apiKey, accountId, companyId, dateRange = 'recent', perPage = 100 } = input;
   const params = new URLSearchParams({
     company_id: companyId,
     date_range: dateRange,

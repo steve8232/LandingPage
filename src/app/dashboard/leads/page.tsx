@@ -143,7 +143,7 @@ export default async function LeadsPage() {
               apiKey,
               accountId,
               companyId: p.callrail_company_id as string,
-              dateRange: 'last_30_days',
+              dateRange: 'recent',
               perPage: 100,
             });
             return normalizeCallsFromApi(res.calls, p.id);
