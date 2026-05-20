@@ -4,12 +4,10 @@ import { Phone, Loader2, ChevronDown, Check, X, Copy } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   clearProjectCallrailBinding,
-  connectCallrailIntegration,
-  disconnectCallrailIntegration,
-  getCallrailIntegrationStatus,
+  listCallrailCompanies,
   setProjectCallrailBinding,
+  type CallrailCompaniesResponse,
   type CallrailCompanyOption,
-  type CallrailIntegrationStatus,
 } from '@/lib/projects/remoteStorage';
 import type { ProjectDTO } from '@/lib/projects/types';
 
@@ -21,14 +19,14 @@ interface CallRailPickerProps {
 }
 
 /**
- * Toolbar control for the CallRail integration. Three states:
+ * Toolbar control for the CallRail integration. Two states:
  *
- *  1. Not connected → "Connect CallRail" → expands to API key input.
- *  2. Connected, unbound → company picker.
- *  3. Bound → company pill; click reveals the webhook URL + signing key panel.
+ *  1. Unbound → company picker (companies come from the global
+ *     CALLRAIL_API_KEY on the server).
+ *  2. Bound → company pill; click reveals the webhook URL + signing key panel.
  *
- * Everything except the API key flow round-trips through the project DTO
- * (companyId / companyName) so callers can mirror state.
+ * Everything round-trips through the project DTO (companyId / companyName)
+ * so callers can mirror state.
  */
 export default function CallRailPicker({
   projectId,
@@ -38,10 +36,9 @@ export default function CallRailPicker({
 }: CallRailPickerProps) {
   const [companyId, setCompanyId] = useState<string | null>(initialCompanyId);
   const [companyName, setCompanyName] = useState<string | null>(initialCompanyName);
-  const [status, setStatus] = useState<CallrailIntegrationStatus | null>(null);
+  const [companiesState, setCompaniesState] = useState<CallrailCompaniesResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
-  const [apiKeyDraft, setApiKeyDraft] = useState('');
   const [signingDraft, setSigningDraft] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [copied, setCopied] = useState(false);
@@ -52,21 +49,22 @@ export default function CallRailPicker({
     ? ''
     : `${window.location.origin}/api/webhooks/callrail/${projectId}`;
 
-  const refreshStatus = useCallback(async () => {
+  const refreshCompanies = useCallback(async () => {
     try {
-      const s = await getCallrailIntegrationStatus();
-      setStatus(s);
+      const s = await listCallrailCompanies();
+      setCompaniesState(s);
     } catch (err) {
-      console.warn('[CallRailPicker] status fetch failed:', err);
+      console.warn('[CallRailPicker] companies fetch failed:', err);
+      setCompaniesState({ configured: true, companies: [], error: err instanceof Error ? err.message : 'Failed to load companies' });
     }
   }, []);
 
-  // Fetch the integration status on first open — keeps the toolbar lightweight
-  // until the user actually clicks.
+  // Fetch companies on first open — keeps the toolbar lightweight until the
+  // user actually clicks. Bound projects can skip this entirely.
   useEffect(() => {
-    if (!open || status !== null) return;
-    refreshStatus();
-  }, [open, status, refreshStatus]);
+    if (!open || companiesState !== null || companyId) return;
+    refreshCompanies();
+  }, [open, companiesState, companyId, refreshCompanies]);
 
   // Click-outside to close.
   useEffect(() => {
@@ -78,33 +76,6 @@ export default function CallRailPicker({
     document.addEventListener('mousedown', onDown);
     return () => document.removeEventListener('mousedown', onDown);
   }, [open]);
-
-  const handleConnect = useCallback(async () => {
-    setErrorMsg('');
-    setLoading(true);
-    try {
-      const s = await connectCallrailIntegration(apiKeyDraft);
-      setStatus(s);
-      setApiKeyDraft('');
-    } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'Failed to connect');
-    } finally {
-      setLoading(false);
-    }
-  }, [apiKeyDraft]);
-
-  const handleDisconnect = useCallback(async () => {
-    if (!window.confirm('Disconnect CallRail? Pages bound to a company will stop syncing new calls.')) return;
-    setLoading(true);
-    try {
-      await disconnectCallrailIntegration();
-      setStatus({ connected: false, accountId: null, accountName: null, companies: [], error: null });
-    } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'Failed to disconnect');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
 
   const handlePickCompany = useCallback(async (company: CallrailCompanyOption) => {
     setErrorMsg('');
@@ -181,7 +152,7 @@ export default function CallRailPicker({
         type="button"
         onClick={() => setOpen((v) => !v)}
         className={`text-xs px-2 py-1 rounded-md inline-flex items-center gap-1.5 border ${pillClasses}`}
-        title={bound ? `CallRail: ${companyName ?? companyId}` : 'Connect CallRail'}
+        title={bound ? `CallRail: ${companyName ?? companyId}` : 'Pick a CallRail company'}
       >
         <Phone className="w-3.5 h-3.5" aria-hidden />
         <span className="max-w-[140px] truncate">
@@ -192,64 +163,30 @@ export default function CallRailPicker({
 
       {open && (
         <div className="absolute right-0 mt-1.5 z-30 w-[320px] rounded-lg border border-gray-200 bg-white shadow-lg p-3 text-sm text-gray-700">
-          {status === null ? (
+          {!bound && companiesState === null ? (
             <div className="flex items-center gap-2 text-gray-500">
               <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading…
             </div>
-          ) : !status.connected ? (
+          ) : !bound && companiesState && !companiesState.configured ? (
             <div>
-              <div className="font-medium text-gray-800 mb-1">Connect CallRail</div>
-              <p className="text-xs text-gray-500 mb-2">
-                Paste a CallRail API key (Settings → Integrations → API Keys). It&apos;s stored server-side and used only by SparkPage.
+              <div className="font-medium text-gray-800 mb-1">CallRail not configured</div>
+              <p className="text-xs text-gray-500">
+                Set <code className="font-mono">CALLRAIL_API_KEY</code> on the server to enable call tracking.
               </p>
-              <input
-                type="password"
-                value={apiKeyDraft}
-                onChange={(e) => setApiKeyDraft(e.target.value)}
-                placeholder="CallRail API key"
-                className="w-full text-xs px-2 py-1.5 rounded-md border border-gray-300 mb-2 font-mono"
-                autoComplete="off"
-              />
-              <div className="flex items-center justify-end gap-2">
-                <button
-                  onClick={() => { setOpen(false); setApiKeyDraft(''); setErrorMsg(''); }}
-                  className="text-xs px-2 py-1 text-gray-500 hover:text-gray-700"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleConnect}
-                  disabled={loading || !apiKeyDraft.trim()}
-                  className="text-xs px-2 py-1 rounded-md bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-50"
-                >
-                  {loading ? 'Connecting…' : 'Connect'}
-                </button>
-              </div>
             </div>
           ) : !bound ? (
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <div>
-                  <div className="font-medium text-gray-800">Pick a CallRail company</div>
-                  <div className="text-xs text-gray-500 truncate" title={status.accountName ?? ''}>
-                    {status.accountName ?? 'Connected'}
-                  </div>
-                </div>
-                <button
-                  onClick={handleDisconnect}
-                  className="text-xs text-gray-400 hover:text-red-600"
-                  title="Disconnect CallRail"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-              {status.companies.length === 0 ? (
+              <div className="font-medium text-gray-800 mb-2">Pick a CallRail company</div>
+              {companiesState?.error ? (
+                <p className="text-xs text-red-600 mb-2">{companiesState.error}</p>
+              ) : null}
+              {companiesState && companiesState.companies.length === 0 ? (
                 <p className="text-xs text-gray-500">
                   No companies on this CallRail account.
                 </p>
               ) : (
                 <ul className="max-h-56 overflow-auto -mx-1">
-                  {status.companies.map((c) => (
+                  {companiesState?.companies.map((c) => (
                     <li key={c.id}>
                       <button
                         onClick={() => handlePickCompany(c)}

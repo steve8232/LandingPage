@@ -1,10 +1,11 @@
 /**
  * Minimal typed wrapper around the CallRail v3 REST API.
  *
- * Auth: per-user API key (CallRail keys are scoped to individual users).
- * Stored in public.user_integrations and only ever read via the service-role
- * admin client. This module is server-only — never import from a client
- * component.
+ * Auth: a single global `CALLRAIL_API_KEY` env var that covers every Company
+ * on the account — mirrors AUDIENCELAB_API_KEY. Callers obtain it via
+ * `getCallRailApiKey()` in ./server-config and pass it through. This module
+ * stays pure (no env reads) so it's trivial to unit-test. Server-only —
+ * never import from a client component.
  *
  * Docs:
  *   https://apidocs.callrail.com/

@@ -7,14 +7,19 @@ import {
   type ProjectRow,
 } from '@/lib/projects/types';
 import { CallRailAuthError, listCompanies } from '@/lib/callrail/client';
+import {
+  CallRailNotConfiguredError,
+  getCallRailAccountId,
+  getCallRailApiKey,
+} from '@/lib/callrail/server-config';
 
 /**
  * PUT /api/projects/[id]/callrail   { companyId, signingKey? }
- *   Bind a SparkPage to one CallRail Company. Resolves the company name from
- *   the user's stored API key so the toolbar can render it without a second
- *   round-trip. `signingKey` is the per-webhook "secret token" copied out of
- *   CallRail's webhook config page; passing `null` clears it, `undefined`
- *   leaves the existing value alone.
+ *   Bind a SparkPage to one CallRail Company. Resolves the company name via
+ *   the global CALLRAIL_API_KEY so the toolbar can render it without a
+ *   second round-trip. `signingKey` is the per-webhook "secret token" copied
+ *   out of CallRail's webhook config page; passing `null` clears it,
+ *   `undefined` leaves the existing value alone.
  *
  * DELETE /api/projects/[id]/callrail
  *   Unbind. Leaves any cached rows in public.calls untouched (the leads tab
@@ -22,10 +27,6 @@ import { CallRailAuthError, listCompanies } from '@/lib/callrail/client';
  */
 
 interface OwnerRow { id: string; user_id: string }
-interface IntegrationsRow {
-  callrail_api_key: string | null;
-  callrail_account_id: string | null;
-}
 
 export async function PUT(
   request: NextRequest,
@@ -63,38 +64,29 @@ export async function PUT(
     .maybeSingle<OwnerRow>();
   if (!ownerRow) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-  // Resolve the company name using the user's stored key. If the integration
-  // isn't connected we can still persist the binding (handy for tests), but
-  // we surface a 409 since the dashboard read path will have nothing to pull.
-  const admin = createAdminClient();
-  const { data: integ } = await admin
-    .from('user_integrations')
-    .select('callrail_api_key, callrail_account_id')
-    .eq('user_id', user.id)
-    .maybeSingle<IntegrationsRow>();
-  if (!integ?.callrail_api_key || !integ?.callrail_account_id) {
-    return NextResponse.json(
-      { error: 'Connect CallRail in account settings before binding a page.' },
-      { status: 409 }
-    );
-  }
-
+  // Resolve the company name via the global key.
   let companyName = '';
   try {
-    const companies = await listCompanies(integ.callrail_api_key, integ.callrail_account_id);
+    const apiKey = getCallRailApiKey();
+    const accountId = await getCallRailAccountId();
+    const companies = await listCompanies(apiKey, accountId);
     const match = companies.find((c) => c.id === companyId);
     if (!match) {
       return NextResponse.json({ error: 'Company not found on this CallRail account.' }, { status: 404 });
     }
     companyName = match.name;
   } catch (err) {
+    if (err instanceof CallRailNotConfiguredError) {
+      return NextResponse.json({ error: err.message }, { status: 503 });
+    }
     if (err instanceof CallRailAuthError) {
-      return NextResponse.json({ error: 'CallRail rejected the stored API key. Reconnect first.' }, { status: 409 });
+      return NextResponse.json({ error: 'CallRail rejected CALLRAIL_API_KEY.' }, { status: 502 });
     }
     const message = err instanceof Error ? err.message : 'Failed to resolve company';
     return NextResponse.json({ error: message }, { status: 502 });
   }
 
+  const admin = createAdminClient();
   const { data: updated, error: updateErr } = await admin
     .from('projects')
     .update({

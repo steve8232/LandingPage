@@ -1,12 +1,16 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
 import {
   CallRailAuthError,
   listCalls,
   type CallRailCall,
 } from '@/lib/callrail/client';
 import { normalizeCallsFromApi, type CallDTO } from '@/lib/callrail/calls';
+import {
+  getCallRailAccountId,
+  getCallRailApiKey,
+  isCallRailConfigured,
+} from '@/lib/callrail/server-config';
 
 /**
  * GET /api/projects/[id]/calls
@@ -41,11 +45,6 @@ interface CallsTableRow {
   landing_page_url: string | null;
   recording_url: string | null;
   transcription: string | null;
-}
-
-interface IntegrationsRow {
-  callrail_api_key: string | null;
-  callrail_account_id: string | null;
 }
 
 const PAGE_LIMIT = 200;
@@ -104,27 +103,18 @@ export async function GET(
   const dbRows = (dbRowsRaw ?? []) as CallsTableRow[];
   const dbCalls: CallDTO[] = dbRows.map((r) => rowToDto(r, id));
 
-  // If unbound, return DB-only.  (Same shape as if we'd hit the API.)
-  if (!projectMeta.callrail_company_id) {
-    return NextResponse.json({ calls: dbCalls, cached: true });
-  }
-
-  // Pull live tail.  Admin client so we can read the stored API key.
-  const admin = createAdminClient();
-  const { data: integ } = await admin
-    .from('user_integrations')
-    .select('callrail_api_key, callrail_account_id')
-    .eq('user_id', user.id)
-    .maybeSingle<IntegrationsRow>();
-  if (!integ?.callrail_api_key || !integ?.callrail_account_id) {
+  // If unbound or the global key isn't configured, return DB-only.
+  if (!projectMeta.callrail_company_id || !isCallRailConfigured()) {
     return NextResponse.json({ calls: dbCalls, cached: true });
   }
 
   let liveCalls: CallRailCall[] = [];
   try {
+    const apiKey = getCallRailApiKey();
+    const accountId = await getCallRailAccountId();
     const res = await listCalls({
-      apiKey: integ.callrail_api_key,
-      accountId: integ.callrail_account_id,
+      apiKey,
+      accountId,
       companyId: projectMeta.callrail_company_id,
       dateRange: 'last_30_days',
       perPage: 100,

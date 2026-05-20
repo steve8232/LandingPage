@@ -150,41 +150,25 @@ export async function pollProjectCustomDomainStatus(
 
 // ── CallRail integration ───────────────────────────────────────────────────
 
-/** Company option surfaced for binding (server-fetched via the user's key). */
+/** Company option surfaced for binding (server-fetched via the global key). */
 export interface CallrailCompanyOption {
   id: string;
   name: string;
   status: string | null;
 }
 
-export interface CallrailIntegrationStatus {
-  connected: boolean;
-  accountId: string | null;
-  accountName: string | null;
+export interface CallrailCompaniesResponse {
+  /** False when CALLRAIL_API_KEY is unset on the server. */
+  configured: boolean;
   companies: CallrailCompanyOption[];
-  /** Surfaced when the stored key fails authentication on this request. */
+  /** Surfaced when the env key fails authentication on this request. */
   error: string | null;
 }
 
-export async function getCallrailIntegrationStatus(): Promise<CallrailIntegrationStatus> {
-  const res = await fetch('/api/integrations/callrail', { method: 'GET', cache: 'no-store' });
+export async function listCallrailCompanies(): Promise<CallrailCompaniesResponse> {
+  const res = await fetch('/api/integrations/callrail/companies', { method: 'GET', cache: 'no-store' });
   if (!res.ok) throw new Error(await parseError(res));
-  return (await res.json()) as CallrailIntegrationStatus;
-}
-
-export async function connectCallrailIntegration(apiKey: string): Promise<CallrailIntegrationStatus> {
-  const res = await fetch('/api/integrations/callrail', {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ apiKey }),
-  });
-  if (!res.ok) throw new Error(await parseError(res));
-  return (await res.json()) as CallrailIntegrationStatus;
-}
-
-export async function disconnectCallrailIntegration(): Promise<void> {
-  const res = await fetch('/api/integrations/callrail', { method: 'DELETE' });
-  if (!res.ok) throw new Error(await parseError(res));
+  return (await res.json()) as CallrailCompaniesResponse;
 }
 
 export async function setProjectCallrailBinding(

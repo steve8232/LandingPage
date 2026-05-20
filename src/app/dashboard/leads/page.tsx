@@ -1,7 +1,6 @@
 import { Suspense } from 'react';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { leadRowToDTO, type LeadRow } from '@/lib/leads/types';
 import { lookupPixelV4 } from '@/lib/audiencelab/client';
 import {
@@ -10,6 +9,11 @@ import {
 } from '@/lib/audiencelab/identified';
 import { CallRailAuthError, listCalls } from '@/lib/callrail/client';
 import { normalizeCallsFromApi, type CallDTO } from '@/lib/callrail/calls';
+import {
+  getCallRailAccountId,
+  getCallRailApiKey,
+  isCallRailConfigured,
+} from '@/lib/callrail/server-config';
 import LeadsClient from './LeadsClient';
 
 export const dynamic = 'force-dynamic';
@@ -124,19 +128,14 @@ export default async function LeadsPage() {
   }));
 
   // Live tail for each bound project so the dashboard reflects calls that
-  // haven't yet been webhooked.  Requires the user-scoped integration row.
+  // haven't yet been webhooked.  Uses the global CALLRAIL_API_KEY; silently
+  // skipped when the env isn't configured.
   const boundProjects = projectRows.filter((p) => !!p.callrail_company_id);
   let liveCalls: CallDTO[] = [];
-  if (boundProjects.length > 0) {
-    const admin = createAdminClient();
-    const { data: integ } = await admin
-      .from('user_integrations')
-      .select('callrail_api_key, callrail_account_id')
-      .eq('user_id', user.id)
-      .maybeSingle<{ callrail_api_key: string | null; callrail_account_id: string | null }>();
-    if (integ?.callrail_api_key && integ?.callrail_account_id) {
-      const apiKey = integ.callrail_api_key;
-      const accountId = integ.callrail_account_id;
+  if (boundProjects.length > 0 && isCallRailConfigured()) {
+    try {
+      const apiKey = getCallRailApiKey();
+      const accountId = await getCallRailAccountId();
       const perProject = await Promise.all(
         boundProjects.map(async (p) => {
           try {
@@ -157,6 +156,8 @@ export default async function LeadsPage() {
         })
       );
       liveCalls = perProject.flat();
+    } catch (err) {
+      console.warn('[leads] CallRail live tail skipped:', err);
     }
   }
 

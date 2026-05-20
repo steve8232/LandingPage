@@ -1,26 +1,12 @@
 -- SparkPage — Phase 1 CallRail integration (call tracking + recordings).
 -- Run once in Supabase SQL editor. Re-running is safe (idempotent).
 --
--- Three things land here:
---   1. user_integrations — per-user CallRail API key. RLS is ON with *no*
---      policies, matching the deployments-table pattern, so the key is
---      reachable only via the service-role admin client on the server.
---   2. projects columns — bind a SparkPage to one CallRail Company plus an
---      optional per-company webhook signing key.
---   3. calls — webhook-ingested call records. Owners can SELECT their own
+-- Two things land here:
+--   1. projects columns — bind a SparkPage to one CallRail Company plus an
+--      optional per-company webhook signing key. (The CallRail API key is a
+--      single global env var, CALLRAIL_API_KEY, mirroring AUDIENCELAB_API_KEY.)
+--   2. calls — webhook-ingested call records. Owners can SELECT their own
 --      project's calls; writes happen through service_role only.
-
--- ── user_integrations ──────────────────────────────────────────────────────
-create table if not exists public.user_integrations (
-  user_id              uuid primary key references auth.users(id) on delete cascade,
-  callrail_api_key     text,
-  callrail_account_id  text,
-  updated_at           timestamptz not null default now()
-);
-
-alter table public.user_integrations enable row level security;
--- Intentionally NO policies → service_role only.
--- (Identical posture to public.deployments from 0001_init.sql.)
 
 -- ── projects: per-page CallRail binding ────────────────────────────────────
 alter table public.projects
