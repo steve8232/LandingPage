@@ -56,16 +56,42 @@ function authHeaders(apiKey: string): Record<string, string> {
   };
 }
 
+/**
+ * Pull a human-readable message out of a CallRail error response. CallRail
+ * uses several shapes for failures:
+ *   { "error": "Tracking number area code …" }      // string
+ *   { "message": "Validation failed" }              // string
+ *   { "errors": ["Tracking number area code …"] }   // array of strings
+ *   { "errors": [{ "field": "…", "message": "…" }] } // array of objects
+ *   { "errors": "Tracking number area code …" }     // string (some endpoints)
+ *   { "errors": { "tracking_number": ["…"] } }      // field -> messages map
+ * We must NOT index a string with [0] (returns one character — that's the
+ * "createTracker failed: T" bug). Walk the shape carefully.
+ */
 async function parseError(res: Response): Promise<string> {
   try {
     const data = await res.json();
-    const first = data?.error || data?.message || data?.errors?.[0];
-    if (typeof first === 'string') return first;
-    if (first && typeof first === 'object') {
-      // CallRail sometimes returns errors as [{ field, message }] or a map.
-      const obj = first as Record<string, unknown>;
-      if (typeof obj.message === 'string') return obj.message;
-      try { return JSON.stringify(first); } catch { /* fall through */ }
+    if (typeof data?.error === 'string' && data.error.trim()) return data.error;
+    if (typeof data?.message === 'string' && data.message.trim()) return data.message;
+    const errs: unknown = data?.errors;
+    if (typeof errs === 'string' && errs.trim()) return errs;
+    if (Array.isArray(errs) && errs.length) {
+      const first = errs[0];
+      if (typeof first === 'string') return first;
+      if (first && typeof first === 'object') {
+        const obj = first as Record<string, unknown>;
+        if (typeof obj.message === 'string') return obj.message;
+        try { return JSON.stringify(first); } catch { /* fall through */ }
+      }
+    }
+    if (errs && typeof errs === 'object') {
+      // Field -> [message] map. Surface "field: first message" for the first
+      // field with a populated value.
+      for (const [field, value] of Object.entries(errs as Record<string, unknown>)) {
+        if (Array.isArray(value) && typeof value[0] === 'string') return `${field}: ${value[0]}`;
+        if (typeof value === 'string' && value.trim()) return `${field}: ${value}`;
+      }
+      try { return JSON.stringify(errs); } catch { /* fall through */ }
     }
     return `CallRail API ${res.status}`;
   } catch {
