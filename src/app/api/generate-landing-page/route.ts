@@ -201,6 +201,19 @@ export async function POST(request: NextRequest) {
         };
       }
 
+      // Persist the wizard's optional business name (Step 2 template-specific
+      // field) in overrides.meta.businessName. The CallRail provision route
+      // uses this as the Company name so the account shows the user's actual
+      // business instead of "<template> – <date>".
+      const rawBusinessName = v1Input.business.templateAnswers?.businessName;
+      const wizardBusinessName = typeof rawBusinessName === 'string' ? rawBusinessName.trim() : '';
+      if (wizardBusinessName) {
+        overrides = {
+          ...(overrides || {}),
+          meta: { ...((overrides && overrides.meta) || {}), businessName: wizardBusinessName },
+        };
+      }
+
 	      // For the interactive app output we allow remote demo images (when used)
 	      // so pages look richly illustrated without requiring user uploads.
 	      // Previews/build artifacts can still opt to stay fully offline.

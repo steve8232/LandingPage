@@ -17,6 +17,7 @@ import {
   listCompanies,
   listTrackers,
   normalizeCallRailScriptUrl,
+  updateTracker,
   type CallRailNumberPreference,
   type CallRailTracker,
 } from '@/lib/callrail/client';
@@ -128,11 +129,19 @@ export async function POST(
   // > projects.business_phone (cached from a prior provision). The editor is
   // the source of truth for what's actually on the page, so a re-provision
   // after editing must use the freshly edited number.
-  const overridesPhone = (project.overrides as { meta?: { businessPhone?: string } } | null)?.meta?.businessPhone;
+  const overridesMeta = (project.overrides as { meta?: { businessPhone?: string; businessName?: string } } | null)?.meta;
+  const overridesPhone = overridesMeta?.businessPhone;
   const destPhone = digits(body.destinationPhone || overridesPhone || project.business_phone || '');
   if (destPhone.length < 10) {
     return NextResponse.json({ error: 'Missing or invalid business phone on this project.' }, { status: 400 });
   }
+
+  // CallRail Company name: prefer the user-entered business name from the
+  // wizard's optional template fields over the auto-generated project title
+  // (e.g. "Junk Removal – May 20"). Falls back to project.title for legacy
+  // projects created before the businessName plumbing existed.
+  const wizardBusinessName = typeof overridesMeta?.businessName === 'string' ? overridesMeta.businessName.trim() : '';
+  const companyDisplayName = wizardBusinessName || project.title || 'SparkPage';
 
   let apiKey: string;
   let accountId: string;
@@ -147,19 +156,29 @@ export async function POST(
   }
 
   // Step 1: adopt an existing tracker if one already covers this phone.
-  // CallRail enforces global uniqueness on swap_targets per account, so a
-  // second provision attempt with the same wizard phone would otherwise hit
-  // "swap targets already taken". Adopt-first also fixes accidental double
-  // provisions (e.g. the DB update failed after a prior successful create).
+  // CallRail enforces global uniqueness on swap_targets across active AND
+  // disabled trackers, so a prior test run that left a disabled tracker
+  // owning this number would otherwise produce a "swap targets already taken"
+  // error with no path to recovery. We scan both statuses and reactivate any
+  // disabled match we adopt.
   let adopted: CallRailTracker | null = null;
   try {
     if (project.callrail_tracker_id) {
       adopted = await getTracker(apiKey, accountId, project.callrail_tracker_id);
-      if (adopted && adopted.status !== 'active') adopted = null;
+      // Keep the project's prior binding even if it's disabled — we'll
+      // reactivate below before binding.
     }
     if (!adopted) {
-      const all = await listTrackers(apiKey, accountId, { status: 'active' });
-      adopted = findAdoptableTracker(all, destPhone);
+      const [active, disabled] = await Promise.all([
+        listTrackers(apiKey, accountId, { status: 'active' }),
+        listTrackers(apiKey, accountId, { status: 'disabled' }),
+      ]);
+      adopted = findAdoptableTracker([...active, ...disabled], destPhone);
+    }
+    // Reactivate adopted disabled trackers so the swap.js they serve resumes
+    // matching visitors immediately after we bind them to the project.
+    if (adopted && adopted.status !== 'active') {
+      adopted = await updateTracker(apiKey, accountId, adopted.id, { status: 'active' });
     }
   } catch (err) {
     return mapErrorResponse(err);
@@ -183,7 +202,7 @@ export async function POST(
   try {
     if (!companyId) {
       const created = await createCompany(apiKey, accountId, {
-        name: project.title || 'SparkPage',
+        name: companyDisplayName,
         timeZone,
       });
       companyId = created.id;
@@ -243,15 +262,35 @@ export async function POST(
         );
       }
       if (err instanceof CallRailSwapTargetTakenError) {
-        // The race-narrow: a tracker was created elsewhere between our list
-        // call and now. Re-scan and adopt if possible; otherwise surface a
-        // clear message instead of the raw CallRail error.
+        // Race-narrow or stale-state recovery: a tracker (possibly disabled)
+        // was already holding this swap target between our initial scan and
+        // now. Re-scan both statuses; if we find a match, reactivate any
+        // disabled hit and adopt it. Otherwise surface a clear message.
         try {
-          const refreshed = await listTrackers(apiKey, accountId, { status: 'active' });
-          const found = findAdoptableTracker(refreshed, destPhone);
+          const [active, disabled] = await Promise.all([
+            listTrackers(apiKey, accountId, { status: 'active' }),
+            listTrackers(apiKey, accountId, { status: 'disabled' }),
+          ]);
+          let found = findAdoptableTracker([...active, ...disabled], destPhone);
+          if (found && found.status !== 'active') {
+            found = await updateTracker(apiKey, accountId, found.id, { status: 'active' });
+          }
           if (found) {
             tracker = found;
           } else {
+            // No adoption candidate — persist the company we just created so
+            // a follow-up attempt doesn't orphan another CallRail company on
+            // the user's account, then surface the 409.
+            const admin = createAdminClient();
+            await admin
+              .from('projects')
+              .update({
+                callrail_company_id: companyId,
+                callrail_company_name: companyName,
+                callrail_script_url: scriptUrl,
+                business_phone: destPhone,
+              })
+              .eq('id', id);
             return NextResponse.json(
               { error: 'This phone number is already in use by another tracker on your CallRail account.', code: 'swap_target_taken' },
               { status: 409 }

@@ -183,6 +183,13 @@ export interface V1MetaOverrides {
    * user entered it (digits, with or without formatting).
    */
   businessPhone?: string;
+  /**
+   * Legal/display business name captured from the wizard's optional
+   * template-specific fields (Step 2 — `templateAnswers.businessName`).
+   * Used as the CallRail Company name on provision so users see their
+   * real business name in CallRail instead of "<template> – <date>".
+   */
+  businessName?: string;
 }
 
 export interface V1ImageAttribution {

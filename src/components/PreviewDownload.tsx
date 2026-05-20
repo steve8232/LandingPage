@@ -2820,6 +2820,21 @@ export default function PreviewDownload({
 
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Business name <span className="text-gray-400 font-normal">— used as the CallRail company name</span>
+                          </label>
+                          <input
+                            value={String(v1Overrides?.meta?.businessName ?? '')}
+                            onChange={(e) => updateV1Meta({ businessName: e.target.value })}
+                            placeholder="Acme Junk Removal"
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                          />
+                          <p className="text-[11px] text-gray-500 mt-1">
+                            Shown in your CallRail account when this page provisions a tracker.
+                          </p>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
                             Business phone <span className="text-gray-400 font-normal">— shown on the page; forwarded to by CallRail</span>
                           </label>
                           <input

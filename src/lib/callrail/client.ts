@@ -143,6 +143,22 @@ async function callrailPost(url: string, apiKey: string, body: unknown): Promise
   return res;
 }
 
+async function callrailPut(url: string, apiKey: string, body: unknown): Promise<Response> {
+  const res = await fetch(url, {
+    method: 'PUT',
+    headers: { ...authHeaders(apiKey), 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    cache: 'no-store',
+  });
+  if (res.status === 401 || res.status === 403) {
+    throw new CallRailAuthError(`CallRail rejected the API key (${res.status})`);
+  }
+  if (res.status === 404) {
+    throw new CallRailNotFoundError(await parseError(res));
+  }
+  return res;
+}
+
 // ── Accounts ───────────────────────────────────────────────────────────────
 
 export interface CallRailAccount {
@@ -394,6 +410,28 @@ export async function listTrackers(
     if (typeof data.total_pages === 'number' && page >= data.total_pages) break;
   }
   return out;
+}
+
+/**
+ * PUT /v3/a/{account_id}/trackers/{id}.json — update a tracker. Used to
+ * reactivate a disabled tracker that we adopted (CallRail's swap-target
+ * uniqueness applies across active and disabled trackers, so adoption may
+ * surface a disabled match we need to flip back to active before binding).
+ */
+export async function updateTracker(
+  apiKey: string,
+  accountId: string,
+  trackerId: string,
+  input: { status?: 'active' | 'disabled' }
+): Promise<CallRailTracker> {
+  const url = `${CALLRAIL_API}/v3/a/${encodeURIComponent(accountId)}/trackers/${encodeURIComponent(trackerId)}.json`;
+  const body: Record<string, unknown> = {};
+  if (input.status) body.status = input.status;
+  const res = await callrailPut(url, apiKey, body);
+  if (!res.ok) {
+    throw new Error(`updateTracker failed: ${await parseError(res)}`);
+  }
+  return (await res.json()) as CallRailTracker;
 }
 
 /** GET /v3/a/{account_id}/trackers/{id}.json — single tracker lookup. */
