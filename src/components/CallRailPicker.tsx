@@ -74,6 +74,12 @@ export default function CallRailPicker({
   const [provisionError, setProvisionError] = useState('');
   const [noInventory, setNoInventory] = useState(false);
   const [areaCodeDraft, setAreaCodeDraft] = useState('');
+  // Tracker flavor + pool size for session (Website Pool) provisions.
+  // Default to 'session' / 4 to match the server defaults and CallRail's
+  // documented pool floor; the UI exposes both to keep cheaper single-number
+  // (source) provisioning available.
+  const [trackerKind, setTrackerKind] = useState<'source' | 'session'>('session');
+  const [poolSizeDraft, setPoolSizeDraft] = useState<number>(4);
   const popoverRef = useRef<HTMLDivElement | null>(null);
 
   // Mirror server-side state when the parent rehydrates (e.g. after save).
@@ -147,7 +153,14 @@ export default function CallRailPicker({
     setNoInventory(false);
     setLoading(true);
     try {
-      const project = await provisionCallrailTracker(projectId, { preference });
+      // Session pools require a minimum of 4 numbers; clamp here so the
+      // server's defensive clamp is never exercised on a valid path.
+      const clampedPool = Math.max(4, Math.min(50, Math.trunc(poolSizeDraft) || 4));
+      const project = await provisionCallrailTracker(projectId, {
+        preference,
+        trackerType: trackerKind,
+        poolSize: trackerKind === 'session' ? clampedPool : undefined,
+      });
       setCompanyId(project.callrailCompanyId);
       setCompanyName(project.callrailCompanyName);
       setTrackerId(project.callrailTrackerId);
@@ -165,7 +178,7 @@ export default function CallRailPicker({
     } finally {
       setLoading(false);
     }
-  }, [projectId, onChange]);
+  }, [projectId, onChange, trackerKind, poolSizeDraft]);
 
   const handleProvisionAreaMatch = useCallback(() => {
     if (!defaultAreaCode) {
@@ -282,6 +295,10 @@ export default function CallRailPicker({
               provisionError,
               areaCodeDraft,
               setAreaCodeDraft,
+              trackerKind,
+              setTrackerKind,
+              poolSizeDraft,
+              setPoolSizeDraft,
               handleProvisionAreaMatch,
               handleProvisionCustomAreaCode,
               handleProvisionTollFree,
@@ -339,6 +356,10 @@ export default function CallRailPicker({
               provisionError,
               areaCodeDraft,
               setAreaCodeDraft,
+              trackerKind,
+              setTrackerKind,
+              poolSizeDraft,
+              setPoolSizeDraft,
               handleProvisionAreaMatch,
               handleProvisionCustomAreaCode,
               handleProvisionTollFree,
@@ -456,6 +477,10 @@ interface ProvisionPanelProps {
   provisionError: string;
   areaCodeDraft: string;
   setAreaCodeDraft: (v: string) => void;
+  trackerKind: 'source' | 'session';
+  setTrackerKind: (v: 'source' | 'session') => void;
+  poolSizeDraft: number;
+  setPoolSizeDraft: (v: number) => void;
   handleProvisionAreaMatch: () => void;
   handleProvisionCustomAreaCode: () => void;
   handleProvisionTollFree: () => void;
@@ -466,10 +491,15 @@ function renderProvisionPanel(p: ProvisionPanelProps) {
   const {
     destPhone, defaultAreaCode, loading, noInventory, provisionError,
     areaCodeDraft, setAreaCodeDraft,
+    trackerKind, setTrackerKind, poolSizeDraft, setPoolSizeDraft,
     handleProvisionAreaMatch, handleProvisionCustomAreaCode, handleProvisionTollFree,
     onCancel,
   } = p;
   const hasPhone = destPhone.length >= 10;
+  const isSession = trackerKind === 'session';
+  // CallRail bounds: pools must contain 4–50 numbers. Mirror the server's
+  // clamp so the button label always reflects what will actually be sent.
+  const clampedPool = Math.max(4, Math.min(50, Math.trunc(poolSizeDraft) || 4));
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
@@ -486,9 +516,52 @@ function renderProvisionPanel(p: ProvisionPanelProps) {
         </div>
       </div>
 
+      <div className="mb-2">
+        <div className="text-[11px] uppercase tracking-wide text-gray-500 mb-1">Tracker type</div>
+        <div className="grid grid-cols-2 gap-1">
+          <button
+            type="button"
+            onClick={() => setTrackerKind('session')}
+            disabled={loading}
+            className={`text-[11px] px-2 py-1.5 rounded-md border ${isSession ? 'border-orange-500 bg-orange-50 text-orange-700' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'} disabled:opacity-50`}
+            title="Visitor-level attribution; serves one number from a pool to each visitor"
+          >
+            Website pool
+          </button>
+          <button
+            type="button"
+            onClick={() => setTrackerKind('source')}
+            disabled={loading}
+            className={`text-[11px] px-2 py-1.5 rounded-md border ${!isSession ? 'border-orange-500 bg-orange-50 text-orange-700' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'} disabled:opacity-50`}
+            title="Single tracking number for all traffic (cheapest)"
+          >
+            Single number
+          </button>
+        </div>
+        {isSession && (
+          <div className="mt-1.5 flex items-center gap-1.5">
+            <label className="text-[11px] text-gray-600">Pool size</label>
+            <input
+              type="number"
+              min={4}
+              max={50}
+              value={poolSizeDraft}
+              onChange={(e) => {
+                const n = parseInt(e.target.value, 10);
+                setPoolSizeDraft(Number.isFinite(n) ? n : 4);
+              }}
+              disabled={loading}
+              className="w-16 text-xs px-2 py-1 rounded-md border border-gray-300 font-mono text-center"
+            />
+            <span className="text-[10px] text-gray-500">CallRail min 4, max 50</span>
+          </div>
+        )}
+      </div>
+
       <p className="text-[11px] text-gray-600 mb-2">
-        CallRail bills your account a recurring monthly fee per tracker. swap.js
-        will replace this number on the published page with the new tracking number.
+        {isSession
+          ? <>CallRail bills <strong>per number</strong>; a pool of {clampedPool} multiplies the per-tracker monthly fee by {clampedPool}. swap.js rotates numbers per visitor.</>
+          : <>CallRail bills a recurring monthly fee per tracker. swap.js will replace this number on the published page with the new tracking number.</>}
       </p>
 
       {!noInventory ? (

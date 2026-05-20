@@ -11,6 +11,7 @@ import {
   CallRailNoInventoryError,
   CallRailSwapTargetTakenError,
   createCompany,
+  createSessionTracker,
   createTracker,
   findAdoptableTracker,
   getTracker,
@@ -52,6 +53,10 @@ interface ProvisionBody {
   destinationPhone?: string;
   /** IANA time zone for the company. Required by CallRail when creating one. */
   timeZone?: string;
+  /** Tracker flavor; defaults to 'session' (Website Pool). */
+  trackerType?: 'source' | 'session';
+  /** Pool size for session trackers; CallRail floor 4 / ceiling 50. */
+  poolSize?: number;
 }
 
 function digits(input: string | null | undefined): string {
@@ -59,27 +64,18 @@ function digits(input: string | null | undefined): string {
 }
 
 /**
- * Build the swap_targets list for CallRail. We register every common visual
- * form of the wizard phone so swap.js matches whatever rendered text and
- * `tel:` hrefs the page happens to contain. CallRail's swap engine treats
- * each entry as an independent string to search-and-replace.
+ * Build the swap_targets list for CallRail. Per CallRail's API docs ("No
+ * formatting is required, as the script will search for all possible
+ * formats"), a single 10-digit entry covers every visible form on the page
+ * — `(NPA) NXX-XXXX`, `NPA-NXX-XXXX`, `tel:+1NPANXXXXXX`, etc. We register
+ * just the canonical 10-digit string and let CallRail's swap engine
+ * normalize matches.
  */
 function buildSwapTargets(rawPhone: string): string[] {
   const d = digits(rawPhone);
   if (d.length < 10) return [rawPhone];
   const ten = d.length === 11 && d.startsWith('1') ? d.slice(1) : d.slice(-10);
-  const npa = ten.slice(0, 3);
-  const nxx = ten.slice(3, 6);
-  const line = ten.slice(6);
-  const targets = new Set<string>([
-    ten,                          // 5551234567
-    `(${npa}) ${nxx}-${line}`,    // (555) 123-4567 (composer + wizard formatter)
-    `${npa}-${nxx}-${line}`,      // 555-123-4567
-    `${npa}.${nxx}.${line}`,      // 555.123.4567
-    `+1${ten}`,                   // +15551234567 (tel: href form)
-    `1${ten}`,                    // 15551234567
-  ]);
-  return Array.from(targets);
+  return [ten];
 }
 
 function parsePreference(input: ProvisionBody['preference']): CallRailNumberPreference | { error: string } {
@@ -116,6 +112,16 @@ export async function POST(
   if ('error' in preference) {
     return NextResponse.json({ error: preference.error }, { status: 400 });
   }
+
+  // Tracker flavor: default to 'session' (Website Pool) so new provisions get
+  // visitor-level attribution out of the box. Source remains available for
+  // callers that opt in (e.g. cost-sensitive single-number setups).
+  const trackerType: 'source' | 'session' = body.trackerType === 'source' ? 'source' : 'session';
+  // Pool size: CallRail enforces 4–50. Default 4 (the floor) when omitted or
+  // out of range so we never send an invalid body and never quietly accept a
+  // pool that would over-bill the user.
+  const requestedPoolSize = Number.isFinite(body.poolSize) ? Math.trunc(body.poolSize as number) : 4;
+  const poolSize = Math.max(4, Math.min(50, requestedPoolSize));
 
   const { data: projectRow } = await supabase
     .from('projects')
@@ -227,21 +233,34 @@ export async function POST(
     return NextResponse.json({ error: 'Failed to resolve CallRail company.' }, { status: 502 });
   }
 
-  // Step 3: provision the tracker (unless we adopted one above). swap_targets
-  // covers every common visual form of the wizard phone so DNI matches
-  // whatever the page renders.
+  // Step 3: provision the tracker (unless we adopted one above). For session
+  // trackers CallRail issues a pool of `poolSize` numbers (visitor-level
+  // attribution); for source trackers it's a single number assigned to all
+  // traffic. swap_targets is the canonical 10-digit string — CallRail's
+  // swap engine matches every visual format on the page.
+  const trackerName = `SparkPage — ${project.title || project.id.slice(0, 8)}`;
+  const swapTargets = buildSwapTargets(destPhone);
   let tracker: CallRailTracker;
   if (adopted) {
     tracker = adopted;
   } else {
     try {
-      tracker = await createTracker(apiKey, accountId, {
-        companyId,
-        name: `SparkPage — ${project.title || project.id.slice(0, 8)}`,
-        destinationNumber: destPhone,
-        preference,
-        swapTargets: buildSwapTargets(destPhone),
-      });
+      tracker = trackerType === 'session'
+        ? await createSessionTracker(apiKey, accountId, {
+            companyId,
+            name: trackerName,
+            destinationNumber: destPhone,
+            preference,
+            poolSize,
+            swapTargets,
+          })
+        : await createTracker(apiKey, accountId, {
+            companyId,
+            name: trackerName,
+            destinationNumber: destPhone,
+            preference,
+            swapTargets,
+          });
     } catch (err) {
       if (err instanceof CallRailNoInventoryError) {
         // Persist whatever we managed to create (company + scriptUrl) so a
@@ -291,8 +310,13 @@ export async function POST(
                 business_phone: destPhone,
               })
               .eq('id', id);
+            // Surface CallRail's verbatim message — it often names the
+            // conflicting tracker or resource, which is critical for
+            // diagnosing 409s that our active+disabled scan can't resolve
+            // (e.g. swap targets reserved by Form Submission trackers or
+            // outbound caller-ID assignments).
             return NextResponse.json(
-              { error: 'This phone number is already in use by another tracker on your CallRail account.', code: 'swap_target_taken' },
+              { error: err.message, code: 'swap_target_taken' },
               { status: 409 }
             );
           }

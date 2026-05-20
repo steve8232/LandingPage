@@ -203,6 +203,17 @@ export interface ProvisionCallrailInput {
   destinationPhone?: string;
   /** Optional IANA time zone for company creation (server default applies). */
   timeZone?: string;
+  /**
+   * Tracker flavor. `'session'` provisions a Website Pool of `poolSize`
+   * numbers (visitor-level attribution); `'source'` provisions a single
+   * number tied to all traffic. Server defaults to `'session'`.
+   */
+  trackerType?: 'source' | 'session';
+  /**
+   * Required when `trackerType === 'session'`. CallRail enforces a minimum
+   * of 4 and a maximum of 50 numbers per pool. Server defaults to 4.
+   */
+  poolSize?: number;
 }
 
 /**

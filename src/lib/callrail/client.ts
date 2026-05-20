@@ -366,6 +366,92 @@ export async function createTracker(
   return (await res.json()) as CallRailTracker;
 }
 
+export interface CreateSessionTrackerInput {
+  companyId: string;
+  /** Display name shown in the CallRail UI. */
+  name: string;
+  /** Where calls placed to any pool number are forwarded (E.164 digits). */
+  destinationNumber: string;
+  /** Desired tracking-number characteristics (drives pool_numbers). */
+  preference: CallRailNumberPreference;
+  /** Number of tracking numbers in the pool. CallRail enforces min 4, max 50. */
+  poolSize: number;
+  /**
+   * Page numbers swap.js will replace with a pool tracking number on every
+   * tracked visitor. Optional — defaults to `[destinationNumber]`. Per the
+   * CallRail API, "no formatting is required, as the script will search for
+   * all possible formats", so a single 10-digit entry is sufficient.
+   */
+  swapTargets?: string[];
+}
+
+/**
+ * POST /v3/a/{account_id}/trackers.json — provisions a **session** (a.k.a.
+ * "Website Pool") tracker that serves one number from a pool of N tracking
+ * numbers to each website visitor, enabling visitor-level call attribution.
+ *
+ * Differences from `createTracker` (source):
+ *   - `type: 'session'`
+ *   - `pool_size` is required (CallRail floor: 4, ceiling: 50).
+ *   - `pool_numbers` carries the inventory hint instead of `tracking_number`.
+ *   - `source` is a plain string `"all"` here (the source-tracker form is
+ *     `{ type: 'all' }`).
+ *
+ * **Billing note**: each number in the pool incurs the per-tracker monthly
+ * fee, so a pool_size of 4 quadruples the per-project number cost. The UI
+ * must disclose this before invocation.
+ */
+export async function createSessionTracker(
+  apiKey: string,
+  accountId: string,
+  input: CreateSessionTrackerInput
+): Promise<CallRailTracker> {
+  const url = `${CALLRAIL_API}/v3/a/${encodeURIComponent(accountId)}/trackers.json`;
+  // Clamp pool_size to CallRail's documented bounds defensively; the route
+  // also validates upstream so this is belt-and-suspenders.
+  const poolSize = Math.max(4, Math.min(50, Math.trunc(input.poolSize)));
+  const pool_numbers: Record<string, string | boolean> = input.preference.type === 'local'
+    ? { area_code: input.preference.areaCode }
+    : { toll_free: true, area_code: input.preference.prefix ?? '888' };
+  const swap_targets = input.swapTargets ?? [input.destinationNumber];
+  const destinationE164 = toE164US(input.destinationNumber);
+  const body = {
+    company_id: input.companyId,
+    name: input.name,
+    type: 'session',
+    call_flow: {
+      type: 'basic',
+      recording_enabled: true,
+      destination_number: destinationE164,
+      greeting_text: null,
+      greeting_recording_url: null,
+    },
+    pool_size: poolSize,
+    pool_numbers,
+    source: 'all',
+    swap_targets,
+  };
+  const res = await callrailPost(url, apiKey, body);
+  if (!res.ok) {
+    const msg = await parseError(res);
+    const lower = msg.toLowerCase();
+    if (lower.includes('swap target') && lower.includes('taken')) {
+      throw new CallRailSwapTargetTakenError(msg);
+    }
+    if (
+      res.status === 422 ||
+      lower.includes('unable to obtain number') ||
+      lower.includes('no phone numbers available') ||
+      lower.includes('no number available') ||
+      lower.includes('no inventory')
+    ) {
+      throw new CallRailNoInventoryError(msg);
+    }
+    throw new Error(`createSessionTracker failed: ${msg}`);
+  }
+  return (await res.json()) as CallRailTracker;
+}
+
 // ── Listing & lookup ───────────────────────────────────────────────────────
 
 /**
