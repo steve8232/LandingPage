@@ -208,6 +208,9 @@ export default function PreviewDownload({
   const [v1AudiencelabInstallUrl, setV1AudiencelabInstallUrl] = useState<string | null>(null);
   const [v1CallrailCompanyId, setV1CallrailCompanyId] = useState<string | null>(null);
   const [v1CallrailCompanyName, setV1CallrailCompanyName] = useState<string | null>(null);
+  const [v1BusinessPhone, setV1BusinessPhone] = useState<string | null>(null);
+  const [v1CallrailTrackerId, setV1CallrailTrackerId] = useState<string | null>(null);
+  const [v1CallrailTrackingPhone, setV1CallrailTrackingPhone] = useState<string | null>(null);
   const [subdomainDraftPending, setSubdomainDraftPending] = useState(false);
   const subdomainPickerRef = useRef<SubdomainPickerHandle | null>(null);
   const [cloudSaved, setCloudSaved] = useState(false);
@@ -228,6 +231,9 @@ export default function PreviewDownload({
       setV1AudiencelabInstallUrl(null);
       setV1CallrailCompanyId(null);
       setV1CallrailCompanyName(null);
+      setV1BusinessPhone(null);
+      setV1CallrailTrackerId(null);
+      setV1CallrailTrackingPhone(null);
       return;
     }
     let cancelled = false;
@@ -246,6 +252,9 @@ export default function PreviewDownload({
         setV1AudiencelabInstallUrl(p.audiencelabInstallUrl);
         setV1CallrailCompanyId(p.callrailCompanyId);
         setV1CallrailCompanyName(p.callrailCompanyName);
+        setV1BusinessPhone(p.businessPhone);
+        setV1CallrailTrackerId(p.callrailTrackerId);
+        setV1CallrailTrackingPhone(p.callrailTrackingPhone);
       } catch {
         // non-fatal: picker will degrade to "no subdomain claimed"
       }
@@ -269,6 +278,9 @@ export default function PreviewDownload({
   const handleCallrailChange = useCallback((p: ProjectDTO) => {
     setV1CallrailCompanyId(p.callrailCompanyId);
     setV1CallrailCompanyName(p.callrailCompanyName);
+    setV1BusinessPhone(p.businessPhone);
+    setV1CallrailTrackerId(p.callrailTrackerId);
+    setV1CallrailTrackingPhone(p.callrailTrackingPhone);
   }, []);
 
   // Publish-to-Vercel (Phase 3). The button: implicitly saves to cloud if
@@ -613,6 +625,9 @@ export default function PreviewDownload({
               setV1AudiencelabInstallUrl(fresh.audiencelabInstallUrl);
               setV1CallrailCompanyId(fresh.callrailCompanyId);
               setV1CallrailCompanyName(fresh.callrailCompanyName);
+              setV1BusinessPhone(fresh.businessPhone);
+              setV1CallrailTrackerId(fresh.callrailTrackerId);
+              setV1CallrailTrackingPhone(fresh.callrailTrackingPhone);
             } catch {
               // non-fatal — picker still shows the previous state.
             }
@@ -1607,6 +1622,10 @@ export default function PreviewDownload({
 						projectId={v1ProjectId}
 						initialCompanyId={v1CallrailCompanyId}
 						initialCompanyName={v1CallrailCompanyName}
+						initialBusinessPhone={v1BusinessPhone}
+						initialTrackerId={v1CallrailTrackerId}
+						initialTrackingPhone={v1CallrailTrackingPhone}
+						overridesBusinessPhone={(v1Overrides?.meta as { businessPhone?: string } | undefined)?.businessPhone ?? null}
 						onChange={handleCallrailChange}
 					  />
 					)}

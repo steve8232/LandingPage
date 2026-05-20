@@ -32,6 +32,10 @@ export interface ProjectRow {
   callrail_company_id: string | null;
   callrail_company_name: string | null;
   callrail_webhook_signing_key: string | null;
+  business_phone: string | null;
+  callrail_tracker_id: string | null;
+  callrail_tracking_phone: string | null;
+  callrail_script_url: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -54,6 +58,10 @@ export interface ProjectDTO {
   audiencelabInstallUrl: string | null;
   callrailCompanyId: string | null;
   callrailCompanyName: string | null;
+  businessPhone: string | null;
+  callrailTrackerId: string | null;
+  callrailTrackingPhone: string | null;
+  callrailScriptUrl: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -76,6 +84,10 @@ export function rowToDTO(row: ProjectRow): ProjectDTO {
     audiencelabInstallUrl: row.audiencelab_install_url ?? null,
     callrailCompanyId: row.callrail_company_id ?? null,
     callrailCompanyName: row.callrail_company_name ?? null,
+    businessPhone: row.business_phone ?? null,
+    callrailTrackerId: row.callrail_tracker_id ?? null,
+    callrailTrackingPhone: row.callrail_tracking_phone ?? null,
+    callrailScriptUrl: row.callrail_script_url ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -87,7 +99,7 @@ export function rowToDTO(row: ProjectRow): ProjectDTO {
  * lives only in server-side reads (see remoteStorage helpers).
  */
 export const PROJECT_COLS =
-  'id, user_id, template_id, title, slug, overrides, subdomain, subdomain_status, subdomain_error, custom_domain, custom_domain_status, custom_domain_error, custom_domain_apex, audiencelab_pixel_id, audiencelab_install_url, callrail_company_id, callrail_company_name, created_at, updated_at';
+  'id, user_id, template_id, title, slug, overrides, subdomain, subdomain_status, subdomain_error, custom_domain, custom_domain_status, custom_domain_error, custom_domain_apex, audiencelab_pixel_id, audiencelab_install_url, callrail_company_id, callrail_company_name, business_phone, callrail_tracker_id, callrail_tracking_phone, callrail_script_url, created_at, updated_at';
 
 /**
  * Slug from a free-form title plus a short random suffix so two projects with

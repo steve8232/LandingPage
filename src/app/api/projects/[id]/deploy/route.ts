@@ -141,6 +141,11 @@ export async function POST(
     }
   }
 
+  // CallRail swap.js URL — provisioned out-of-band via the editor toolbar.
+  // Inject only when the project actually has a tracker bound; otherwise the
+  // published page stays inert (same posture as the AudienceLab pixel).
+  const callrailScriptUrl = project.callrail_script_url || undefined;
+
   let indexHtml: string;
   let thankYouHtml: string;
   try {
@@ -149,12 +154,14 @@ export async function POST(
       submitUrl,
       redirectTo: '/thank-you',
       pixelUrl: pixelInstallUrl || undefined,
+      callrailScriptUrl,
     });
     indexHtml = composed.html;
     // Thank-you page is always shipped; copy falls back to niche defaults
     // when overrides.thankYou is unset.
     thankYouHtml = composeV1ThankYou(project.template_id, project.overrides, {
       pixelUrl: pixelInstallUrl || undefined,
+      callrailScriptUrl,
     }).html;
   } catch (err) {
     return NextResponse.json(

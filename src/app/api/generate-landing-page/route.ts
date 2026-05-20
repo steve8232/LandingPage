@@ -189,6 +189,18 @@ export async function POST(request: NextRequest) {
         overrides = applyV1SectionOmissions(spec, overrides, v1Input.business.templateAnswers);
       }
 
+      // Persist the wizard's destination phone in overrides.meta.businessPhone
+      // so it's available to CallRail provisioning + swap.js without a separate
+      // round-trip through the form data. Source of truth for both the
+      // tracker's destination_number and DNI swap_targets.
+      const wizardPhone = v1Input.contact.phone?.trim();
+      if (wizardPhone) {
+        overrides = {
+          ...(overrides || {}),
+          meta: { ...((overrides && overrides.meta) || {}), businessPhone: wizardPhone },
+        };
+      }
+
 	      // For the interactive app output we allow remote demo images (when used)
 	      // so pages look richly illustrated without requiring user uploads.
 	      // Previews/build artifacts can still opt to stay fully offline.

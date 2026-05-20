@@ -192,6 +192,52 @@ export async function clearProjectCallrailBinding(projectId: string): Promise<Pr
   return data.project;
 }
 
+/** Number preference passed to the provisioning endpoint. */
+export type CallrailNumberPreference =
+  | { type: 'local'; areaCode: string }
+  | { type: 'toll_free'; prefix?: '800' | '888' | '877' | '866' | '855' | '844' | '833' };
+
+export interface ProvisionCallrailInput {
+  preference: CallrailNumberPreference;
+  /** Optional override; defaults server-side to overrides.meta.businessPhone. */
+  destinationPhone?: string;
+  /** Optional IANA time zone for company creation (server default applies). */
+  timeZone?: string;
+}
+
+/**
+ * Thrown when CallRail has no inventory for the requested area / toll-free
+ * prefix. The UI uses the `code === 'no_inventory'` signal to keep the
+ * provision panel open and offer alternatives without a generic error toast.
+ */
+export class ProvisionNoInventoryError extends Error {
+  readonly code = 'no_inventory' as const;
+  constructor(message: string) {
+    super(message);
+    this.name = 'ProvisionNoInventoryError';
+  }
+}
+
+export async function provisionCallrailTracker(
+  projectId: string,
+  input: ProvisionCallrailInput
+): Promise<ProjectDTO> {
+  const res = await fetch(`/api/projects/${projectId}/callrail/provision`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (res.status === 409) {
+    const data = await res.json().catch(() => null) as { error?: string; code?: string } | null;
+    if (data?.code === 'no_inventory') {
+      throw new ProvisionNoInventoryError(data?.error || 'No numbers available for that area.');
+    }
+  }
+  if (!res.ok) throw new Error(await parseError(res));
+  const data = await res.json() as { project: ProjectDTO };
+  return data.project;
+}
+
 export interface ProjectCallsResponse {
   calls: CallDTO[];
   /** True when this page was served straight from `public.calls`. */

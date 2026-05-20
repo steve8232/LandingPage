@@ -161,6 +161,13 @@ export interface V1MetaOverrides {
   imageAltTexts?: Record<string, string>;
   /** Optional credits for user-selected (non-demo) images, keyed by assetKey. */
   imageAttributions?: Record<string, V1ImageAttribution>;
+  /**
+   * Destination phone captured from the wizard's Contact step. Used as the
+   * forwarding number when provisioning a CallRail tracker and as the
+   * default swap.js target on the published page. Stored exactly as the
+   * user entered it (digits, with or without formatting).
+   */
+  businessPhone?: string;
 }
 
 export interface V1ImageAttribution {
@@ -235,6 +242,14 @@ export interface ComposeV1Options {
    * mode where pixels should not fire.
    */
   pixelUrl?: string;
+  /**
+   * CallRail swap.js URL (the company-scoped `script_url` returned by
+   * /companies.json, normalized to https). When set, a single
+   * `<script async src="…">` is injected into <head> so Dynamic Number
+   * Insertion replaces matching numbers on the page with the project's
+   * tracking number. Omit for preview/editor mode.
+   */
+  callrailScriptUrl?: string;
 }
 
 export function composeV1Template(
@@ -249,6 +264,7 @@ export function composeV1Template(
       ? options.redirectTo
       : '/thank-you';
   const pixelUrl = typeof options?.pixelUrl === 'string' ? options.pixelUrl : '';
+  const callrailScriptUrl = typeof options?.callrailScriptUrl === 'string' ? options.callrailScriptUrl : '';
 
   // 1. Load spec
   const spec = getV1Spec(templateId);
@@ -474,7 +490,8 @@ export function composeV1Template(
     attrHtml,
     overrides?.meta,
     submitUrl ? { submitUrl, redirectTo } : undefined,
-    pixelUrl || undefined
+    pixelUrl || undefined,
+    callrailScriptUrl || undefined
   );
 
   return { html, templateId };
@@ -517,7 +534,8 @@ export function buildV1Document(
   attributionHtml: string,
   meta?: V1MetaOverrides,
   formConfig?: BuildV1DocumentFormConfig,
-  pixelUrl?: string
+  pixelUrl?: string,
+  callrailScriptUrl?: string
 ): string {
   const pageTitle = meta?.pageTitle || spec.metadata.name;
   const metaDesc = meta?.metaDescription || spec.metadata.description;
@@ -535,12 +553,19 @@ export function buildV1Document(
     ? `\n  <script async src="${escapeAttr(pixelUrl)}"></script>`
     : '';
 
+  // CallRail swap.js — same shape as the pixel tag. The script reads its
+  // company config from the URL itself and replaces matching swap_targets
+  // on the page with the project's tracking number.
+  const callrailTag = callrailScriptUrl
+    ? `\n  <script async src="${escapeAttr(callrailScriptUrl)}"></script>`
+    : '';
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="${escapeAttr(metaDesc)}">${taglineTag}${pixelTag}
+  <meta name="description" content="${escapeAttr(metaDesc)}">${taglineTag}${pixelTag}${callrailTag}
   <title>${escapeHtml(pageTitle)}</title>
   <style>
 /* === v1 tokens === */

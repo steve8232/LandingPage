@@ -1,13 +1,16 @@
 'use client';
 
-import { Phone, Loader2, ChevronDown, Check, X, Copy } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Phone, Loader2, ChevronDown, Check, X, Copy, Sparkles } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   clearProjectCallrailBinding,
   listCallrailCompanies,
+  provisionCallrailTracker,
+  ProvisionNoInventoryError,
   setProjectCallrailBinding,
   type CallrailCompaniesResponse,
   type CallrailCompanyOption,
+  type CallrailNumberPreference,
 } from '@/lib/projects/remoteStorage';
 import type { ProjectDTO } from '@/lib/projects/types';
 
@@ -15,7 +18,25 @@ interface CallRailPickerProps {
   projectId: string;
   initialCompanyId: string | null;
   initialCompanyName: string | null;
+  /** Persisted destination phone for this project (column on projects). */
+  initialBusinessPhone?: string | null;
+  initialTrackerId?: string | null;
+  initialTrackingPhone?: string | null;
+  /** Live businessPhone from overrides.meta (current editor state). */
+  overridesBusinessPhone?: string | null;
   onChange?: (project: ProjectDTO) => void;
+}
+
+function digits(input: string | null | undefined): string {
+  return (input ?? '').replace(/\D/g, '');
+}
+
+/** Pretty-print a 10-digit US phone as (NPA) NXX-XXXX. */
+function formatPhone(input: string | null | undefined): string {
+  const d = digits(input);
+  if (d.length === 10) return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
+  if (d.length === 11 && d.startsWith('1')) return `(${d.slice(1, 4)}) ${d.slice(4, 7)}-${d.slice(7)}`;
+  return input ?? '';
 }
 
 /**
@@ -32,17 +53,43 @@ export default function CallRailPicker({
   projectId,
   initialCompanyId,
   initialCompanyName,
+  initialBusinessPhone,
+  initialTrackerId,
+  initialTrackingPhone,
+  overridesBusinessPhone,
   onChange,
 }: CallRailPickerProps) {
   const [companyId, setCompanyId] = useState<string | null>(initialCompanyId);
   const [companyName, setCompanyName] = useState<string | null>(initialCompanyName);
+  const [trackerId, setTrackerId] = useState<string | null>(initialTrackerId ?? null);
+  const [trackingPhone, setTrackingPhone] = useState<string | null>(initialTrackingPhone ?? null);
   const [companiesState, setCompaniesState] = useState<CallrailCompaniesResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [signingDraft, setSigningDraft] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [copied, setCopied] = useState(false);
+  // Provisioning sub-flow state.
+  const [provisionMode, setProvisionMode] = useState(false);
+  const [provisionError, setProvisionError] = useState('');
+  const [noInventory, setNoInventory] = useState(false);
+  const [areaCodeDraft, setAreaCodeDraft] = useState('');
   const popoverRef = useRef<HTMLDivElement | null>(null);
+
+  // Mirror server-side state when the parent rehydrates (e.g. after save).
+  useEffect(() => { setTrackerId(initialTrackerId ?? null); }, [initialTrackerId]);
+  useEffect(() => { setTrackingPhone(initialTrackingPhone ?? null); }, [initialTrackingPhone]);
+
+  // Destination phone — persisted column wins, falls back to live overrides.
+  const destPhone = useMemo(() => {
+    const persisted = digits(initialBusinessPhone);
+    if (persisted.length >= 10) return persisted;
+    return digits(overridesBusinessPhone);
+  }, [initialBusinessPhone, overridesBusinessPhone]);
+
+  // Default area code = first 3 digits of destination phone. Empty when the
+  // wizard didn't capture a phone yet (provision UI will require user input).
+  const defaultAreaCode = destPhone.length >= 10 ? destPhone.slice(0, 3) : '';
 
   // Webhook URL derived from the current origin so it works in dev + prod.
   const webhookUrl = typeof window === 'undefined'
@@ -92,6 +139,55 @@ export default function CallRailPicker({
     }
   }, [projectId, onChange]);
 
+  // Single entry point for provisioning. Accepts any preference (the calling
+  // button decides whether it's the area-code attempt, a user-chosen area, or
+  // a toll-free fallback). On no-inventory, surfaces the retry options.
+  const runProvision = useCallback(async (preference: CallrailNumberPreference) => {
+    setProvisionError('');
+    setNoInventory(false);
+    setLoading(true);
+    try {
+      const project = await provisionCallrailTracker(projectId, { preference });
+      setCompanyId(project.callrailCompanyId);
+      setCompanyName(project.callrailCompanyName);
+      setTrackerId(project.callrailTrackerId);
+      setTrackingPhone(project.callrailTrackingPhone);
+      setProvisionMode(false);
+      setAreaCodeDraft('');
+      onChange?.(project);
+    } catch (err) {
+      if (err instanceof ProvisionNoInventoryError) {
+        setNoInventory(true);
+        setProvisionError(err.message);
+      } else {
+        setProvisionError(err instanceof Error ? err.message : 'Provisioning failed');
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [projectId, onChange]);
+
+  const handleProvisionAreaMatch = useCallback(() => {
+    if (!defaultAreaCode) {
+      setProvisionError('Add a phone number in the wizard before provisioning a tracking line.');
+      return;
+    }
+    runProvision({ type: 'local', areaCode: defaultAreaCode });
+  }, [defaultAreaCode, runProvision]);
+
+  const handleProvisionCustomAreaCode = useCallback(() => {
+    const ac = digits(areaCodeDraft).slice(0, 3);
+    if (ac.length !== 3) {
+      setProvisionError('Enter a 3-digit area code.');
+      return;
+    }
+    runProvision({ type: 'local', areaCode: ac });
+  }, [areaCodeDraft, runProvision]);
+
+  const handleProvisionTollFree = useCallback(() => {
+    runProvision({ type: 'toll_free', prefix: '888' });
+  }, [runProvision]);
+
   const handleSaveSigningKey = useCallback(async () => {
     if (!companyId) return;
     setErrorMsg('');
@@ -119,12 +215,15 @@ export default function CallRailPicker({
   }, [companyId, projectId, signingDraft, onChange]);
 
   const handleUnbind = useCallback(async () => {
-    if (!window.confirm('Remove the CallRail binding from this page?')) return;
+    if (!window.confirm('Remove the CallRail binding from this page? The tracker stays active on your CallRail account and will continue billing until you delete it there.')) return;
     setLoading(true);
     try {
       const project = await clearProjectCallrailBinding(projectId);
       setCompanyId(null);
       setCompanyName(null);
+      setTrackerId(null);
+      setTrackingPhone(null);
+      setProvisionMode(false);
       onChange?.(project);
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Failed to unbind');
@@ -174,18 +273,46 @@ export default function CallRailPicker({
                 Set <code className="font-mono">CALLRAIL_API_KEY</code> on the server to enable call tracking.
               </p>
             </div>
+          ) : !bound && provisionMode ? (
+            renderProvisionPanel({
+              destPhone,
+              defaultAreaCode,
+              loading,
+              noInventory,
+              provisionError,
+              areaCodeDraft,
+              setAreaCodeDraft,
+              handleProvisionAreaMatch,
+              handleProvisionCustomAreaCode,
+              handleProvisionTollFree,
+              onCancel: () => { setProvisionMode(false); setProvisionError(''); setNoInventory(false); },
+            })
           ) : !bound ? (
             <div>
-              <div className="font-medium text-gray-800 mb-2">Pick a CallRail company</div>
+              <div className="font-medium text-gray-800 mb-1">Set up call tracking</div>
+              <p className="text-[11px] text-gray-500 mb-2">
+                Auto-provision a tracking number, or bind to an existing CallRail company.
+              </p>
+
+              <button
+                type="button"
+                onClick={() => { setProvisionMode(true); setProvisionError(''); setNoInventory(false); }}
+                disabled={loading}
+                className="w-full text-xs px-2 py-1.5 mb-2 rounded-md bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-50 inline-flex items-center justify-center gap-1.5"
+              >
+                <Sparkles className="w-3.5 h-3.5" /> Auto-provision tracking number
+              </button>
+
+              <div className="text-[11px] uppercase tracking-wide text-gray-400 mt-2 mb-1">Or pick existing</div>
               {companiesState?.error ? (
                 <p className="text-xs text-red-600 mb-2">{companiesState.error}</p>
               ) : null}
               {companiesState && companiesState.companies.length === 0 ? (
                 <p className="text-xs text-gray-500">
-                  No companies on this CallRail account.
+                  No companies on this CallRail account yet.
                 </p>
               ) : (
-                <ul className="max-h-56 overflow-auto -mx-1">
+                <ul className="max-h-40 overflow-auto -mx-1">
                   {companiesState?.companies.map((c) => (
                     <li key={c.id}>
                       <button
@@ -203,6 +330,20 @@ export default function CallRailPicker({
                 </ul>
               )}
             </div>
+          ) : provisionMode ? (
+            renderProvisionPanel({
+              destPhone,
+              defaultAreaCode,
+              loading,
+              noInventory,
+              provisionError,
+              areaCodeDraft,
+              setAreaCodeDraft,
+              handleProvisionAreaMatch,
+              handleProvisionCustomAreaCode,
+              handleProvisionTollFree,
+              onCancel: () => { setProvisionMode(false); setProvisionError(''); setNoInventory(false); },
+            })
           ) : (
             <div>
               <div className="flex items-start justify-between gap-2 mb-2">
@@ -221,7 +362,39 @@ export default function CallRailPicker({
                 </button>
               </div>
 
-              <div className="mt-2">
+              {trackingPhone ? (
+                <div className="mt-2 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-2">
+                  <div className="text-[11px] uppercase tracking-wide text-emerald-700 mb-0.5">Tracking number</div>
+                  <div className="font-mono text-sm text-emerald-900">{formatPhone(trackingPhone)}</div>
+                  {destPhone ? (
+                    <div className="text-[11px] text-emerald-800/70 mt-0.5">
+                      Forwards to {formatPhone(destPhone)} · swap.js replaces this number on published pages
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-2">
+                  <div className="text-[11px] uppercase tracking-wide text-amber-700 mb-0.5">No tracking number yet</div>
+                  <p className="text-[11px] text-amber-900/80 mb-1.5">
+                    Provision a number so visits get attributed to their source.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => { setProvisionMode(true); setProvisionError(''); setNoInventory(false); }}
+                    disabled={loading}
+                    className="w-full text-xs px-2 py-1.5 rounded-md bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-50 inline-flex items-center justify-center gap-1.5"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" /> Provision tracking number
+                  </button>
+                </div>
+              )}
+              {trackerId ? (
+                <div className="mt-1 text-[10px] text-gray-400 font-mono truncate" title={trackerId}>
+                  tracker: {trackerId}
+                </div>
+              ) : null}
+
+              <div className="mt-3">
                 <div className="text-[11px] uppercase tracking-wide text-gray-500 mb-1">Webhook URL</div>
                 <div className="flex items-center gap-1">
                   <input
@@ -270,6 +443,101 @@ export default function CallRailPicker({
             <div className="mt-2 text-xs text-red-600">{errorMsg}</div>
           )}
         </div>
+      )}
+    </div>
+  );
+}
+
+interface ProvisionPanelProps {
+  destPhone: string;
+  defaultAreaCode: string;
+  loading: boolean;
+  noInventory: boolean;
+  provisionError: string;
+  areaCodeDraft: string;
+  setAreaCodeDraft: (v: string) => void;
+  handleProvisionAreaMatch: () => void;
+  handleProvisionCustomAreaCode: () => void;
+  handleProvisionTollFree: () => void;
+  onCancel: () => void;
+}
+
+function renderProvisionPanel(p: ProvisionPanelProps) {
+  const {
+    destPhone, defaultAreaCode, loading, noInventory, provisionError,
+    areaCodeDraft, setAreaCodeDraft,
+    handleProvisionAreaMatch, handleProvisionCustomAreaCode, handleProvisionTollFree,
+    onCancel,
+  } = p;
+  const hasPhone = destPhone.length >= 10;
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <div className="font-medium text-gray-800">Provision tracking number</div>
+        <button onClick={onCancel} className="text-xs text-gray-400 hover:text-gray-700" title="Cancel">
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+
+      <div className="mb-2 rounded-md border border-gray-200 bg-gray-50 px-2 py-1.5">
+        <div className="text-[11px] uppercase tracking-wide text-gray-500">Forwards calls to</div>
+        <div className="font-mono text-xs text-gray-800">
+          {hasPhone ? formatPhone(destPhone) : '— add a phone in the wizard'}
+        </div>
+      </div>
+
+      <p className="text-[11px] text-gray-600 mb-2">
+        CallRail bills your account a recurring monthly fee per tracker. swap.js
+        will replace this number on the published page with the new tracking number.
+      </p>
+
+      {!noInventory ? (
+        <button
+          type="button"
+          onClick={handleProvisionAreaMatch}
+          disabled={loading || !hasPhone}
+          className="w-full text-xs px-2 py-1.5 rounded-md bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-50 inline-flex items-center justify-center gap-1.5"
+        >
+          {loading
+            ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Provisioning…</>
+            : <>Use area code {defaultAreaCode || '???'}</>}
+        </button>
+      ) : (
+        <>
+          <div className="text-[11px] text-amber-700 mb-1.5">
+            No numbers available in {defaultAreaCode || 'that area'}. Try another area code or a toll-free number.
+          </div>
+          <div className="flex items-center gap-1 mb-2">
+            <input
+              value={areaCodeDraft}
+              onChange={(e) => setAreaCodeDraft(e.target.value.replace(/\D/g, '').slice(0, 3))}
+              placeholder="NPA"
+              inputMode="numeric"
+              maxLength={3}
+              className="w-16 text-xs px-2 py-1.5 rounded-md border border-gray-300 font-mono text-center"
+            />
+            <button
+              type="button"
+              onClick={handleProvisionCustomAreaCode}
+              disabled={loading || areaCodeDraft.length !== 3}
+              className="flex-1 text-xs px-2 py-1.5 rounded-md border border-gray-300 hover:bg-gray-50 disabled:opacity-50"
+            >
+              Try this area code
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={handleProvisionTollFree}
+            disabled={loading}
+            className="w-full text-xs px-2 py-1.5 rounded-md bg-gray-800 text-white hover:bg-black disabled:opacity-50"
+          >
+            {loading ? 'Provisioning…' : 'Use a toll-free 888 number'}
+          </button>
+        </>
+      )}
+
+      {provisionError && (
+        <div className="mt-2 text-xs text-red-600">{provisionError}</div>
       )}
     </div>
   );

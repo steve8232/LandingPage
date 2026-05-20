@@ -35,6 +35,19 @@ export class CallRailAuthError extends Error {
   }
 }
 
+/**
+ * Thrown when CallRail can't issue a tracker because there's no inventory in
+ * the requested area (most commonly a 422 from POST /trackers.json with a
+ * specific `tracking_number.local` or `area_code`). Lets the UI offer the
+ * user a different area code or a toll-free fallback.
+ */
+export class CallRailNoInventoryError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'CallRailNoInventoryError';
+  }
+}
+
 function authHeaders(apiKey: string): Record<string, string> {
   return {
     Authorization: `Token token="${apiKey}"`,
@@ -57,6 +70,22 @@ async function callrailFetch(url: string, apiKey: string): Promise<Response> {
   const res = await fetch(url, {
     method: 'GET',
     headers: authHeaders(apiKey),
+    cache: 'no-store',
+  });
+  if (res.status === 401 || res.status === 403) {
+    throw new CallRailAuthError(`CallRail rejected the API key (${res.status})`);
+  }
+  if (res.status === 404) {
+    throw new CallRailNotFoundError(await parseError(res));
+  }
+  return res;
+}
+
+async function callrailPost(url: string, apiKey: string, body: unknown): Promise<Response> {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { ...authHeaders(apiKey), 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
     cache: 'no-store',
   });
   if (res.status === 401 || res.status === 403) {
@@ -122,6 +151,136 @@ export async function listCompanies(
   }
   const data = (await res.json()) as { companies?: CallRailCompany[] };
   return Array.isArray(data?.companies) ? data.companies : [];
+}
+
+/**
+ * Full company shape including DNI fields. `script_url` is the swap.js URL
+ * we inject into published pages — CallRail returns it protocol-relative
+ * (`//cdn.callrail.com/...`); callers should prefix `https:` before use.
+ */
+export interface CallRailCompanyFull extends CallRailCompany {
+  time_zone?: string | null;
+  script_url?: string | null;
+  swap_exclude_jquery?: boolean | null;
+}
+
+/**
+ * POST /v3/a/{account_id}/companies.json — creates a Company. A Company is
+ * just an organizational container and is **free** (the per-month cost is
+ * billed per *tracker*, not per company). Time zone is required by CallRail.
+ */
+export async function createCompany(
+  apiKey: string,
+  accountId: string,
+  input: { name: string; timeZone: string }
+): Promise<CallRailCompanyFull> {
+  const url = `${CALLRAIL_API}/v3/a/${encodeURIComponent(accountId)}/companies.json`;
+  const res = await callrailPost(url, apiKey, {
+    name: input.name,
+    time_zone: input.timeZone,
+  });
+  if (!res.ok) {
+    throw new Error(`createCompany failed: ${await parseError(res)}`);
+  }
+  return (await res.json()) as CallRailCompanyFull;
+}
+
+// ── Trackers ───────────────────────────────────────────────────────────────
+
+/**
+ * Preference describing what kind of tracking number we want issued. Maps
+ * onto CallRail's tracker request body:
+ *   - `area_code` → `tracking_number: { type: 'local', local: { area_code } }`
+ *   - `toll_free` → `tracking_number: { type: 'toll_free', toll_free: { prefix } }`
+ *
+ * The provisioning route walks these in order so the editor can attempt the
+ * destination phone's area code first, then surface alternatives if CallRail
+ * has no inventory in that area.
+ */
+export type CallRailNumberPreference =
+  | { type: 'local'; areaCode: string }
+  | { type: 'toll_free'; prefix?: '800' | '888' | '877' | '866' | '855' | '844' | '833' };
+
+export interface CreateTrackerInput {
+  companyId: string;
+  /** Display name shown in the CallRail UI. */
+  name: string;
+  /** Where calls to the tracking number are forwarded (E.164 digits). */
+  destinationNumber: string;
+  /** Desired tracking-number characteristics. */
+  preference: CallRailNumberPreference;
+  /**
+   * Page numbers swap.js will replace with the tracking number on visits
+   * routed through a tracked source. Defaults to `[destinationNumber]` when
+   * omitted, which is exactly the wizard-captured business phone.
+   */
+  swapTargets?: string[];
+}
+
+/** Subset of the tracker response we use. CallRail returns many more fields. */
+export interface CallRailTracker {
+  id: string;
+  name: string;
+  type: string;
+  status: string;
+  company_id: string;
+  destination_number: string | null;
+  tracking_numbers: string[];
+  [key: string]: unknown;
+}
+
+/**
+ * POST /v3/a/{account_id}/trackers.json — provisions a new tracker. **This
+ * step is paid** — CallRail bills the account a recurring monthly fee per
+ * tracker. The caller (UI) must surface that cost to the user before
+ * triggering this endpoint.
+ *
+ * Throws CallRailNoInventoryError on 422 so the UI can offer a different
+ * area code or a toll-free fallback without a generic error.
+ */
+export async function createTracker(
+  apiKey: string,
+  accountId: string,
+  input: CreateTrackerInput
+): Promise<CallRailTracker> {
+  const url = `${CALLRAIL_API}/v3/a/${encodeURIComponent(accountId)}/trackers.json`;
+  const tracking_number = input.preference.type === 'local'
+    ? { type: 'local', local: { area_code: input.preference.areaCode } }
+    : { type: 'toll_free', toll_free: { prefix: input.preference.prefix ?? '888' } };
+  const swap_targets = (input.swapTargets ?? [input.destinationNumber]).map((n) => ({
+    number: n,
+    replace_in: ['phone_calls'],
+  }));
+  const body = {
+    company_id: input.companyId,
+    name: input.name,
+    type: 'source',
+    destination_number: input.destinationNumber,
+    tracking_number,
+    swap_targets,
+  };
+  const res = await callrailPost(url, apiKey, body);
+  if (res.status === 422) {
+    throw new CallRailNoInventoryError(await parseError(res));
+  }
+  if (!res.ok) {
+    throw new Error(`createTracker failed: ${await parseError(res)}`);
+  }
+  return (await res.json()) as CallRailTracker;
+}
+
+/**
+ * Normalize the protocol-relative `script_url` CallRail returns on the
+ * company create response into an absolute `https://…` URL safe to inject
+ * into published `<head>`s. Returns null if the input is unusable.
+ */
+export function normalizeCallRailScriptUrl(scriptUrl: string | null | undefined): string | null {
+  if (!scriptUrl) return null;
+  const trimmed = scriptUrl.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith('//')) return `https:${trimmed}`;
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;
+  return null;
 }
 
 // ── Calls ──────────────────────────────────────────────────────────────────

@@ -37,6 +37,12 @@ export interface ComposeV1ThankYouOptions {
    * tracked alongside the landing page. Omit for preview mode.
    */
   pixelUrl?: string;
+  /**
+   * CallRail swap.js URL — same purpose as on the landing page. Injecting
+   * it here keeps source attribution accurate when visitors land directly
+   * on /thank-you (e.g. shared URLs).
+   */
+  callrailScriptUrl?: string;
 }
 
 export function composeV1ThankYou(
@@ -87,6 +93,7 @@ export function composeV1ThankYou(
   };
 
   const pixelUrl = typeof options?.pixelUrl === 'string' ? options.pixelUrl : '';
+  const callrailScriptUrl = typeof options?.callrailScriptUrl === 'string' ? options.callrailScriptUrl : '';
 
   const html = buildV1Document(
     spec,
@@ -96,7 +103,8 @@ export function composeV1ThankYou(
     '', // no attribution footer on the thank-you page
     thankYouMeta,
     undefined,
-    pixelUrl || undefined
+    pixelUrl || undefined,
+    callrailScriptUrl || undefined
   );
 
   return { html, templateId };
