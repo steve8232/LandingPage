@@ -254,31 +254,85 @@ function ProjectList({
                     </span>
                   </div>
                   {(() => {
-                    // Prefer the stable subdomain URL whenever the alias is
-                    // ready; fall back to the immutable *.vercel.app URL.
-                    const stableHost =
-                      p.subdomain && p.subdomainStatus === 'ready'
+                    // Precedence: live custom domain → live SparkPage
+                    // subdomain → immutable *.vercel.app. A custom domain
+                    // that's attached-but-not-yet-live gets a pending pill
+                    // so the user sees that DNS / verification is still in
+                    // flight. When the custom domain is primary AND the
+                    // SparkPage subdomain is also live, the latter is shown
+                    // as a muted secondary line.
+                    const customReady = !!p.customDomain && p.customDomainStatus === 'ready';
+                    const subdomainReady = !!p.subdomain && p.subdomainStatus === 'ready';
+                    const primaryHost = customReady
+                      ? (p.customDomain as string)
+                      : subdomainReady
                         ? `${p.subdomain}.${PAGES_PARENT_DOMAIN}`
                         : null;
-                    const displayUrl = stableHost
-                      ? `https://${stableHost}`
+                    const primaryUrl = primaryHost
+                      ? `https://${primaryHost}`
                       : dep?.status === 'ready' && dep.url
                         ? dep.url
                         : null;
-                    if (!displayUrl) return null;
-                    const label = stableHost ?? displayUrl.replace(/^https?:\/\//, '');
+                    const secondaryHost =
+                      customReady && subdomainReady
+                        ? `${p.subdomain}.${PAGES_PARENT_DOMAIN}`
+                        : null;
+                    const pending =
+                      !!p.customDomain && p.customDomainStatus && p.customDomainStatus !== 'ready'
+                        ? p.customDomainStatus === 'error'
+                          ? { label: 'Domain error', cls: 'bg-red-50 text-red-700 border-red-200' }
+                          : p.customDomainStatus === 'pending_dns'
+                            ? { label: 'DNS pending', cls: 'bg-amber-50 text-amber-700 border-amber-200' }
+                            : { label: 'Verifying…', cls: 'bg-amber-50 text-amber-700 border-amber-200' }
+                        : null;
+                    if (!primaryUrl && !pending) return null;
+                    const primaryLabel = primaryHost ?? (primaryUrl ? primaryUrl.replace(/^https?:\/\//, '') : '');
                     return (
-                      <a
-                        href={displayUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        className="text-xs text-orange-700 hover:text-orange-800 inline-flex items-center gap-1 mt-1 max-w-full truncate"
-                        title={displayUrl}
-                      >
-                        <ExternalLink className="w-3 h-3 shrink-0" />
-                        {label}
-                      </a>
+                      <div className="mt-1 flex flex-col gap-0.5 min-w-0">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          {primaryUrl ? (
+                            <a
+                              href={primaryUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-xs text-orange-700 hover:text-orange-800 inline-flex items-center gap-1 max-w-full truncate"
+                              title={primaryUrl}
+                            >
+                              <ExternalLink className="w-3 h-3 shrink-0" />
+                              {primaryLabel}
+                            </a>
+                          ) : (
+                            <span
+                              className="text-xs text-gray-600 inline-flex items-center gap-1 max-w-full truncate"
+                              title={p.customDomain ?? ''}
+                            >
+                              <ExternalLink className="w-3 h-3 shrink-0 opacity-40" />
+                              {p.customDomain}
+                            </span>
+                          )}
+                          {pending && (
+                            <span
+                              className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full border shrink-0 ${pending.cls}`}
+                              title={p.customDomainError || pending.label}
+                            >
+                              {pending.label}
+                            </span>
+                          )}
+                        </div>
+                        {secondaryHost && (
+                          <a
+                            href={`https://${secondaryHost}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-[11px] text-gray-500 hover:text-gray-700 inline-flex items-center gap-1 max-w-full truncate"
+                            title={`https://${secondaryHost}`}
+                          >
+                            also at {secondaryHost}
+                          </a>
+                        )}
+                      </div>
                     );
                   })()}
                 </button>
