@@ -91,6 +91,21 @@ export function loadTokensCss(): string {
   return readCssFile('v1/themes/tokens.css');
 }
 
+/**
+ * Render the wizard-captured business phone as `(NPA) NXX-XXXX` so the visible
+ * page text matches the format the wizard's own input enforces, and so swap.js
+ * has a deterministic string to match against on the page. Strings that don't
+ * normalize to 10 or 11 digits are returned unchanged.
+ */
+function formatBusinessPhone(input: string): string {
+  const d = input.replace(/\D/g, '');
+  if (d.length === 10) return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
+  if (d.length === 11 && d.startsWith('1')) {
+    return `(${d.slice(1, 4)}) ${d.slice(4, 7)}-${d.slice(7)}`;
+  }
+  return input;
+}
+
 export function loadThemeCss(themeName: string): string {
   return readCssFile(`v1/themes/${themeName}.css`);
 }
@@ -362,6 +377,18 @@ export function composeV1Template(
       const props = sectionOverride
         ? { ...entry.props, ...sectionOverride }
         : { ...entry.props };
+
+      // Phone resolution — when the spec slot declares a `phone` field and the
+      // wizard captured a business phone, replace the spec's demo number with
+      // the wizard value. Formatted to (NPA) NXX-XXXX so it matches the swap
+      // targets we register with CallRail and renders nicely on the page.
+      if (
+        typeof (entry.props as Record<string, unknown>).phone === 'string' &&
+        typeof overrides?.meta?.businessPhone === 'string' &&
+        overrides.meta.businessPhone.replace(/\D/g, '').length >= 10
+      ) {
+        (props as Record<string, unknown>).phone = formatBusinessPhone(overrides.meta.businessPhone);
+      }
 
       // Resolve image asset references in props (using resolved URLs)
       // HeroSplit

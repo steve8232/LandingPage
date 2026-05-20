@@ -75,6 +75,15 @@ function asString(v: unknown): string {
   return typeof v === 'string' ? v : '';
 }
 
+/** Mirror the wizard's formatter so the SEO-tab phone input looks the same. */
+function formatBusinessPhoneInput(input: string): string {
+  const d = input.replace(/\D/g, '').slice(0, 10);
+  if (d.length === 0) return '';
+  if (d.length <= 3) return `(${d}`;
+  if (d.length <= 6) return `(${d.slice(0, 3)}) ${d.slice(3)}`;
+  return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
+}
+
 function asStringArray(v: unknown): string[] {
   if (!Array.isArray(v)) return [];
   return v.filter((x) => typeof x === 'string') as string[];
@@ -2807,6 +2816,26 @@ export default function PreviewDownload({
                             onChange={(e) => updateV1Meta({ tagline: e.target.value })}
                             className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
                           />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Business phone <span className="text-gray-400 font-normal">— shown on the page; forwarded to by CallRail</span>
+                          </label>
+                          <input
+                            type="tel"
+                            inputMode="tel"
+                            value={formatBusinessPhoneInput(v1Overrides?.meta?.businessPhone ?? '')}
+                            onChange={(e) => {
+                              const raw = e.target.value.replace(/\D/g, '').slice(0, 10);
+                              updateV1Meta({ businessPhone: raw });
+                            }}
+                            placeholder="(555) 123-4567"
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm font-mono"
+                          />
+                          <p className="text-[11px] text-gray-500 mt-1">
+                            Updates AnnouncementBar, StickyHeader and Footer on this page. Re-render to apply.
+                          </p>
                         </div>
 
                         <button

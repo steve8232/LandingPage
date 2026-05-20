@@ -52,6 +52,30 @@ function digits(input: string | null | undefined): string {
   return (input ?? '').replace(/\D/g, '');
 }
 
+/**
+ * Build the swap_targets list for CallRail. We register every common visual
+ * form of the wizard phone so swap.js matches whatever rendered text and
+ * `tel:` hrefs the page happens to contain. CallRail's swap engine treats
+ * each entry as an independent string to search-and-replace.
+ */
+function buildSwapTargets(rawPhone: string): string[] {
+  const d = digits(rawPhone);
+  if (d.length < 10) return [rawPhone];
+  const ten = d.length === 11 && d.startsWith('1') ? d.slice(1) : d.slice(-10);
+  const npa = ten.slice(0, 3);
+  const nxx = ten.slice(3, 6);
+  const line = ten.slice(6);
+  const targets = new Set<string>([
+    ten,                          // 5551234567
+    `(${npa}) ${nxx}-${line}`,    // (555) 123-4567 (composer + wizard formatter)
+    `${npa}-${nxx}-${line}`,      // 555-123-4567
+    `${npa}.${nxx}.${line}`,      // 555.123.4567
+    `+1${ten}`,                   // +15551234567 (tel: href form)
+    `1${ten}`,                    // 15551234567
+  ]);
+  return Array.from(targets);
+}
+
 function parsePreference(input: ProvisionBody['preference']): CallRailNumberPreference | { error: string } {
   if (!input || typeof input !== 'object') return { error: 'preference is required' };
   if (input.type === 'local') {
@@ -95,8 +119,12 @@ export async function POST(
   if (!projectRow) return NextResponse.json({ error: 'Not found' }, { status: 404 });
   const project = projectRow as ProjectRow;
 
+  // Priority: explicit body > overrides.meta.businessPhone (live editor value)
+  // > projects.business_phone (cached from a prior provision). The editor is
+  // the source of truth for what's actually on the page, so a re-provision
+  // after editing must use the freshly edited number.
   const overridesPhone = (project.overrides as { meta?: { businessPhone?: string } } | null)?.meta?.businessPhone;
-  const destPhone = digits(body.destinationPhone || project.business_phone || overridesPhone || '');
+  const destPhone = digits(body.destinationPhone || overridesPhone || project.business_phone || '');
   if (destPhone.length < 10) {
     return NextResponse.json({ error: 'Missing or invalid business phone on this project.' }, { status: 400 });
   }
@@ -147,8 +175,8 @@ export async function POST(
     return NextResponse.json({ error: 'Failed to resolve CallRail company.' }, { status: 502 });
   }
 
-  // Step 2: provision the tracker. swap_targets uses the digits form so swap.js
-  // matches whatever local formatting the published page renders.
+  // Step 2: provision the tracker. swap_targets covers every common visual
+  // form of the wizard phone so DNI matches whatever the page renders.
   let tracker;
   try {
     tracker = await createTracker(apiKey, accountId, {
@@ -156,7 +184,7 @@ export async function POST(
       name: `SparkPage — ${project.title || project.id.slice(0, 8)}`,
       destinationNumber: destPhone,
       preference,
-      swapTargets: [destPhone],
+      swapTargets: buildSwapTargets(destPhone),
     });
   } catch (err) {
     if (err instanceof CallRailNoInventoryError) {
