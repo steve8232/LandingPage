@@ -59,8 +59,15 @@ function authHeaders(apiKey: string): Record<string, string> {
 async function parseError(res: Response): Promise<string> {
   try {
     const data = await res.json();
-    const msg = data?.error || data?.message || data?.errors?.[0];
-    return typeof msg === 'string' ? msg : `CallRail API ${res.status}`;
+    const first = data?.error || data?.message || data?.errors?.[0];
+    if (typeof first === 'string') return first;
+    if (first && typeof first === 'object') {
+      // CallRail sometimes returns errors as [{ field, message }] or a map.
+      const obj = first as Record<string, unknown>;
+      if (typeof obj.message === 'string') return obj.message;
+      try { return JSON.stringify(first); } catch { /* fall through */ }
+    }
+    return `CallRail API ${res.status}`;
   } catch {
     return `CallRail API ${res.status}`;
   }
@@ -229,11 +236,23 @@ export interface CallRailTracker {
   [key: string]: unknown;
 }
 
+/** Coerce a phone-ish string into E.164 (+1NPANXXXXXX) for CallRail's API. */
+function toE164US(raw: string): string {
+  const d = raw.replace(/\D/g, '');
+  const ten = d.length === 11 && d.startsWith('1') ? d.slice(1) : d.slice(-10);
+  return `+1${ten}`;
+}
+
 /**
  * POST /v3/a/{account_id}/trackers.json — provisions a new tracker. **This
  * step is paid** — CallRail bills the account a recurring monthly fee per
  * tracker. The caller (UI) must surface that cost to the user before
  * triggering this endpoint.
+ *
+ * Body shape follows CallRail v3 (see "Creating a Source Tracker" in the
+ * API docs): destination_number lives inside a basic call_flow, source is
+ * required (we use catch-all "all"), tracking_number is the flat
+ * {area_code} / {toll_free} shape, and swap_targets is an array of strings.
  *
  * Throws CallRailNoInventoryError on 422 so the UI can offer a different
  * area code or a toll-free fallback without a generic error.
@@ -244,19 +263,24 @@ export async function createTracker(
   input: CreateTrackerInput
 ): Promise<CallRailTracker> {
   const url = `${CALLRAIL_API}/v3/a/${encodeURIComponent(accountId)}/trackers.json`;
-  const tracking_number = input.preference.type === 'local'
-    ? { type: 'local', local: { area_code: input.preference.areaCode } }
-    : { type: 'toll_free', toll_free: { prefix: input.preference.prefix ?? '888' } };
-  const swap_targets = (input.swapTargets ?? [input.destinationNumber]).map((n) => ({
-    number: n,
-    replace_in: ['phone_calls'],
-  }));
+  const tracking_number: Record<string, string | boolean> = input.preference.type === 'local'
+    ? { area_code: input.preference.areaCode }
+    : { toll_free: true, area_code: input.preference.prefix ?? '888' };
+  const swap_targets = input.swapTargets ?? [input.destinationNumber];
+  const destinationE164 = toE164US(input.destinationNumber);
   const body = {
     company_id: input.companyId,
     name: input.name,
     type: 'source',
-    destination_number: input.destinationNumber,
+    call_flow: {
+      type: 'basic',
+      recording_enabled: true,
+      destination_number: destinationE164,
+      greeting_text: null,
+      greeting_recording_url: null,
+    },
     tracking_number,
+    source: { type: 'all' },
     swap_targets,
   };
   const res = await callrailPost(url, apiKey, body);
