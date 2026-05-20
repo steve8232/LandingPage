@@ -227,15 +227,23 @@ export async function provisionCallrailTracker(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
   });
-  if (res.status === 409) {
-    const data = await res.json().catch(() => null) as { error?: string; code?: string } | null;
-    if (data?.code === 'no_inventory') {
-      throw new ProvisionNoInventoryError(data?.error || 'No numbers available for that area.');
+  // Consume the body exactly once: every non-2xx path needs the same parsed
+  // payload to discriminate code='no_inventory' vs other 409s vs generic
+  // errors. Reading res.json() a second time on the !res.ok branch (as the
+  // prior version did) throws and surfaces a useless `Request failed (409)`
+  // to the user, hiding the real CallRail message.
+  const payload = await res.json().catch(() => null) as
+    | { project?: ProjectDTO; error?: string; code?: string }
+    | null;
+  if (!res.ok) {
+    const message = payload?.error || `Request failed (${res.status})`;
+    if (res.status === 409 && payload?.code === 'no_inventory') {
+      throw new ProvisionNoInventoryError(message);
     }
+    throw new Error(message);
   }
-  if (!res.ok) throw new Error(await parseError(res));
-  const data = await res.json() as { project: ProjectDTO };
-  return data.project;
+  if (!payload?.project) throw new Error('Provisioning returned no project');
+  return payload.project;
 }
 
 export interface ProjectCallsResponse {
