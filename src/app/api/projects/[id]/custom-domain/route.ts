@@ -12,6 +12,7 @@ import {
   removeProjectDomain,
   getDomainVerification,
   ProjectNotProvisionedError,
+  DomainClaimedError,
 } from '@/lib/vercel/domains';
 import { vercelProjectNameFor } from '@/lib/vercel/client';
 
@@ -66,6 +67,7 @@ export async function PUT(
       custom_domain_apex: apex,
       custom_domain_status: 'pending_dns',
       custom_domain_error: null,
+      custom_domain_error_code: null,
     })
     .eq('id', id)
     .select(PROJECT_COLS)
@@ -73,7 +75,10 @@ export async function PUT(
 
   if (updateErr) {
     if ((updateErr as { code?: string }).code === '23505') {
-      return NextResponse.json({ error: 'Domain is already claimed by another project.' }, { status: 409 });
+      return NextResponse.json(
+        { error: 'Domain is already claimed by another SparkPage.', code: 'domain_taken_internal' },
+        { status: 409 },
+      );
     }
     return NextResponse.json({ error: updateErr.message }, { status: 500 });
   }
@@ -98,7 +103,10 @@ export async function PUT(
 
   if (projectExistsOnVercel) {
     try {
-      await addProjectDomain(projectName, domain);
+      // releaseOrphan: a prior SparkPage on this same domain (deleted /
+      // abandoned) keeps the Vercel-side attach; auto-detach it so the user
+      // doesn't have to clean up Vercel manually.
+      await addProjectDomain(projectName, domain, { releaseOrphan: true });
       // Vercel accepted the attach. If it requires a TXT challenge, flip
       // status to 'pending_verification' so the UI shows the challenge panel
       // instead of the DNS panel.
@@ -118,9 +126,14 @@ export async function PUT(
         // Race with project GC — leave row pending_dns; first publish reattaches.
       } else {
         const message = err instanceof Error ? err.message : 'Failed to attach domain';
+        const errorCode = err instanceof DomainClaimedError ? err.errorCode : null;
         await admin
           .from('projects')
-          .update({ custom_domain_status: 'error', custom_domain_error: message })
+          .update({
+            custom_domain_status: 'error',
+            custom_domain_error: message,
+            custom_domain_error_code: errorCode,
+          })
           .eq('id', id);
       }
     }
@@ -158,6 +171,7 @@ export async function DELETE(
       custom_domain: null,
       custom_domain_status: null,
       custom_domain_error: null,
+      custom_domain_error_code: null,
       custom_domain_apex: false,
     })
     .eq('id', id)

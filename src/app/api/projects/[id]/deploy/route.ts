@@ -13,7 +13,7 @@ import { mapReadyState } from '@/lib/vercel/types';
 import { rowToDTO, type DeploymentRow } from '@/lib/deployments/types';
 import { PROJECT_COLS, type ProjectRow } from '@/lib/projects/types';
 import { buildPagesHost, buildPagesUrl } from '@/lib/projects/subdomain';
-import { addProjectDomain } from '@/lib/vercel/domains';
+import { addProjectDomain, DomainClaimedError } from '@/lib/vercel/domains';
 import { createPixel } from '@/lib/audiencelab/client';
 
 /**
@@ -228,15 +228,21 @@ export async function POST(
   // BYO custom domain — same idea as the subdomain attach above. Status is
   // left as 'pending_dns' (or 'pending_verification' if Vercel still needs
   // the TXT challenge); the /status endpoint flips it to 'ready' once the
-  // user's DNS resolves.
+  // user's DNS resolves. releaseOrphan lets us auto-clean a stale sparkpage-*
+  // attach left over from a deleted project that used this domain.
   if (project.custom_domain) {
     try {
-      await addProjectDomain(projectName, project.custom_domain);
+      await addProjectDomain(projectName, project.custom_domain, { releaseOrphan: true });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to attach custom domain';
+      const errorCode = err instanceof DomainClaimedError ? err.errorCode : null;
       await admin
         .from('projects')
-        .update({ custom_domain_status: 'error', custom_domain_error: message })
+        .update({
+          custom_domain_status: 'error',
+          custom_domain_error: message,
+          custom_domain_error_code: errorCode,
+        })
         .eq('id', project.id);
       console.warn('[deploy] addProjectDomain (custom) failed:', message);
     }

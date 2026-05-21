@@ -26,6 +26,7 @@ export interface ProjectRow {
   custom_domain: string | null;
   custom_domain_status: CustomDomainStatus | null;
   custom_domain_error: string | null;
+  custom_domain_error_code: string | null;
   custom_domain_apex: boolean;
   audiencelab_pixel_id: string | null;
   audiencelab_install_url: string | null;
@@ -53,6 +54,7 @@ export interface ProjectDTO {
   customDomain: string | null;
   customDomainStatus: CustomDomainStatus | null;
   customDomainError: string | null;
+  customDomainErrorCode: string | null;
   customDomainApex: boolean;
   audiencelabPixelId: string | null;
   audiencelabInstallUrl: string | null;
@@ -79,6 +81,7 @@ export function rowToDTO(row: ProjectRow): ProjectDTO {
     customDomain: row.custom_domain ?? null,
     customDomainStatus: row.custom_domain_status ?? null,
     customDomainError: row.custom_domain_error ?? null,
+    customDomainErrorCode: row.custom_domain_error_code ?? null,
     customDomainApex: row.custom_domain_apex ?? false,
     audiencelabPixelId: row.audiencelab_pixel_id ?? null,
     audiencelabInstallUrl: row.audiencelab_install_url ?? null,
@@ -99,7 +102,7 @@ export function rowToDTO(row: ProjectRow): ProjectDTO {
  * lives only in server-side reads (see remoteStorage helpers).
  */
 export const PROJECT_COLS =
-  'id, user_id, template_id, title, slug, overrides, subdomain, subdomain_status, subdomain_error, custom_domain, custom_domain_status, custom_domain_error, custom_domain_apex, audiencelab_pixel_id, audiencelab_install_url, callrail_company_id, callrail_company_name, business_phone, callrail_tracker_id, callrail_tracking_phone, callrail_script_url, created_at, updated_at';
+  'id, user_id, template_id, title, slug, overrides, subdomain, subdomain_status, subdomain_error, custom_domain, custom_domain_status, custom_domain_error, custom_domain_error_code, custom_domain_apex, audiencelab_pixel_id, audiencelab_install_url, callrail_company_id, callrail_company_name, business_phone, callrail_tracker_id, callrail_tracking_phone, callrail_script_url, created_at, updated_at';
 
 /**
  * Slug from a free-form title plus a short random suffix so two projects with

@@ -18,6 +18,7 @@ interface ViewProps {
   apex: boolean;
   status: CustomDomainStatus | null;
   errorMsg: string | null;
+  errorCode: string | null;
   editing: boolean;
   draft: string;
   draftError: string;
@@ -145,6 +146,7 @@ export default function CustomDomainPickerView(p: ViewProps) {
         apex={p.apex}
         txt={p.txt}
         errorMsg={p.errorMsg}
+        errorCode={p.errorCode}
       />
     </div>
   );
@@ -203,15 +205,14 @@ interface InstrProps {
   apex: boolean;
   txt: { name: string; value: string } | null;
   errorMsg: string | null;
+  errorCode: string | null;
 }
 
-function DomainInstructions({ status, domain, apex, txt, errorMsg }: InstrProps) {
+function DomainInstructions({ status, domain, apex, txt, errorMsg, errorCode }: InstrProps) {
   if (status === 'ready' || status === null) return null;
 
-  if (status === 'error' && errorMsg) {
-    return (
-      <span className="text-[11px] text-red-600 max-w-[460px] break-words">{errorMsg}</span>
-    );
+  if (status === 'error') {
+    return <DomainErrorPanel errorMsg={errorMsg} errorCode={errorCode} />;
   }
 
   if (status === 'pending_verification') {
@@ -246,4 +247,68 @@ function DomainInstructions({ status, domain, apex, txt, errorMsg }: InstrProps)
       </p>
     </div>
   );
+}
+
+
+/**
+ * Code-aware error panel rendered under the domain row when
+ * `custom_domain_status === 'error'`. The `errorCode` column distinguishes
+ * conflicts we can guide the user out of from raw Vercel failures.
+ */
+function DomainErrorPanel({
+  errorMsg,
+  errorCode,
+}: { errorMsg: string | null; errorCode: string | null }) {
+  if (errorCode === 'domain_claimed_other_account') {
+    return (
+      <div className="rounded-md border border-red-200 bg-red-50/50 p-2 text-[11px] text-gray-700 max-w-[460px] space-y-1">
+        <p className="font-medium text-red-800">
+          This domain is verified by another Vercel account.
+        </p>
+        <p>
+          If that account is yours, remove the domain from it first (
+          <a
+            href="https://vercel.com/dashboard/domains"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:text-red-900"
+          >
+            vercel.com/dashboard/domains
+          </a>
+          ), then hit Recheck. Otherwise pick a different domain.
+        </p>
+      </div>
+    );
+  }
+  if (errorCode === 'domain_claimed_same_team') {
+    return (
+      <div className="rounded-md border border-red-200 bg-red-50/50 p-2 text-[11px] text-gray-700 max-w-[460px] space-y-1">
+        <p className="font-medium text-red-800">
+          Domain is attached to another project in this Vercel team.
+        </p>
+        <p>
+          Detach it from that project in the Vercel dashboard, then hit
+          Recheck — we&apos;ll auto-detach abandoned SparkPages, but other
+          project types need manual cleanup.
+        </p>
+      </div>
+    );
+  }
+  if (errorCode === 'domain_taken_internal') {
+    return (
+      <div className="rounded-md border border-red-200 bg-red-50/50 p-2 text-[11px] text-gray-700 max-w-[460px] space-y-1">
+        <p className="font-medium text-red-800">
+          Another SparkPage already uses this domain.
+        </p>
+        <p>Remove the domain from that SparkPage first, or pick a different one here.</p>
+      </div>
+    );
+  }
+  // Fallback: raw Vercel message (same one-liner the old UI rendered).
+  if (errorMsg) {
+    return (
+      <span className="text-[11px] text-red-600 max-w-[460px] break-words">{errorMsg}</span>
+    );
+  }
+  return null;
 }

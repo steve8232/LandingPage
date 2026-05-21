@@ -15,6 +15,7 @@ interface CustomDomainPickerProps {
   initialDomain: string | null;
   initialStatus: CustomDomainStatus | null;
   initialError: string | null;
+  initialErrorCode: string | null;
   initialApex: boolean;
   onChange?: (project: ProjectDTO) => void;
 }
@@ -26,6 +27,7 @@ export default function CustomDomainPicker({
   initialDomain,
   initialStatus,
   initialError,
+  initialErrorCode,
   initialApex,
   onChange,
 }: CustomDomainPickerProps) {
@@ -33,6 +35,7 @@ export default function CustomDomainPicker({
   const [apex, setApex] = useState<boolean>(initialApex);
   const [status, setStatus] = useState<CustomDomainStatus | null>(initialStatus);
   const [errorMsg, setErrorMsg] = useState<string | null>(initialError);
+  const [errorCode, setErrorCode] = useState<string | null>(initialErrorCode);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
   const [draftError, setDraftError] = useState<string>('');
@@ -67,6 +70,7 @@ export default function CustomDomainPicker({
       setApex(project.customDomainApex);
       setStatus(project.customDomainStatus);
       setErrorMsg(project.customDomainError);
+      setErrorCode(project.customDomainErrorCode);
       setEditing(false);
       onChange?.(project);
     } catch (err) {
@@ -88,6 +92,7 @@ export default function CustomDomainPicker({
       setApex(false);
       setStatus(null);
       setErrorMsg(null);
+      setErrorCode(null);
       setTxt(null);
       onChange?.(project);
     } catch (err) {
@@ -106,6 +111,7 @@ export default function CustomDomainPicker({
         setApex(data.project.customDomainApex);
         setStatus(data.project.customDomainStatus);
         setErrorMsg(data.project.customDomainError);
+        setErrorCode(data.project.customDomainErrorCode);
         onChange?.(data.project);
       }
       setTxt(data.verification ? { name: data.verification.txtName, value: data.verification.txtValue } : null);
@@ -130,7 +136,7 @@ export default function CustomDomainPicker({
 
   return (
     <CustomDomainPickerView
-      domain={domain} apex={apex} status={status} errorMsg={errorMsg}
+      domain={domain} apex={apex} status={status} errorMsg={errorMsg} errorCode={errorCode}
       editing={editing} draft={draft} draftError={draftError} saving={saving}
       checking={checking} txt={txt}
       onDraftChange={setDraft} onStartEdit={startEdit} onCancelEdit={cancelEdit}

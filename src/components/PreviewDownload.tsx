@@ -212,6 +212,7 @@ export default function PreviewDownload({
   const [v1CustomDomain, setV1CustomDomain] = useState<string | null>(null);
   const [v1CustomDomainStatus, setV1CustomDomainStatus] = useState<CustomDomainStatus | null>(null);
   const [v1CustomDomainError, setV1CustomDomainError] = useState<string | null>(null);
+  const [v1CustomDomainErrorCode, setV1CustomDomainErrorCode] = useState<string | null>(null);
   const [v1CustomDomainApex, setV1CustomDomainApex] = useState<boolean>(false);
   const [v1AudiencelabPixelId, setV1AudiencelabPixelId] = useState<string | null>(null);
   const [v1AudiencelabInstallUrl, setV1AudiencelabInstallUrl] = useState<string | null>(null);
@@ -235,6 +236,7 @@ export default function PreviewDownload({
       setV1CustomDomain(null);
       setV1CustomDomainStatus(null);
       setV1CustomDomainError(null);
+      setV1CustomDomainErrorCode(null);
       setV1CustomDomainApex(false);
       setV1AudiencelabPixelId(null);
       setV1AudiencelabInstallUrl(null);
@@ -256,6 +258,7 @@ export default function PreviewDownload({
         setV1CustomDomain(p.customDomain);
         setV1CustomDomainStatus(p.customDomainStatus);
         setV1CustomDomainError(p.customDomainError);
+        setV1CustomDomainErrorCode(p.customDomainErrorCode);
         setV1CustomDomainApex(p.customDomainApex);
         setV1AudiencelabPixelId(p.audiencelabPixelId);
         setV1AudiencelabInstallUrl(p.audiencelabInstallUrl);
@@ -281,6 +284,7 @@ export default function PreviewDownload({
     setV1CustomDomain(p.customDomain);
     setV1CustomDomainStatus(p.customDomainStatus);
     setV1CustomDomainError(p.customDomainError);
+    setV1CustomDomainErrorCode(p.customDomainErrorCode);
     setV1CustomDomainApex(p.customDomainApex);
   }, []);
 
@@ -1622,6 +1626,7 @@ export default function PreviewDownload({
 						initialDomain={v1CustomDomain}
 						initialStatus={v1CustomDomainStatus}
 						initialError={v1CustomDomainError}
+						initialErrorCode={v1CustomDomainErrorCode}
 						initialApex={v1CustomDomainApex}
 						onChange={handleCustomDomainChange}
 					  />

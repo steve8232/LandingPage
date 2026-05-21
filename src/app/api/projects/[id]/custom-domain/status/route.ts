@@ -14,6 +14,7 @@ import {
   getDomainVerification,
   verifyProjectDomain,
   ProjectNotProvisionedError,
+  DomainClaimedError,
 } from '@/lib/vercel/domains';
 import { vercelProjectNameFor } from '@/lib/vercel/client';
 import { verifySubdomainLive } from '@/lib/projects/subdomainHealth';
@@ -72,6 +73,7 @@ export async function GET(
 
   let nextStatus: CustomDomainStatus = 'pending_dns';
   let nextError: string | null = null;
+  let nextErrorCode: string | null = null;
   let txtName: string | null = null;
   let txtValue: string | null = null;
 
@@ -118,9 +120,10 @@ export async function GET(
       nextStatus = 'pending_dns';
     } else {
       // Try once more to attach in case the row is fresh but the deploy
-      // route's attach failed. If even that errors, surface it.
+      // route's attach failed. If even that errors, surface it. Pass
+      // releaseOrphan so a stale sparkpage-* attach gets cleaned up.
       try {
-        await addProjectDomain(projectName, domain);
+        await addProjectDomain(projectName, domain, { releaseOrphan: true });
         nextStatus = 'pending_dns';
       } catch (err2) {
         if (err2 instanceof ProjectNotProvisionedError) {
@@ -128,6 +131,7 @@ export async function GET(
         } else {
           nextStatus = 'error';
           nextError = err2 instanceof Error ? err2.message : 'Vercel error';
+          nextErrorCode = err2 instanceof DomainClaimedError ? err2.errorCode : null;
         }
       }
     }
@@ -141,6 +145,7 @@ export async function GET(
     if (live) {
       nextStatus = 'ready';
       nextError = null;
+      nextErrorCode = null;
     }
   }
 
@@ -149,6 +154,7 @@ export async function GET(
     .update({
       custom_domain_status: nextStatus,
       custom_domain_error: nextError,
+      custom_domain_error_code: nextErrorCode,
     })
     .eq('id', id);
 

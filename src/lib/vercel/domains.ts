@@ -27,32 +27,142 @@ function withTeam(url: string, teamId: string | undefined): string {
   return `${url}${url.includes('?') ? '&' : '?'}teamId=${encodeURIComponent(teamId)}`;
 }
 
-async function parseError(res: Response): Promise<{ code: string | undefined; message: string }> {
+interface VercelErrorBody {
+  code: string | undefined;
+  message: string;
+  /** Vercel sometimes includes the conflicting project's id in the 409 body. */
+  conflictingProjectId: string | undefined;
+}
+
+async function parseError(res: Response): Promise<VercelErrorBody> {
   try {
     const data = await res.json();
     const code = typeof data?.error?.code === 'string' ? data.error.code : undefined;
     const msg = data?.error?.message || data?.message || data?.error;
+    const projectId =
+      typeof data?.error?.projectId === 'string' ? data.error.projectId :
+      typeof data?.projectId === 'string' ? data.projectId :
+      undefined;
     return {
       code,
       message: typeof msg === 'string' ? msg : `Vercel API ${res.status}`,
+      conflictingProjectId: projectId,
     };
   } catch {
-    return { code: undefined, message: `Vercel API ${res.status}` };
+    return { code: undefined, message: `Vercel API ${res.status}`, conflictingProjectId: undefined };
   }
+}
+
+/**
+ * Heuristic: does the 409 message describe a conflict with a DIFFERENT
+ * Vercel project than the one we just asked Vercel to attach to? If so we
+ * extract the conflicting project's name (best-effort — Vercel doesn't
+ * guarantee this string format) so callers can decide whether to auto-release.
+ *
+ * Vercel's messages we've seen in the wild:
+ *   "Domain foo.com is already in use by project sparkpage-bbbb2222"
+ *   "Domain foo.com is already attached to this project"
+ *   "Project already contains domain foo.com"
+ *
+ * Returns the other project's name (or 'unknown' when we can't extract one)
+ * when this is a cross-project conflict; returns null when the message looks
+ * like a same-project idempotent hit.
+ */
+function detectCrossProjectConflict(
+  message: string,
+  ownProjectName: string,
+): { otherProjectName: string | null } | null {
+  const m = message.match(/(?:in use by|attached to)(?:\s+project)?\s+([a-z0-9_-]+)/i);
+  if (!m) return null;
+  const other = m[1];
+  if (other === 'this' || other === ownProjectName) return null;
+  return { otherProjectName: other };
+}
+
+export type DomainClaimScope = 'same_team' | 'other_account' | 'unknown';
+
+/**
+ * Thrown by addProjectDomain when the domain is attached to a different
+ * Vercel project (same-team) or verified by a different Vercel account.
+ * Callers map this to a 409 with a machine-readable `code` so the picker UI
+ * can render an actionable error panel instead of a raw Vercel string.
+ */
+export class DomainClaimedError extends Error {
+  constructor(
+    public readonly domain: string,
+    public readonly scope: DomainClaimScope,
+    /** Conflicting project name when we could extract it (same-team only). */
+    public readonly conflictingProjectName: string | null,
+    /** Raw Vercel error code, for telemetry / future branching. */
+    public readonly vercelCode: string | undefined,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'DomainClaimedError';
+  }
+
+  /** Stable string code persisted to `projects.custom_domain_error_code`. */
+  get errorCode(): string {
+    return this.scope === 'other_account'
+      ? 'domain_claimed_other_account'
+      : this.scope === 'same_team'
+        ? 'domain_claimed_same_team'
+        : 'domain_claimed_unknown';
+  }
+}
+
+export interface AddProjectDomainOptions {
+  /**
+   * When true and the conflicting project is in our same Vercel team AND its
+   * name starts with `sparkpage-`, treat it as an abandoned SparkPage and
+   * detach the domain from it before retrying once. The conflicting project
+   * is most often a deleted-but-not-fully-cleaned-up SparkPage from the
+   * same user; releasing it lets reattaching Just Work.
+   */
+  releaseOrphan?: boolean;
 }
 
 /**
  * Attach `domain` to the Vercel project `projectName`. Idempotent: if the
  * domain is already attached to this same project, resolves successfully.
- * Throws on any other error (e.g. domain owned by another project).
+ *
+ * Error taxonomy:
+ *   - 404 / `not_found`            → ProjectNotProvisionedError (soft)
+ *   - 409 conflict with OUR own project → resolves (idempotent)
+ *   - 409 conflict with another project in our team, sparkpage-* prefix,
+ *     `releaseOrphan: true`        → detach + retry once
+ *   - 409 conflict with another project, otherwise → DomainClaimedError(same_team)
+ *   - 403 / `forbidden` / `not_authorized` → DomainClaimedError(other_account)
+ *   - other non-2xx                → generic Error
  */
-export async function addProjectDomain(projectName: string, domain: string): Promise<void> {
+export async function addProjectDomain(
+  projectName: string,
+  domain: string,
+  opts: AddProjectDomainOptions = {},
+): Promise<void> {
+  const res = await postAttach(projectName, domain);
+  if (res.ok) return;
+
+  const parsed = await parseError(res);
+  const handled = await classifyAttachError(projectName, domain, res.status, parsed, opts);
+  if (handled === 'soft') return;
+  if (handled === 'retry') {
+    const retry = await postAttach(projectName, domain);
+    if (retry.ok) return;
+    const retryParsed = await parseError(retry);
+    // Second failure is terminal — do not loop.
+    throw classifyTerminalError(projectName, domain, retry.status, retryParsed);
+  }
+  throw handled;
+}
+
+async function postAttach(projectName: string, domain: string): Promise<Response> {
   const { token, teamId } = readEnv();
   const url = withTeam(
     `${VERCEL_API}/v10/projects/${encodeURIComponent(projectName)}/domains`,
-    teamId
+    teamId,
   );
-  const res = await fetch(url, {
+  return fetch(url, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${token}`,
@@ -60,23 +170,102 @@ export async function addProjectDomain(projectName: string, domain: string): Pro
     },
     body: JSON.stringify({ name: domain }),
   });
-  if (res.ok) return;
+}
 
-  const { code, message } = await parseError(res);
-  // "domain_already_in_use" with status 409 = already attached to THIS project
-  // (Vercel returns the same code if it's on another project — we let those
-  // propagate so the user sees a clear conflict).
-  if (res.status === 409 && /already.*project|already attached/i.test(message)) {
-    return;
-  }
+/**
+ * Classify a non-2xx response from postAttach. Returns either:
+ *   - 'retry' when the caller should re-attempt postAttach (after a side
+ *     effect like releasing an orphan)
+ *   - a thrown-shaped Error otherwise (ProjectNotProvisioned / DomainClaimed /
+ *     generic) which the caller throws
+ */
+async function classifyAttachError(
+  projectName: string,
+  domain: string,
+  status: number,
+  parsed: VercelErrorBody,
+  opts: AddProjectDomainOptions,
+): Promise<'retry' | 'soft' | Error> {
+  const { code, message } = parsed;
+
   // 404 / not_found = the Vercel project hasn't been provisioned yet. Projects
   // are created lazily by the first createDeployment call, so callers that may
   // run pre-publish (subdomain claim, retry) should treat this as soft: the
   // deploy route re-attaches on first publish.
-  if (res.status === 404 || /not_found/i.test(code ?? '')) {
-    throw new ProjectNotProvisionedError(projectName);
+  if (status === 404 || /not_found/i.test(code ?? '')) {
+    return new ProjectNotProvisionedError(projectName);
   }
-  throw new Error(`addProjectDomain failed (${code ?? res.status}): ${message}`);
+
+  // 403 / forbidden = the domain is verified by another Vercel account
+  // (different team entirely). Only resolvable via TXT-proof ownership
+  // challenge or by the user removing the domain from that account first.
+  if (status === 403 || /forbidden|not_authorized/i.test(code ?? '')) {
+    return new DomainClaimedError(
+      domain, 'other_account', null, code,
+      message || 'Domain is verified by another Vercel account.',
+    );
+  }
+
+  // 409 = some flavor of "domain already in use". Could be:
+  //   (a) already attached to THIS project       → idempotent success
+  //   (b) attached to another project in our team → orphan-release or claim
+  //   (c) Vercel returned 409 for an unrelated reason (rare)
+  if (status === 409) {
+    const conflict = detectCrossProjectConflict(message, projectName);
+    if (!conflict) {
+      // Same-project idempotent hit. Treat as success — Vercel just told us
+      // the domain is already where we want it.
+      return 'soft';
+    }
+    const otherName = conflict.otherProjectName;
+    if (opts.releaseOrphan && otherName && /^sparkpage-/.test(otherName)) {
+      try {
+        await removeProjectDomain(otherName, domain);
+        return 'retry';
+      } catch (err) {
+        const detachMsg = err instanceof Error ? err.message : 'detach failed';
+        return new DomainClaimedError(
+          domain, 'same_team', otherName, code,
+          `Domain is in use by another SparkPage project and auto-release failed: ${detachMsg}`,
+        );
+      }
+    }
+    return new DomainClaimedError(
+      domain, 'same_team', otherName, code,
+      message || `Domain is already in use by another project${otherName ? ` (${otherName})` : ''}.`,
+    );
+  }
+
+  return new Error(`addProjectDomain failed (${code ?? status}): ${message}`);
+}
+
+function classifyTerminalError(
+  projectName: string,
+  domain: string,
+  status: number,
+  parsed: VercelErrorBody,
+): Error {
+  // Reuse the classifier minus the retry branch. Anything that would have
+  // returned 'retry' on the first attempt should not happen here, but if it
+  // does we collapse to a same_team DomainClaimedError so the row gets a
+  // useful error_code.
+  const { code, message } = parsed;
+  if (status === 404 || /not_found/i.test(code ?? '')) {
+    return new ProjectNotProvisionedError(projectName);
+  }
+  if (status === 403 || /forbidden|not_authorized/i.test(code ?? '')) {
+    return new DomainClaimedError(
+      domain, 'other_account', null, code,
+      message || 'Domain is verified by another Vercel account.',
+    );
+  }
+  if (status === 409) {
+    return new DomainClaimedError(
+      domain, 'same_team', null, code,
+      message || 'Domain is already in use by another project.',
+    );
+  }
+  return new Error(`addProjectDomain failed (${code ?? status}): ${message}`);
 }
 
 /**
