@@ -13,8 +13,6 @@ import {
   GripVertical,
   Trash2,
   Plus,
-  Rocket,
-  Loader2,
 } from 'lucide-react';
 import { GeneratedLandingPage, FormData } from '@/types';
 import VisualEditor from '@/components/editor/VisualEditor';
@@ -32,10 +30,9 @@ import { createDeploymentForProject, getDeployment } from '@/lib/deployments/cli
 import type { DeploymentDTO } from '@/lib/deployments/types';
 import { isTerminalStatus } from '@/lib/deployments/types';
 import type { CustomDomainStatus, ProjectDTO, SubdomainStatus } from '@/lib/projects/types';
-import { PAGES_PARENT_DOMAIN, suggestSubdomain } from '@/lib/projects/subdomain';
-import SubdomainPicker, { type SubdomainPickerHandle } from '@/components/SubdomainPicker';
-import CustomDomainPicker from '@/components/CustomDomainPicker';
-import CallRailPicker from '@/components/CallRailPicker';
+import { suggestSubdomain } from '@/lib/projects/subdomain';
+import { type SubdomainPickerHandle } from '@/components/SubdomainPicker';
+import PublishIntegrationsMenu from '@/components/PublishIntegrationsMenu';
 import { v1Templates } from '@/lib/v1Templates';
 
 type V1SpecSection = {
@@ -133,7 +130,7 @@ export default function PreviewDownload({
   // regardless of which page is currently previewed.
   const [v1Page, setV1Page] = useState<'landing' | 'thank-you'>('landing');
   const [v1PanelTab, setV1PanelTab] =
-    useState<'content' | 'images' | 'seo' | 'analytics' | 'advanced' | 'thank-you'>('content');
+    useState<'content' | 'images' | 'seo' | 'advanced' | 'thank-you'>('content');
   const [v1Overrides, setV1Overrides] = useState<V1ContentOverrides | undefined>(landingPage.v1?.overrides);
   // Composed HTML for the thank-you preview iframe. Lazily filled on first
   // toggle (and refreshed whenever overrides.thankYou changes).
@@ -1628,114 +1625,41 @@ export default function PreviewDownload({
 					  </a>
 					)}
 					{user && v1ProjectId && (
-					  <SubdomainPicker
+					  <PublishIntegrationsMenu
 						ref={subdomainPickerRef}
 						projectId={v1ProjectId}
-						initialSubdomain={v1Subdomain}
-						initialStatus={v1SubdomainStatus}
-						initialError={v1SubdomainError}
-						suggestion={suggestSubdomain(
+						subdomain={v1Subdomain}
+						subdomainStatus={v1SubdomainStatus}
+						subdomainError={v1SubdomainError}
+						subdomainSuggestion={suggestSubdomain(
 						  v1Templates.find((t) => t.id === v1TemplateId)?.name ?? ''
 						)}
-						onChange={handleSubdomainChange}
-						onDraftPendingChange={setSubdomainDraftPending}
-					  />
-					)}
-					{user && v1ProjectId && (
-					  <CustomDomainPicker
-						projectId={v1ProjectId}
-						initialDomain={v1CustomDomain}
-						initialStatus={v1CustomDomainStatus}
-						initialError={v1CustomDomainError}
-						initialErrorCode={v1CustomDomainErrorCode}
-						initialApex={v1CustomDomainApex}
-						onChange={handleCustomDomainChange}
-					  />
-					)}
-					{user && v1ProjectId && (
-					  <CallRailPicker
-						projectId={v1ProjectId}
-						initialCompanyId={v1CallrailCompanyId}
-						initialCompanyName={v1CallrailCompanyName}
-						initialBusinessPhone={v1BusinessPhone}
-						initialTrackerId={v1CallrailTrackerId}
-						initialTrackingPhone={v1CallrailTrackingPhone}
+						onSubdomainChange={handleSubdomainChange}
+						onSubdomainDraftPendingChange={setSubdomainDraftPending}
+						subdomainDraftPending={subdomainDraftPending}
+						customDomain={v1CustomDomain}
+						customDomainStatus={v1CustomDomainStatus}
+						customDomainError={v1CustomDomainError}
+						customDomainErrorCode={v1CustomDomainErrorCode}
+						customDomainApex={v1CustomDomainApex}
+						onCustomDomainChange={handleCustomDomainChange}
+						callrailCompanyId={v1CallrailCompanyId}
+						callrailCompanyName={v1CallrailCompanyName}
+						callrailTrackerId={v1CallrailTrackerId}
+						callrailTrackingPhone={v1CallrailTrackingPhone}
+						businessPhone={v1BusinessPhone}
 						overridesBusinessPhone={(v1Overrides?.meta as { businessPhone?: string } | undefined)?.businessPhone ?? null}
-						onChange={handleCallrailChange}
+						onCallrailChange={handleCallrailChange}
+						openReplayKey={String(v1Overrides?.meta?.openReplayProjectKey ?? '')}
+						onOpenReplayKeyChange={(key) => updateV1Meta({ openReplayProjectKey: key })}
+						audiencelabPixelId={v1AudiencelabPixelId}
+						audiencelabInstallUrl={v1AudiencelabInstallUrl}
+						publishStatus={publishStatus}
+						publishError={publishError}
+						canPublish={!!v1TemplateId}
+						onPublish={handlePublish}
 					  />
 					)}
-					{user && (() => {
-					  const publishing = publishStatus === 'publishing' || publishStatus === 'polling';
-					  const claimAndPublish = subdomainDraftPending && !publishing;
-					  const buttonLabel = publishStatus === 'publishing'
-						? (claimAndPublish ? 'Claiming…' : 'Publishing…')
-						: publishStatus === 'polling'
-						  ? 'Building…'
-						  : claimAndPublish
-							? 'Claim & Publish'
-							: 'Publish';
-					  const buttonTitle = !v1TemplateId
-						? 'Missing templateId for v1 publishing'
-						: claimAndPublish
-						  ? 'Save the URL change, then publish'
-						  : v1Subdomain
-							? `Publish to ${v1Subdomain}.${PAGES_PARENT_DOMAIN}`
-							: 'Publish this page to a *.vercel.app URL';
-					  return (
-						<button
-						  onClick={handlePublish}
-						  disabled={!v1TemplateId || publishing}
-						  className="px-3 py-1.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-1.5"
-						  title={buttonTitle}
-						>
-						  {publishing ? (
-							<Loader2 className="w-4 h-4 animate-spin" />
-						  ) : (
-							<Rocket className="w-4 h-4" />
-						  )}
-						  {buttonLabel}
-						</button>
-					  );
-					})()}
-					{publishStatus === 'error' && (
-					  <div
-						className="text-xs text-red-600 max-w-[260px] truncate"
-						title={publishError || 'Publish failed'}
-					  >
-						{publishError || 'Publish failed'}
-					  </div>
-					)}
-					{user && v1ProjectId && (() => {
-					  const tracked = !!v1AudiencelabInstallUrl;
-					  const shortId = v1AudiencelabPixelId
-						? `${v1AudiencelabPixelId.slice(0, 8)}…`
-						: '';
-					  const title = tracked
-						? `AudienceLab pixel ${v1AudiencelabPixelId} is live on this page`
-						: 'AudienceLab pixel will be provisioned on your next publish';
-					  return (
-						<div
-						  className={`text-xs px-2 py-1 rounded-md inline-flex items-center gap-1.5 ${
-							tracked
-							  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-							  : 'bg-gray-50 text-gray-500 border border-gray-200'
-						  }`}
-						  title={title}
-						>
-						  <span
-							className={`w-1.5 h-1.5 rounded-full ${
-							  tracked ? 'bg-emerald-500' : 'bg-gray-400'
-							}`}
-							aria-hidden
-						  />
-						  {tracked ? (
-							<span>Tracking · {shortId}</span>
-						  ) : (
-							<span>Tracking off</span>
-						  )}
-						</div>
-					  );
-					})()}
                 <button
                   onClick={onStartOver}
                   className="px-3 py-1.5 text-gray-600 hover:text-gray-900 text-sm"
@@ -1826,7 +1750,6 @@ export default function PreviewDownload({
                         <option value="content">Content</option>
                         <option value="images">Images</option>
                         <option value="seo">SEO</option>
-                        <option value="analytics">Analytics</option>
                         <option value="advanced">Advanced</option>
                         <option value="thank-you">Thank You</option>
                       </select>
@@ -2851,45 +2774,6 @@ export default function PreviewDownload({
                           />
                           <p className="text-[11px] text-gray-500 mt-1">
                             Updates AnnouncementBar, StickyHeader and Footer on this page. Re-render to apply.
-                          </p>
-                        </div>
-
-                        <button
-                          onClick={handleComposeV1}
-                          disabled={!v1TemplateId || isComposing}
-                          className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                        >
-                          <RefreshCw className={`w-4 h-4 ${isComposing ? 'animate-spin' : ''}`} />
-                          {isComposing ? 'Re-rendering…' : 'Re-render'}
-                        </button>
-                      </div>
-                    )}
-
-                    {v1PanelTab === 'analytics' && (
-                      <div className="space-y-4">
-                        <div>
-                          <div className="text-sm font-semibold text-gray-900 mb-1">Session recording</div>
-                          <div className="text-xs text-gray-500 mb-2">
-                            Replay visitor sessions and view heatmaps with OpenReplay. Paste your project key below and re-render to inject the tracker.
-                          </div>
-                        </div>
-
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">
-                            OpenReplay project key
-                          </label>
-                          <input
-                            type="text"
-                            value={String(v1Overrides?.meta?.openReplayProjectKey ?? '')}
-                            onChange={(e) => updateV1Meta({ openReplayProjectKey: e.target.value.trim() })}
-                            placeholder="abc123XYZ…"
-                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm font-mono"
-                            spellCheck={false}
-                            autoCapitalize="off"
-                            autoCorrect="off"
-                          />
-                          <p className="text-[11px] text-gray-500 mt-1">
-                            Find this in OpenReplay → Preferences → Projects. Leave blank to disable.
                           </p>
                         </div>
 

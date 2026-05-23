@@ -25,6 +25,11 @@ interface CallRailPickerProps {
   /** Live businessPhone from overrides.meta (current editor state). */
   overridesBusinessPhone?: string | null;
   onChange?: (project: ProjectDTO) => void;
+  /**
+   * When true, render the panel body directly without the outer trigger
+   * button / popover. The parent owns visibility (e.g. an enclosing menu).
+   */
+  embedded?: boolean;
 }
 
 function digits(input: string | null | undefined): string {
@@ -58,6 +63,7 @@ export default function CallRailPicker({
   initialTrackingPhone,
   overridesBusinessPhone,
   onChange,
+  embedded = false,
 }: CallRailPickerProps) {
   const [companyId, setCompanyId] = useState<string | null>(initialCompanyId);
   const [companyName, setCompanyName] = useState<string | null>(initialCompanyName);
@@ -113,11 +119,13 @@ export default function CallRailPicker({
   }, []);
 
   // Fetch companies on first open — keeps the toolbar lightweight until the
-  // user actually clicks. Bound projects can skip this entirely.
+  // user actually clicks. Bound projects can skip this entirely. In embedded
+  // mode the parent owns visibility, so the load gate switches accordingly.
   useEffect(() => {
-    if (!open || companiesState !== null || companyId) return;
+    if (!(open || embedded)) return;
+    if (companiesState !== null || companyId) return;
     refreshCompanies();
-  }, [open, companiesState, companyId, refreshCompanies]);
+  }, [open, embedded, companiesState, companyId, refreshCompanies]);
 
   // Click-outside to close.
   useEffect(() => {
@@ -258,23 +266,8 @@ export default function CallRailPicker({
     ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
     : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100';
 
-  return (
-    <div className="relative" ref={popoverRef}>
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className={`text-xs px-2 py-1 rounded-md inline-flex items-center gap-1.5 border ${pillClasses}`}
-        title={bound ? `CallRail: ${companyName ?? companyId}` : 'Pick a CallRail company'}
-      >
-        <Phone className="w-3.5 h-3.5" aria-hidden />
-        <span className="max-w-[140px] truncate">
-          {bound ? (companyName ?? 'CallRail bound') : 'CallRail'}
-        </span>
-        <ChevronDown className="w-3 h-3 opacity-60" aria-hidden />
-      </button>
-
-      {open && (
-        <div className="absolute right-0 mt-1.5 z-30 w-[320px] rounded-lg border border-gray-200 bg-white shadow-lg p-3 text-sm text-gray-700">
+  const panelContent = (
+    <>
           {!bound && companiesState === null ? (
             <div className="flex items-center gap-2 text-gray-500">
               <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading…
@@ -460,9 +453,34 @@ export default function CallRailPicker({
             </div>
           )}
 
-          {errorMsg && (
-            <div className="mt-2 text-xs text-red-600">{errorMsg}</div>
-          )}
+      {errorMsg && (
+        <div className="mt-2 text-xs text-red-600">{errorMsg}</div>
+      )}
+    </>
+  );
+
+  if (embedded) {
+    return <div className="text-sm text-gray-700">{panelContent}</div>;
+  }
+
+  return (
+    <div className="relative" ref={popoverRef}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={`text-xs px-2 py-1 rounded-md inline-flex items-center gap-1.5 border ${pillClasses}`}
+        title={bound ? `CallRail: ${companyName ?? companyId}` : 'Pick a CallRail company'}
+      >
+        <Phone className="w-3.5 h-3.5" aria-hidden />
+        <span className="max-w-[140px] truncate">
+          {bound ? (companyName ?? 'CallRail bound') : 'CallRail'}
+        </span>
+        <ChevronDown className="w-3 h-3 opacity-60" aria-hidden />
+      </button>
+
+      {open && (
+        <div className="absolute right-0 mt-1.5 z-30 w-[320px] rounded-lg border border-gray-200 bg-white shadow-lg p-3 text-sm text-gray-700">
+          {panelContent}
         </div>
       )}
     </div>
