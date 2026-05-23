@@ -135,16 +135,35 @@ export default function Home() {
       setAppState('generating');
 
       try {
-        const html = await composeFromOverrides(session.templateId, session.overrides);
+        // If the session is bound to a cloud project, prefer the canonical
+        // row from Supabase so subdomain / custom_domain / callrail bindings
+        // re-hydrate (those aren't mirrored in localStorage). A 401 / 404
+        // (signed out, project deleted) falls back to local-only restore.
+        let templateId = session.templateId;
+        let overrides = session.overrides;
+        let projectId: string | undefined = session.projectId;
+        if (session.projectId) {
+          try {
+            const project = await getProject(session.projectId);
+            templateId = project.templateId;
+            overrides = project.overrides;
+            projectId = project.id;
+          } catch {
+            projectId = undefined;
+          }
+        }
+
+        const html = await composeFromOverrides(templateId, overrides);
         if (cancelled) return;
         setLandingPage({
           html,
           css: '',
           preview: html,
           v1: {
-            templateId: session.templateId,
-            overrides: session.overrides,
+            templateId,
+            overrides,
             resultId: session.id,
+            projectId,
           },
         });
         setAppState('preview');

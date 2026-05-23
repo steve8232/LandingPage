@@ -6,6 +6,8 @@ export type V1EditorSessionV1 = {
   templateId: string;
   overrides?: V1ContentOverrides;
   savedAt: number;
+  /** Supabase project id when this session is bound to a saved cloud project. */
+  projectId?: string;
 };
 
 const ACTIVE_SESSION_ID_KEY = 'lpdesigner:v1:activeSessionId';
@@ -39,6 +41,7 @@ export function loadActiveV1EditorSession(): V1EditorSessionV1 | null {
     if (parsed.version !== 1) return null;
     if (typeof parsed.id !== 'string' || typeof parsed.templateId !== 'string') return null;
     if (typeof parsed.savedAt !== 'number') return null;
+    if (parsed.projectId !== undefined && typeof parsed.projectId !== 'string') return null;
     return parsed as V1EditorSessionV1;
   } catch {
     return null;

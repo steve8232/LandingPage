@@ -133,7 +133,7 @@ export default function PreviewDownload({
   // regardless of which page is currently previewed.
   const [v1Page, setV1Page] = useState<'landing' | 'thank-you'>('landing');
   const [v1PanelTab, setV1PanelTab] =
-    useState<'content' | 'images' | 'seo' | 'advanced' | 'thank-you'>('content');
+    useState<'content' | 'images' | 'seo' | 'analytics' | 'advanced' | 'thank-you'>('content');
   const [v1Overrides, setV1Overrides] = useState<V1ContentOverrides | undefined>(landingPage.v1?.overrides);
   // Composed HTML for the thank-you preview iframe. Lazily filled on first
   // toggle (and refreshed whenever overrides.thankYou changes).
@@ -466,6 +466,7 @@ export default function PreviewDownload({
         templateId: v1TemplateId,
         overrides: v1Overrides,
         savedAt: Date.now(),
+        projectId: v1ProjectId,
       });
 
       // 3) When signed in, mirror to Supabase. First save auto-creates the
@@ -485,6 +486,16 @@ export default function PreviewDownload({
               overrides: v1Overrides,
             });
             setV1ProjectId(created.id);
+            // Re-stamp the local session so a return-to-/ restore can hydrate
+            // subdomain / custom_domain / callrail state from the project row.
+            saveActiveV1EditorSession({
+              version: 1,
+              id: v1ResultId,
+              templateId: v1TemplateId,
+              overrides: v1Overrides,
+              savedAt: Date.now(),
+              projectId: created.id,
+            });
             try {
               const url = new URL(window.location.href);
               url.searchParams.set('project', created.id);
@@ -540,6 +551,16 @@ export default function PreviewDownload({
       overrides: v1Overrides,
     });
     setV1ProjectId(created.id);
+    // Stamp the local session with the new projectId so a return-to-/ restore
+    // re-fetches the project row (subdomain / custom_domain / callrail).
+    saveActiveV1EditorSession({
+      version: 1,
+      id: v1ResultId,
+      templateId: v1TemplateId,
+      overrides: v1Overrides,
+      savedAt: Date.now(),
+      projectId: created.id,
+    });
     try {
       const url = new URL(window.location.href);
       url.searchParams.set('project', created.id);
@@ -549,7 +570,7 @@ export default function PreviewDownload({
     }
     lastSavedOverridesJsonRef.current = currentOverridesJson;
     return created.id;
-  }, [user, v1TemplateId, v1ProjectId, hasUnsavedOverrides, v1Overrides, currentOverridesJson]);
+  }, [user, v1TemplateId, v1ProjectId, hasUnsavedOverrides, v1Overrides, currentOverridesJson, v1ResultId]);
 
   /**
    * Publish: optional implicit subdomain-claim → implicit overrides save →
@@ -1792,48 +1813,23 @@ export default function PreviewDownload({
 								</div>
 							</div>
 						)}
-                    <div className="flex items-center gap-2 mb-3">
-                      <button
-                        onClick={() => setV1PanelTab('content')}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-medium ${
-                          v1PanelTab === 'content' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700'
-                        }`}
+                    <div className="mb-3">
+                      <label htmlFor="v1-panel-tab" className="block text-xs font-medium text-gray-700 mb-1">
+                        Section
+                      </label>
+                      <select
+                        id="v1-panel-tab"
+                        value={v1PanelTab}
+                        onChange={(e) => setV1PanelTab(e.target.value as typeof v1PanelTab)}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm font-medium bg-white focus:outline-none focus:ring-2 focus:ring-orange-500"
                       >
-                        Content
-                      </button>
-						<button
-						  onClick={() => setV1PanelTab('images')}
-						  className={`px-3 py-1.5 rounded-lg text-sm font-medium ${
-							v1PanelTab === 'images' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700'
-						  }`}
-						>
-						  Images
-						</button>
-                      <button
-                        onClick={() => setV1PanelTab('seo')}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-medium ${
-                          v1PanelTab === 'seo' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700'
-                        }`}
-                      >
-                        SEO
-                      </button>
-                      <button
-                        onClick={() => setV1PanelTab('advanced')}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-medium ${
-                          v1PanelTab === 'advanced' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700'
-                        }`}
-                      >
-                        Advanced
-                      </button>
-                      <button
-                        onClick={() => setV1PanelTab('thank-you')}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-medium ${
-                          v1PanelTab === 'thank-you' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700'
-                        }`}
-                        title="Edit the copy shown on the /thank-you page"
-                      >
-                        Thank You
-                      </button>
+                        <option value="content">Content</option>
+                        <option value="images">Images</option>
+                        <option value="seo">SEO</option>
+                        <option value="analytics">Analytics</option>
+                        <option value="advanced">Advanced</option>
+                        <option value="thank-you">Thank You</option>
+                      </select>
                     </div>
 
                     {composeError && (
@@ -2855,6 +2851,45 @@ export default function PreviewDownload({
                           />
                           <p className="text-[11px] text-gray-500 mt-1">
                             Updates AnnouncementBar, StickyHeader and Footer on this page. Re-render to apply.
+                          </p>
+                        </div>
+
+                        <button
+                          onClick={handleComposeV1}
+                          disabled={!v1TemplateId || isComposing}
+                          className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        >
+                          <RefreshCw className={`w-4 h-4 ${isComposing ? 'animate-spin' : ''}`} />
+                          {isComposing ? 'Re-rendering…' : 'Re-render'}
+                        </button>
+                      </div>
+                    )}
+
+                    {v1PanelTab === 'analytics' && (
+                      <div className="space-y-4">
+                        <div>
+                          <div className="text-sm font-semibold text-gray-900 mb-1">Session recording</div>
+                          <div className="text-xs text-gray-500 mb-2">
+                            Replay visitor sessions and view heatmaps with OpenReplay. Paste your project key below and re-render to inject the tracker.
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            OpenReplay project key
+                          </label>
+                          <input
+                            type="text"
+                            value={String(v1Overrides?.meta?.openReplayProjectKey ?? '')}
+                            onChange={(e) => updateV1Meta({ openReplayProjectKey: e.target.value.trim() })}
+                            placeholder="abc123XYZ…"
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm font-mono"
+                            spellCheck={false}
+                            autoCapitalize="off"
+                            autoCorrect="off"
+                          />
+                          <p className="text-[11px] text-gray-500 mt-1">
+                            Find this in OpenReplay → Preferences → Projects. Leave blank to disable.
                           </p>
                         </div>
 
