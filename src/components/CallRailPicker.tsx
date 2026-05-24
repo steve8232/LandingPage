@@ -164,10 +164,14 @@ export default function CallRailPicker({
       // Session pools require a minimum of 4 numbers; clamp here so the
       // server's defensive clamp is never exercised on a valid path.
       const clampedPool = Math.max(4, Math.min(50, Math.trunc(poolSizeDraft) || 4));
+      // Forward the live destination phone explicitly so an unsaved edit in
+      // the menu reaches the server — the route's overrides.meta fallback
+      // only sees what's persisted in the DB.
       const project = await provisionCallrailTracker(projectId, {
         preference,
         trackerType: trackerKind,
         poolSize: trackerKind === 'session' ? clampedPool : undefined,
+        destinationPhone: destPhone || undefined,
       });
       setCompanyId(project.callrailCompanyId);
       setCompanyName(project.callrailCompanyName);
@@ -186,7 +190,7 @@ export default function CallRailPicker({
     } finally {
       setLoading(false);
     }
-  }, [projectId, onChange, trackerKind, poolSizeDraft]);
+  }, [projectId, onChange, trackerKind, poolSizeDraft, destPhone]);
 
   const handleProvisionAreaMatch = useCallback(() => {
     if (!defaultAreaCode) {
