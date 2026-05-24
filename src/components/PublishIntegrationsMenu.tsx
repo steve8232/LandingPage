@@ -6,7 +6,7 @@ import {
   Globe,
   Globe2,
   Phone,
-  Video,
+  Flame,
   Target,
   Rocket,
   Loader2,
@@ -50,9 +50,9 @@ export interface PublishIntegrationsMenuProps {
   onCallrailChange: (project: ProjectDTO) => void;
   onBusinessPhoneChange: (phone: string) => void;
 
-  // OpenReplay
-  openReplayKey: string;
-  onOpenReplayKeyChange: (key: string) => void;
+  // Microsoft Clarity (heatmaps + session replay)
+  clarityProjectId: string;
+  onClarityProjectIdChange: (id: string) => void;
 
   // Google Tag (gtag.js — Google Ads / GA4 / Floodlight)
   googleTagId: string;
@@ -71,7 +71,7 @@ export interface PublishIntegrationsMenuProps {
 
 /**
  * Single dropdown that consolidates the integration + publish controls
- * (URL, custom domain, CallRail, OpenReplay, AudienceLab + Publish).
+ * (URL, custom domain, CallRail, Clarity, AudienceLab + Publish).
  * Forwards the SubdomainPicker handle so callers can still drive
  * Claim-&-Publish from the parent.
  */
@@ -104,7 +104,7 @@ const PublishIntegrationsMenu = forwardRef<SubdomainPickerHandle, PublishIntegra
       : props.callrailCompanyId
         ? 'pending'
         : 'off';
-    const openReplayTone: DotTone = props.openReplayKey.trim() ? 'ok' : 'off';
+    const clarityTone: DotTone = props.clarityProjectId.trim() ? 'ok' : 'off';
     const googleTagTone: DotTone = props.googleTagId.trim() ? 'ok' : 'off';
     const audiencelabTone: DotTone = props.audiencelabInstallUrl ? 'ok' : 'off';
 
@@ -133,7 +133,7 @@ const PublishIntegrationsMenu = forwardRef<SubdomainPickerHandle, PublishIntegra
             <TriggerDot tone={subTone} />
             <TriggerDot tone={cdTone} />
             <TriggerDot tone={callrailTone} />
-            <TriggerDot tone={openReplayTone} />
+            <TriggerDot tone={clarityTone} />
             <TriggerDot tone={googleTagTone} />
             <TriggerDot tone={audiencelabTone} />
           </span>
@@ -216,26 +216,26 @@ const PublishIntegrationsMenu = forwardRef<SubdomainPickerHandle, PublishIntegra
               </Section>
 
               <Section
-                icon={<Video className="w-3.5 h-3.5" />}
-                title="OpenReplay"
-                tone={openReplayTone}
-                statusLabel={openReplayTone === 'ok' ? 'Installed' : 'Not set'}
+                icon={<Flame className="w-3.5 h-3.5" />}
+                title="Microsoft Clarity"
+                tone={clarityTone}
+                statusLabel={clarityTone === 'ok' ? 'Installed' : 'Not set'}
               >
                 <label className="block text-[11px] font-medium text-gray-600 mb-1">
-                  Project key
+                  Project ID
                 </label>
                 <input
                   type="text"
-                  value={props.openReplayKey}
-                  onChange={(e) => props.onOpenReplayKeyChange(e.target.value.trim())}
-                  placeholder="abc123XYZ…"
+                  value={props.clarityProjectId}
+                  onChange={(e) => props.onClarityProjectIdChange(e.target.value.trim())}
+                  placeholder="abc123xyz0"
                   className="w-full px-2 py-1.5 border border-gray-200 rounded-md text-xs font-mono"
                   spellCheck={false}
                   autoCapitalize="off"
                   autoCorrect="off"
                 />
                 <p className="text-[11px] text-gray-500 mt-1">
-                  Find this in OpenReplay → Preferences → Projects. Leave blank to disable.
+                  Find this in Clarity → Settings → Setup. Heatmaps &amp; session replays at clarity.microsoft.com. Leave blank to disable.
                 </p>
               </Section>
 

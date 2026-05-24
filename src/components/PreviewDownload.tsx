@@ -1642,8 +1642,8 @@ export default function PreviewDownload({
 						overridesBusinessPhone={(v1Overrides?.meta as { businessPhone?: string } | undefined)?.businessPhone ?? null}
 						onCallrailChange={handleCallrailChange}
 						onBusinessPhoneChange={(phone) => updateV1Meta({ businessPhone: phone })}
-						openReplayKey={String(v1Overrides?.meta?.openReplayProjectKey ?? '')}
-						onOpenReplayKeyChange={(key) => updateV1Meta({ openReplayProjectKey: key })}
+						clarityProjectId={String(v1Overrides?.meta?.clarityProjectId ?? '')}
+						onClarityProjectIdChange={(id) => updateV1Meta({ clarityProjectId: id })}
 						googleTagId={String(v1Overrides?.meta?.googleTagId ?? '')}
 						onGoogleTagIdChange={(id) => updateV1Meta({ googleTagId: id })}
 						audiencelabPixelId={v1AudiencelabPixelId}

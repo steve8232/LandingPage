@@ -191,12 +191,13 @@ export interface V1MetaOverrides {
    */
   businessName?: string;
   /**
-   * OpenReplay project key. When set, the standard OpenReplay installer
+   * Microsoft Clarity project ID. When set, the standard Clarity tracking
    * snippet is injected into the document `<head>` so visits to the
-   * rendered page are recorded as sessions. See
-   * https://docs.openreplay.com/en/api/ for the snippet shape.
+   * rendered page are recorded for session replay and heatmaps. See
+   * https://learn.microsoft.com/en-us/clarity/setup-and-installation/clarity-setup
+   * for the snippet shape.
    */
-  openReplayProjectKey?: string;
+  clarityProjectId?: string;
   /**
    * Google tag (gtag.js) ID — typically a Google Ads conversion tag
    * (`AW-…`), GA4 measurement ID (`G-…`), or floodlight (`DC-…`). When
@@ -608,15 +609,16 @@ export function buildV1Document(
     ? `\n  <script async src="${escapeAttr(callrailScriptUrl)}"></script>`
     : '';
 
-  // OpenReplay installer snippet — emitted when meta.openReplayProjectKey is
-  // set. Uses the standard browser tracker bootstrap from
-  // https://docs.openreplay.com/en/api/. The project key is JSON-escaped and
-  // `</` sequences are neutralized to keep the inline script safe.
-  const openReplayKey = typeof meta?.openReplayProjectKey === 'string'
-    ? meta.openReplayProjectKey.trim()
+  // Microsoft Clarity tracking snippet — emitted when meta.clarityProjectId
+  // is set. Standard install per
+  // https://learn.microsoft.com/en-us/clarity/setup-and-installation/clarity-setup.
+  // The ID is JSON-escaped and `</` sequences are neutralized to keep the
+  // inline script safe.
+  const clarityId = typeof meta?.clarityProjectId === 'string'
+    ? meta.clarityProjectId.trim()
     : '';
-  const openReplayTag = openReplayKey
-    ? `\n  <script>\n  (function(A,s,a,y,e,r){r=window.OpenReplay=[e,r,y,[e-1,e]];s=document.createElement('script');s.src=A;s.async=!a;document.getElementsByTagName('head')[0].appendChild(s);r.start=function(v){r.push([0])};r.stop=function(v){r.push([1])};r.setUserID=function(id){r.push([2,id])};r.setUserAnonymousID=function(id){r.push([3,id])};r.setMetadata=function(k,v){r.push([4,k,v])};r.event=function(k,p,i){r.push([5,k,p,i])};r.issue=function(k,p){r.push([6,k,p])};r.isActive=function(){return false};r.getSessionToken=function(){}})("//static.openreplay.com/latest/openreplay.js",1,0,{projectKey:${JSON.stringify(openReplayKey).replace(/</g, '\\u003c')}});\n  </script>`
+  const clarityTag = clarityId
+    ? `\n  <script>\n  (function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);})(window,document,"clarity","script",${JSON.stringify(clarityId).replace(/</g, '\\u003c')});\n  </script>`
     : '';
 
   // Google tag (gtag.js) — emitted when meta.googleTagId is set. Loads
@@ -635,7 +637,7 @@ export function buildV1Document(
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="${escapeAttr(metaDesc)}">${taglineTag}${pixelTag}${callrailTag}${openReplayTag}${googleTag}
+  <meta name="description" content="${escapeAttr(metaDesc)}">${taglineTag}${pixelTag}${callrailTag}${clarityTag}${googleTag}
   <title>${escapeHtml(pageTitle)}</title>
   <style>
 /* === v1 tokens === */
