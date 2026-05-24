@@ -1650,6 +1650,7 @@ export default function PreviewDownload({
 						businessPhone={v1BusinessPhone}
 						overridesBusinessPhone={(v1Overrides?.meta as { businessPhone?: string } | undefined)?.businessPhone ?? null}
 						onCallrailChange={handleCallrailChange}
+						onBusinessPhoneChange={(phone) => updateV1Meta({ businessPhone: phone })}
 						openReplayKey={String(v1Overrides?.meta?.openReplayProjectKey ?? '')}
 						onOpenReplayKeyChange={(key) => updateV1Meta({ openReplayProjectKey: key })}
 						audiencelabPixelId={v1AudiencelabPixelId}

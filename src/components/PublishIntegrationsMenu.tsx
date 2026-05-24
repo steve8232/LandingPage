@@ -47,6 +47,7 @@ export interface PublishIntegrationsMenuProps {
   businessPhone: string | null;
   overridesBusinessPhone: string | null;
   onCallrailChange: (project: ProjectDTO) => void;
+  onBusinessPhoneChange: (phone: string) => void;
 
   // OpenReplay
   openReplayKey: string;
@@ -176,6 +177,24 @@ const PublishIntegrationsMenu = forwardRef<SubdomainPickerHandle, PublishIntegra
                 tone={callrailTone}
                 statusLabel={callrailTone === 'ok' ? 'Active' : callrailTone === 'pending' ? 'Bound' : 'Not set'}
               >
+                <label className="block text-[11px] font-medium text-gray-600 mb-1">
+                  Business phone <span className="text-gray-400 font-normal">— calls forward here</span>
+                </label>
+                <input
+                  type="tel"
+                  inputMode="tel"
+                  value={formatBusinessPhoneInput(props.overridesBusinessPhone ?? props.businessPhone ?? '')}
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(/\D/g, '').slice(0, 10);
+                    props.onBusinessPhoneChange(raw);
+                  }}
+                  placeholder="(555) 123-4567"
+                  className="w-full px-2 py-1.5 border border-gray-200 rounded-md text-xs font-mono mb-1"
+                />
+                <p className="text-[11px] text-gray-500 mb-2">
+                  Shown on the page; CallRail&apos;s swap script replaces it with the tracking number for visitors.
+                  {props.callrailTrackerId ? ' Unbind & re-provision to change the forwarding number on the existing tracker.' : ''}
+                </p>
                 <CallRailPicker
                   embedded
                   projectId={props.projectId}
@@ -340,6 +359,14 @@ function subdomainStatusLabel(tone: DotTone, status: SubdomainStatus | null): st
   if (tone === 'error') return 'Error';
   if (status === 'pending') return 'Setting up…';
   return 'Pending';
+}
+
+function formatBusinessPhoneInput(input: string): string {
+  const d = input.replace(/\D/g, '').slice(0, 10);
+  if (d.length === 0) return '';
+  if (d.length <= 3) return `(${d}`;
+  if (d.length <= 6) return `(${d.slice(0, 3)}) ${d.slice(3)}`;
+  return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
 }
 
 function customDomainStatusLabel(tone: DotTone, status: CustomDomainStatus | null): string {
