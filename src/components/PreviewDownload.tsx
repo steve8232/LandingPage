@@ -1653,6 +1653,8 @@ export default function PreviewDownload({
 						onBusinessPhoneChange={(phone) => updateV1Meta({ businessPhone: phone })}
 						openReplayKey={String(v1Overrides?.meta?.openReplayProjectKey ?? '')}
 						onOpenReplayKeyChange={(key) => updateV1Meta({ openReplayProjectKey: key })}
+						googleTagId={String(v1Overrides?.meta?.googleTagId ?? '')}
+						onGoogleTagIdChange={(id) => updateV1Meta({ googleTagId: id })}
 						audiencelabPixelId={v1AudiencelabPixelId}
 						audiencelabInstallUrl={v1AudiencelabInstallUrl}
 						publishStatus={publishStatus}

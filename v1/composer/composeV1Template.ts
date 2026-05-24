@@ -197,6 +197,13 @@ export interface V1MetaOverrides {
    * https://docs.openreplay.com/en/api/ for the snippet shape.
    */
   openReplayProjectKey?: string;
+  /**
+   * Google tag (gtag.js) ID — typically a Google Ads conversion tag
+   * (`AW-…`), GA4 measurement ID (`G-…`), or floodlight (`DC-…`). When
+   * set, the standard gtag.js loader and init snippet are injected into
+   * the document `<head>` so page views and conversions are reported.
+   */
+  googleTagId?: string;
 }
 
 export interface V1ImageAttribution {
@@ -612,12 +619,23 @@ export function buildV1Document(
     ? `\n  <script>\n  (function(A,s,a,y,e,r){r=window.OpenReplay=[e,r,y,[e-1,e]];s=document.createElement('script');s.src=A;s.async=!a;document.getElementsByTagName('head')[0].appendChild(s);r.start=function(v){r.push([0])};r.stop=function(v){r.push([1])};r.setUserID=function(id){r.push([2,id])};r.setUserAnonymousID=function(id){r.push([3,id])};r.setMetadata=function(k,v){r.push([4,k,v])};r.event=function(k,p,i){r.push([5,k,p,i])};r.issue=function(k,p){r.push([6,k,p])};r.isActive=function(){return false};r.getSessionToken=function(){}})("//static.openreplay.com/latest/openreplay.js",1,0,{projectKey:${JSON.stringify(openReplayKey).replace(/</g, '\\u003c')}});\n  </script>`
     : '';
 
+  // Google tag (gtag.js) — emitted when meta.googleTagId is set. Loads
+  // the gtag loader and configures the supplied ID. Accepts any gtag.js
+  // identifier (AW-…, G-…, DC-…). ID is escapeAttr'd in the src URL and
+  // JSON-escaped with `</` neutralization in the inline config call.
+  const googleTagId = typeof meta?.googleTagId === 'string'
+    ? meta.googleTagId.trim()
+    : '';
+  const googleTag = googleTagId
+    ? `\n  <!-- Google tag (gtag.js) -->\n  <script async src="https://www.googletagmanager.com/gtag/js?id=${escapeAttr(googleTagId)}"></script>\n  <script>\n    window.dataLayer = window.dataLayer || [];\n    function gtag(){dataLayer.push(arguments);}\n    gtag('js', new Date());\n    gtag('config', ${JSON.stringify(googleTagId).replace(/</g, '\\u003c')});\n  </script>`
+    : '';
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="${escapeAttr(metaDesc)}">${taglineTag}${pixelTag}${callrailTag}${openReplayTag}
+  <meta name="description" content="${escapeAttr(metaDesc)}">${taglineTag}${pixelTag}${callrailTag}${openReplayTag}${googleTag}
   <title>${escapeHtml(pageTitle)}</title>
   <style>
 /* === v1 tokens === */

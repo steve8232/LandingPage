@@ -10,6 +10,7 @@ import {
   Target,
   Rocket,
   Loader2,
+  BarChart3,
 } from 'lucide-react';
 import SubdomainPicker, { type SubdomainPickerHandle } from './SubdomainPicker';
 import CustomDomainPicker from './CustomDomainPicker';
@@ -52,6 +53,10 @@ export interface PublishIntegrationsMenuProps {
   // OpenReplay
   openReplayKey: string;
   onOpenReplayKeyChange: (key: string) => void;
+
+  // Google Tag (gtag.js — Google Ads / GA4 / Floodlight)
+  googleTagId: string;
+  onGoogleTagIdChange: (id: string) => void;
 
   // AudienceLab (display-only — provisioned server-side at publish)
   audiencelabPixelId: string | null;
@@ -100,6 +105,7 @@ const PublishIntegrationsMenu = forwardRef<SubdomainPickerHandle, PublishIntegra
         ? 'pending'
         : 'off';
     const openReplayTone: DotTone = props.openReplayKey.trim() ? 'ok' : 'off';
+    const googleTagTone: DotTone = props.googleTagId.trim() ? 'ok' : 'off';
     const audiencelabTone: DotTone = props.audiencelabInstallUrl ? 'ok' : 'off';
 
     const publishing =
@@ -128,6 +134,7 @@ const PublishIntegrationsMenu = forwardRef<SubdomainPickerHandle, PublishIntegra
             <TriggerDot tone={cdTone} />
             <TriggerDot tone={callrailTone} />
             <TriggerDot tone={openReplayTone} />
+            <TriggerDot tone={googleTagTone} />
             <TriggerDot tone={audiencelabTone} />
           </span>
           <ChevronDown className="w-3.5 h-3.5 opacity-80" />
@@ -229,6 +236,30 @@ const PublishIntegrationsMenu = forwardRef<SubdomainPickerHandle, PublishIntegra
                 />
                 <p className="text-[11px] text-gray-500 mt-1">
                   Find this in OpenReplay → Preferences → Projects. Leave blank to disable.
+                </p>
+              </Section>
+
+              <Section
+                icon={<BarChart3 className="w-3.5 h-3.5" />}
+                title="Google Tag"
+                tone={googleTagTone}
+                statusLabel={googleTagTone === 'ok' ? 'Installed' : 'Not set'}
+              >
+                <label className="block text-[11px] font-medium text-gray-600 mb-1">
+                  Tag ID
+                </label>
+                <input
+                  type="text"
+                  value={props.googleTagId}
+                  onChange={(e) => props.onGoogleTagIdChange(e.target.value.trim())}
+                  placeholder="AW-1234567890"
+                  className="w-full px-2 py-1.5 border border-gray-200 rounded-md text-xs font-mono"
+                  spellCheck={false}
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                />
+                <p className="text-[11px] text-gray-500 mt-1">
+                  Google Ads (AW-…), GA4 (G-…), or Floodlight (DC-…). Loads gtag.js on the published page.
                 </p>
               </Section>
 
