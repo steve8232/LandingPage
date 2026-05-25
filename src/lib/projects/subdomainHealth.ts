@@ -10,7 +10,7 @@
 
 import type { createAdminClient } from '@/lib/supabase/admin';
 import { buildPagesHost } from '@/lib/projects/subdomain';
-import type { ProjectRow, SubdomainStatus } from '@/lib/projects/types';
+import type { ProjectRow, SubdomainStatus, CustomDomainStatus } from '@/lib/projects/types';
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
@@ -70,40 +70,114 @@ export async function selfHealSubdomainStatus(
 }
 
 /**
+ * Custom-domain analogue of selfHealSubdomainStatus. The Vercel verify /
+ * config endpoints occasionally return transient errors for a domain that is
+ * actually live (TXT race, /v9 misconfigured=true with the cert still issuing,
+ * etc.), which leaves the row stuck in `'error'`. A single HEAD probe against
+ * the real domain is the cheapest source of truth.
+ */
+export async function selfHealCustomDomainStatus(
+  admin: AdminClient,
+  projectId: string,
+  customDomain: string | null,
+  status: CustomDomainStatus | null
+): Promise<CustomDomainStatus | null> {
+  if (!customDomain || status !== 'error') return status;
+  const live = await verifySubdomainLive(customDomain);
+  if (!live) return status;
+  try {
+    await admin
+      .from('projects')
+      .update({
+        custom_domain_status: 'ready',
+        custom_domain_error: null,
+        custom_domain_error_code: null,
+      })
+      .eq('id', projectId);
+    return 'ready';
+  } catch {
+    return status;
+  }
+}
+
+/**
  * Bulk variant for the dashboard read path: mutates rows in place when a HEAD
  * probe shows the URL is actually live. Runs probes in parallel (capped at
  * the natural project-list size), so worst case adds one round-trip latency.
+ * Heals both `subdomain_status` and `custom_domain_status`; the two are
+ * independent so a row can be patched on either, both, or neither side.
  */
 export async function selfHealManyProjects(
   admin: AdminClient,
   rows: ProjectRow[]
 ): Promise<ProjectRow[]> {
-  const errored = rows.filter(
+  const subErrored = rows.filter(
     (r) => r.subdomain && r.subdomain_status === 'error'
   );
-  if (errored.length === 0) return rows;
-
-  const liveResults = await Promise.all(
-    errored.map(async (r) => ({
-      id: r.id,
-      live: await verifySubdomainLive(buildPagesHost(r.subdomain as string)),
-    }))
+  const cdErrored = rows.filter(
+    (r) => r.custom_domain && r.custom_domain_status === 'error'
   );
-  const liveIds = new Set(liveResults.filter((x) => x.live).map((x) => x.id));
-  if (liveIds.size === 0) return rows;
+  if (subErrored.length === 0 && cdErrored.length === 0) return rows;
 
-  try {
-    await admin
-      .from('projects')
-      .update({ subdomain_status: 'ready', subdomain_error: null })
-      .in('id', Array.from(liveIds));
-  } catch {
-    // non-fatal: caller still gets fresh rows below via in-memory patch.
+  const [subResults, cdResults] = await Promise.all([
+    Promise.all(
+      subErrored.map(async (r) => ({
+        id: r.id,
+        live: await verifySubdomainLive(buildPagesHost(r.subdomain as string)),
+      }))
+    ),
+    Promise.all(
+      cdErrored.map(async (r) => ({
+        id: r.id,
+        live: await verifySubdomainLive(r.custom_domain as string),
+      }))
+    ),
+  ]);
+  const subLiveIds = new Set(subResults.filter((x) => x.live).map((x) => x.id));
+  const cdLiveIds = new Set(cdResults.filter((x) => x.live).map((x) => x.id));
+  if (subLiveIds.size === 0 && cdLiveIds.size === 0) return rows;
+
+  // Two updates because the SET clause differs per column set. Both are
+  // best-effort; in-memory patch below still reflects the heal even if the
+  // write races with a concurrent recheck.
+  if (subLiveIds.size > 0) {
+    try {
+      await admin
+        .from('projects')
+        .update({ subdomain_status: 'ready', subdomain_error: null })
+        .in('id', Array.from(subLiveIds));
+    } catch {
+      // non-fatal
+    }
+  }
+  if (cdLiveIds.size > 0) {
+    try {
+      await admin
+        .from('projects')
+        .update({
+          custom_domain_status: 'ready',
+          custom_domain_error: null,
+          custom_domain_error_code: null,
+        })
+        .in('id', Array.from(cdLiveIds));
+    } catch {
+      // non-fatal
+    }
   }
 
-  return rows.map((r) =>
-    liveIds.has(r.id)
-      ? { ...r, subdomain_status: 'ready', subdomain_error: null }
-      : r
-  );
+  return rows.map((r) => {
+    let next = r;
+    if (subLiveIds.has(r.id)) {
+      next = { ...next, subdomain_status: 'ready' satisfies SubdomainStatus, subdomain_error: null };
+    }
+    if (cdLiveIds.has(r.id)) {
+      next = {
+        ...next,
+        custom_domain_status: 'ready' satisfies CustomDomainStatus,
+        custom_domain_error: null,
+        custom_domain_error_code: null,
+      };
+    }
+    return next;
+  });
 }

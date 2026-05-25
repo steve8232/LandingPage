@@ -5,7 +5,10 @@ import { rowToDTO, PROJECT_COLS, type ProjectRow } from '@/lib/projects/types';
 import { buildPagesHost } from '@/lib/projects/subdomain';
 import { removeProjectDomain } from '@/lib/vercel/domains';
 import { vercelProjectNameFor } from '@/lib/vercel/client';
-import { selfHealSubdomainStatus } from '@/lib/projects/subdomainHealth';
+import {
+  selfHealCustomDomainStatus,
+  selfHealSubdomainStatus,
+} from '@/lib/projects/subdomainHealth';
 
 /**
  * GET    /api/projects/[id]  — fetch one project (owner only, enforced by RLS)
@@ -36,17 +39,34 @@ export async function GET(
   if (!data) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
   const row = data as ProjectRow;
-  if (row.subdomain && row.subdomain_status === 'error') {
+  const needsSubHeal = !!(row.subdomain && row.subdomain_status === 'error');
+  const needsCdHeal = !!(row.custom_domain && row.custom_domain_status === 'error');
+  if (needsSubHeal || needsCdHeal) {
     const admin = createAdminClient();
-    const healed = await selfHealSubdomainStatus(
-      admin,
-      row.id,
-      row.subdomain,
-      row.subdomain_status
-    );
-    if (healed !== row.subdomain_status) {
-      row.subdomain_status = healed;
-      row.subdomain_error = null;
+    if (needsSubHeal) {
+      const healed = await selfHealSubdomainStatus(
+        admin,
+        row.id,
+        row.subdomain,
+        row.subdomain_status
+      );
+      if (healed !== row.subdomain_status) {
+        row.subdomain_status = healed;
+        row.subdomain_error = null;
+      }
+    }
+    if (needsCdHeal) {
+      const healed = await selfHealCustomDomainStatus(
+        admin,
+        row.id,
+        row.custom_domain,
+        row.custom_domain_status
+      );
+      if (healed !== row.custom_domain_status) {
+        row.custom_domain_status = healed;
+        row.custom_domain_error = null;
+        row.custom_domain_error_code = null;
+      }
     }
   }
 

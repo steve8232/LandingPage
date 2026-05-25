@@ -182,6 +182,12 @@ async function markSubdomainReadyIfClaimed(
  * to see what real visitors see. Falls back to the vercel.app URL when no
  * alias is attached — capture will still work if the project has Deployment
  * Protection disabled.
+ *
+ * Status columns are intentionally NOT checked: they're a cached derived
+ * signal, and a working domain can sit with `custom_domain_status='error'`
+ * after a transient Vercel API hiccup. Source of truth is whether the host
+ * actually serves content — Playwright's navigation timeout will surface a
+ * real misconfiguration if the host is unreachable.
  */
 async function resolvePublicUrl(
   admin: ReturnType<typeof createAdminClient>,
@@ -191,15 +197,14 @@ async function resolvePublicUrl(
   try {
     const { data } = await admin
       .from('projects')
-      .select('subdomain, custom_domain, custom_domain_status')
+      .select('subdomain, custom_domain')
       .eq('id', projectId)
       .maybeSingle();
     const row = data as {
       subdomain: string | null;
       custom_domain: string | null;
-      custom_domain_status: 'ready' | 'pending_verification' | 'pending_dns' | 'error' | null;
     } | null;
-    if (row?.custom_domain && row.custom_domain_status === 'ready') {
+    if (row?.custom_domain) {
       return `https://${row.custom_domain}`;
     }
     if (row?.subdomain) {
