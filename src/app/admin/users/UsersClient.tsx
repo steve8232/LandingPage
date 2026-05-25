@@ -1,7 +1,9 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { Mail, ShieldCheck, User as UserIcon, Loader2, Plus } from 'lucide-react';
+import { useMemo, useState, type FormEvent } from 'react';
+import { Mail, ShieldCheck, User as UserIcon, Loader2, Plus, KeyRound, X } from 'lucide-react';
+
+const MIN_PASSWORD_LENGTH = 8;
 
 export interface AdminUserRowDTO {
   userId: string;
@@ -35,6 +37,9 @@ export default function UsersClient({
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<'admin' | 'user'>('user');
   const [inviting, setInviting] = useState(false);
+
+  // Set-password modal state
+  const [pwTarget, setPwTarget] = useState<AdminUserRowDTO | null>(null);
 
   const totalAdmins = useMemo(
     () => users.filter((u) => u.role === 'admin').length || initialTotalAdmins,
@@ -156,7 +161,23 @@ export default function UsersClient({
         totalAdmins={totalAdmins}
         busyId={busyId}
         onRoleChange={handleRoleChange}
+        onSetPassword={(u) => {
+          setError('');
+          setInfo('');
+          setPwTarget(u);
+        }}
       />
+
+      {pwTarget && (
+        <SetPasswordModal
+          target={pwTarget}
+          onClose={() => setPwTarget(null)}
+          onSuccess={(email) => {
+            setPwTarget(null);
+            setInfo(`Password updated for ${email}.`);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -167,12 +188,14 @@ function UserTable({
   totalAdmins,
   busyId,
   onRoleChange,
+  onSetPassword,
 }: {
   users: AdminUserRowDTO[];
   currentUserId: string;
   totalAdmins: number;
   busyId: string | null;
   onRoleChange: (u: AdminUserRowDTO, next: 'admin' | 'user') => void;
+  onSetPassword: (u: AdminUserRowDTO) => void;
 }) {
   return (
     <section className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
@@ -185,12 +208,13 @@ function UserTable({
               <th className="px-4 py-3 font-medium">Pages owned</th>
               <th className="px-4 py-3 font-medium">Memberships</th>
               <th className="px-4 py-3 font-medium">Joined</th>
+              <th className="px-4 py-3 font-medium text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
             {users.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-gray-500">
+                <td colSpan={6} className="px-4 py-6 text-center text-gray-500">
                   No users yet.
                 </td>
               </tr>
@@ -235,6 +259,20 @@ function UserTable({
                     <td className="px-4 py-3 text-gray-700">{u.ownedCount}</td>
                     <td className="px-4 py-3 text-gray-700">{u.collabCount}</td>
                     <td className="px-4 py-3 text-gray-500">{formatDate(u.createdAt)}</td>
+                    <td className="px-4 py-3 text-right">
+                      {!isMe && (
+                        <button
+                          type="button"
+                          onClick={() => onSetPassword(u)}
+                          disabled={isBusy}
+                          title="Set password"
+                          className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
+                        >
+                          <KeyRound className="w-3.5 h-3.5" />
+                          Set password
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 );
               })
@@ -243,5 +281,145 @@ function UserTable({
         </table>
       </div>
     </section>
+  );
+}
+
+
+function SetPasswordModal({
+  target,
+  onClose,
+  onSuccess,
+}: {
+  target: AdminUserRowDTO;
+  onClose: () => void;
+  onSuccess: (email: string) => void;
+}) {
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (busy) return;
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      setErr(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
+      return;
+    }
+    if (password !== confirm) {
+      setErr('Passwords do not match.');
+      return;
+    }
+    setBusy(true);
+    setErr('');
+    try {
+      const res = await fetch(`/api/admin/users/${target.userId}/password`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ password }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.error || `Update failed (${res.status})`);
+      onSuccess(target.email ?? 'user');
+    } catch (e2) {
+      setErr(e2 instanceof Error ? e2.message : 'Update failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget && !busy) onClose();
+      }}
+    >
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <KeyRound className="w-4 h-4 text-orange-600" />
+            <h2 className="font-semibold text-gray-900">Set password</h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={busy}
+            className="text-gray-400 hover:text-gray-600 disabled:opacity-50"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <p className="text-sm text-gray-600 mb-4">
+          Setting password for <span className="font-medium text-gray-900">{target.email ?? '—'}</span>.
+          They&apos;ll be able to sign in immediately with this password.
+        </p>
+
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div>
+            <label htmlFor="admin-pw" className="block text-sm font-medium text-gray-700 mb-1.5">
+              New password
+            </label>
+            <input
+              id="admin-pw"
+              type="password"
+              required
+              autoFocus
+              autoComplete="new-password"
+              minLength={MIN_PASSWORD_LENGTH}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+              disabled={busy}
+            />
+          </div>
+
+          <div>
+            <label htmlFor="admin-pw-confirm" className="block text-sm font-medium text-gray-700 mb-1.5">
+              Confirm password
+            </label>
+            <input
+              id="admin-pw-confirm"
+              type="password"
+              required
+              autoComplete="new-password"
+              minLength={MIN_PASSWORD_LENGTH}
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              placeholder="Repeat password"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+              disabled={busy}
+            />
+          </div>
+
+          {err && (
+            <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+              {err}
+            </p>
+          )}
+
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={busy}
+              className="px-3 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={busy || !password || !confirm}
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-orange-500 text-white font-medium rounded-lg hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+            >
+              {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4" />}
+              Save password
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }
