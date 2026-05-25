@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Sparkles, Plus, Pencil, Trash2, ExternalLink, LogOut, Loader2, Inbox, Activity } from 'lucide-react';
+import { Sparkles, Plus, Pencil, Trash2, ExternalLink, LayoutDashboard, LogOut, Loader2, Activity } from 'lucide-react';
 import type { ProjectDTO } from '@/lib/projects/types';
 import type { DeploymentDTO } from '@/lib/deployments/types';
 import { deleteProject, updateProject } from '@/lib/projects/remoteStorage';
@@ -98,8 +98,8 @@ export default function DashboardClient({
     }
   }
 
-  function openInEditor(p: ProjectDTO) {
-    startTransition(() => router.push(`/?project=${p.id}`));
+  function openProject(p: ProjectDTO) {
+    startTransition(() => router.push(`/dashboard/projects/${p.id}`));
   }
 
   return (
@@ -114,14 +114,6 @@ export default function DashboardClient({
           </Link>
           <div className="flex items-center gap-3 text-sm">
             <span className="text-gray-500 hidden sm:inline">{userEmail}</span>
-            <Link
-              href="/dashboard/leads"
-              className="text-gray-600 hover:text-gray-900 flex items-center gap-1.5"
-              title="View leads"
-            >
-              <Inbox className="w-4 h-4" />
-              Leads
-            </Link>
             <button
               onClick={handleSignOut}
               className="text-gray-600 hover:text-gray-900 flex items-center gap-1.5"
@@ -176,7 +168,7 @@ export default function DashboardClient({
             renamingId={renamingId}
             renameValue={renameValue}
             busyId={busyId}
-            onOpen={openInEditor}
+            onOpen={openProject}
             onStartRename={(p) => { setRenamingId(p.id); setRenameValue(p.title); }}
             onRenameChange={setRenameValue}
             onRenameSubmit={handleRenameSubmit}
@@ -238,7 +230,7 @@ function ProjectList({
                 <button
                   onClick={() => onOpen(p)}
                   className="text-left w-full"
-                  title="Open in editor"
+                  title="Open dashboard"
                 >
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="font-semibold text-gray-900 truncate">{p.title}</span>
@@ -321,9 +313,9 @@ function ProjectList({
                 onClick={() => onOpen(p)}
                 disabled={isBusy}
                 className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg disabled:opacity-50"
-                title="Open in editor"
+                title="Open dashboard"
               >
-                <ExternalLink className="w-4 h-4" />
+                <LayoutDashboard className="w-4 h-4" />
               </button>
               <Link
                 href={`/dashboard/projects/${p.id}/heatmap`}

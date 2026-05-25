@@ -1,16 +1,15 @@
 import Link from 'next/link';
-import { Pencil, Activity } from 'lucide-react';
+import { Pencil, Activity, LayoutDashboard } from 'lucide-react';
 
 /**
  * Sibling-nav tab strip for project-scoped dashboard views. Rendered below
- * the breadcrumb on every per-project page (currently just Heatmap; more
- * tabs will land here as we add per-project Leads / Calls / Settings).
+ * the breadcrumb on every per-project page (Dashboard / Editor / Heatmap).
  *
  * Editor lives at `/?project=<id>` so it's wired with a regular Link rather
  * than a `/dashboard/projects/[id]/...` segment.
  */
 
-export type ProjectTabKey = 'editor' | 'heatmap';
+export type ProjectTabKey = 'dashboard' | 'editor' | 'heatmap';
 
 interface Props {
   projectId: string;
@@ -25,8 +24,9 @@ interface TabSpec {
 }
 
 const TABS: TabSpec[] = [
-  { key: 'editor',  label: 'Editor',  href: (id) => `/?project=${id}`,                  icon: Pencil   },
-  { key: 'heatmap', label: 'Heatmap', href: (id) => `/dashboard/projects/${id}/heatmap`, icon: Activity },
+  { key: 'dashboard', label: 'Dashboard', href: (id) => `/dashboard/projects/${id}`,         icon: LayoutDashboard },
+  { key: 'editor',    label: 'Editor',    href: (id) => `/?project=${id}`,                    icon: Pencil          },
+  { key: 'heatmap',   label: 'Heatmap',   href: (id) => `/dashboard/projects/${id}/heatmap`,  icon: Activity        },
 ];
 
 export default function ProjectTabs({ projectId, active }: Props) {
