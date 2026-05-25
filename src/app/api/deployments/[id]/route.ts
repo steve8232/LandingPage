@@ -9,6 +9,7 @@ import {
   type DeploymentRow,
 } from '@/lib/deployments/types';
 import { selfHealSubdomainStatus } from '@/lib/projects/subdomainHealth';
+import { buildPagesUrl } from '@/lib/projects/subdomain';
 import { triggerSnapshot } from '@/lib/snapshots/trigger';
 
 /**
@@ -95,6 +96,14 @@ export async function GET(
           // and a flake on one device doesn't block the other. Tablet is
           // intentionally skipped — h.js buckets visitors into desktop/mobile
           // only, so a tablet snapshot would have no events to render.
+          //
+          // URL precedence mirrors resolveProjectDisplayUrls: custom domain →
+          // SparkPage subdomain → raw vercel.app. Vercel Deployment Protection
+          // blocks the *.vercel.app host with a login wall, but project-level
+          // custom domains (added via addProjectDomain) bypass it, so the bot
+          // must hit the same host visitors do — otherwise the snapshot is
+          // just a screenshot of the Vercel login screen.
+          const snapshotUrl = await resolvePublicUrl(admin, current.project_id, nextUrl);
           const appOrigin =
             process.env.NEXT_PUBLIC_APP_URL ||
             process.env.NEXT_PUBLIC_SITE_URL ||
@@ -106,7 +115,7 @@ export async function GET(
                   admin,
                   projectId: current.project_id,
                   deploymentId: current.id,
-                  url: nextUrl,
+                  url: snapshotUrl,
                   appOrigin,
                   device,
                 },
@@ -164,6 +173,42 @@ async function markSubdomainReadyIfClaimed(
   } catch (err) {
     console.warn('[api/deployments] markSubdomainReadyIfClaimed failed:', err);
   }
+}
+
+/**
+ * Resolve the URL the snapshot bot should navigate to. Vercel Deployment
+ * Protection gates the raw *.vercel.app host behind a login wall, so the bot
+ * must hit a project-level custom alias (custom domain or SparkPage subdomain)
+ * to see what real visitors see. Falls back to the vercel.app URL when no
+ * alias is attached — capture will still work if the project has Deployment
+ * Protection disabled.
+ */
+async function resolvePublicUrl(
+  admin: ReturnType<typeof createAdminClient>,
+  projectId: string,
+  fallbackUrl: string | null,
+): Promise<string | null> {
+  try {
+    const { data } = await admin
+      .from('projects')
+      .select('subdomain, custom_domain, custom_domain_status')
+      .eq('id', projectId)
+      .maybeSingle();
+    const row = data as {
+      subdomain: string | null;
+      custom_domain: string | null;
+      custom_domain_status: 'ready' | 'pending_verification' | 'pending_dns' | 'error' | null;
+    } | null;
+    if (row?.custom_domain && row.custom_domain_status === 'ready') {
+      return `https://${row.custom_domain}`;
+    }
+    if (row?.subdomain) {
+      return buildPagesUrl(row.subdomain);
+    }
+  } catch (err) {
+    console.warn('[api/deployments] resolvePublicUrl failed:', err);
+  }
+  return fallbackUrl;
 }
 
 
