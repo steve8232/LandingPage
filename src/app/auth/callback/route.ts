@@ -26,5 +26,24 @@ export async function GET(request: NextRequest) {
 
   // Honor a relative `next` path; ignore anything that escapes the origin.
   const safeNext = next.startsWith('/') ? next : '/';
+
+  // First-time / invited users land here without a password chosen. Gate the
+  // entire app behind /auth/set-password until they pick one.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (user) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('password_set')
+      .eq('user_id', user.id)
+      .maybeSingle<{ password_set: boolean }>();
+    if (!profile?.password_set && !safeNext.startsWith('/auth/')) {
+      return NextResponse.redirect(
+        `${origin}/auth/set-password?next=${encodeURIComponent(safeNext)}`
+      );
+    }
+  }
+
   return NextResponse.redirect(`${origin}${safeNext}`);
 }

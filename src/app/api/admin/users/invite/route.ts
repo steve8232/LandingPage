@@ -49,7 +49,11 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  const { data, error } = await admin.auth.admin.inviteUserByEmail(email);
+  // Land invitees on /auth/callback, which will exchange the code and then
+  // route to /auth/set-password (because the new profile has password_set=false).
+  const origin = new URL(request.url).origin;
+  const redirectTo = `${origin}/auth/callback`;
+  const { data, error } = await admin.auth.admin.inviteUserByEmail(email, { redirectTo });
   if (error || !data?.user) {
     return NextResponse.json(
       { error: error?.message || 'Invite failed' },
