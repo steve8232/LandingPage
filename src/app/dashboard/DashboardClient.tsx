@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Sparkles, Plus, Pencil, Trash2, ExternalLink, LayoutDashboard, LogOut, Loader2, Activity } from 'lucide-react';
+import { Sparkles, Plus, Pencil, Trash2, ExternalLink, LayoutDashboard, LogOut, Loader2, Activity, Shield } from 'lucide-react';
 import type { ProjectDTO } from '@/lib/projects/types';
 import type { DeploymentDTO } from '@/lib/deployments/types';
 import { deleteProject, updateProject } from '@/lib/projects/remoteStorage';
@@ -116,6 +116,16 @@ export default function DashboardClient({
             <span className="font-bold">SparkPage</span>
           </Link>
           <div className="flex items-center gap-3 text-sm">
+            {isAdmin && (
+              <Link
+                href="/admin"
+                className="text-gray-600 hover:text-gray-900 flex items-center gap-1.5"
+                title="Admin"
+              >
+                <Shield className="w-4 h-4" />
+                <span className="hidden sm:inline">Admin</span>
+              </Link>
+            )}
             <span className="text-gray-500 hidden sm:inline">{userEmail}</span>
             <button
               onClick={handleSignOut}
