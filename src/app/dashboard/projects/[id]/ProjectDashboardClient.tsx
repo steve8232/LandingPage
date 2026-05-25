@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   Sparkles, ArrowLeft, LogOut, Download, ExternalLink,
-  FileText, Phone, Users, Inbox,
+  FileText, Phone, Sparkle, Inbox,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import type { LeadDTO } from '@/lib/leads/types';
@@ -172,12 +172,12 @@ export default function ProjectDashboardClient({
             }
           />
           <ExportButton
-            label="Visitors CSV"
+            label="SparkLeads CSV"
             disabled={identified.length === 0}
             onClick={() =>
               downloadCsv(
                 buildIdentifiedCsv({ visitors: identified, projectTitleById }),
-                'sparkpage-identified',
+                'sparkpage-sparkleads',
               )
             }
           />
@@ -220,7 +220,7 @@ function EmptyState() {
       </div>
       <h2 className="text-lg font-semibold text-gray-900 mb-1">No activity yet</h2>
       <p className="text-sm text-gray-600">
-        Form submissions, calls, and identified visitors will appear here once
+        Form submissions, calls, and SparkLeads will appear here once
         traffic starts arriving on the published page.
       </p>
     </div>
@@ -249,9 +249,9 @@ function SummaryCards({ formCount, callCount, visitorCount }: SummaryCardsProps)
         count={callCount}
       />
       <SummaryCard
-        icon={<Users className="w-4 h-4 text-purple-600" />}
+        icon={<Sparkle className="w-4 h-4 text-purple-600" />}
         tint="bg-purple-50 border-purple-100"
-        label="Identified visitors"
+        label="SparkLeads"
         count={visitorCount}
       />
     </div>

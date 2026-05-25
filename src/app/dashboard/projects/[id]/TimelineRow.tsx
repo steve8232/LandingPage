@@ -2,7 +2,7 @@
 
 import {
   ChevronDown, ChevronRight,
-  FileText, Users,
+  FileText, Sparkle,
   PhoneIncoming, PhoneOutgoing, PhoneMissed, Voicemail,
 } from 'lucide-react';
 import {
@@ -112,7 +112,7 @@ function renderSummary(item: TimelineItem): Summary {
     const company = v.resolution.COMPANY_NAME?.trim() || '';
     const parts = [company, location].filter(Boolean) as string[];
     return {
-      title: name !== '—' ? name : (email || phone || 'Anonymous visitor'),
+      title: name !== '—' ? name : (email || phone || 'SparkLead'),
       secondary: [email, phone].filter(Boolean).join(' · '),
       subtitle: parts.length ? parts.join(' · ') : undefined,
     };
@@ -133,7 +133,7 @@ function KindPillForItem({ item }: { item: TimelineItem }) {
   if (item.kind === 'form') {
     return <Pill icon={<FileText className="w-3 h-3" />} label="Form" cls="bg-blue-50 text-blue-700 border-blue-200" />;
   }
-  return <Pill icon={<Users className="w-3 h-3" />} label="Visitor" cls="bg-purple-50 text-purple-700 border-purple-200" />;
+  return <Pill icon={<Sparkle className="w-3 h-3" />} label="SparkLead" cls="bg-purple-50 text-purple-700 border-purple-200" />;
 }
 
 function Pill({ icon, label, cls }: { icon: React.ReactNode; label: string; cls: string }) {
