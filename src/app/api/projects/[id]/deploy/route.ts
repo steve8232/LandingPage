@@ -146,6 +146,11 @@ export async function POST(
   // published page stays inert (same posture as the AudienceLab pixel).
   const callrailScriptUrl = project.callrail_script_url || undefined;
 
+  // First-party heatmap tracker URL. Baked with the projectId in the query
+  // string so /h.js self-configures and POSTs back to the matching ingest
+  // route. The composer skips injection when meta.heatmapEnabled === false.
+  const heatmapTrackerUrl = `${appBase}/h.js?p=${encodeURIComponent(project.id)}`;
+
   let indexHtml: string;
   let thankYouHtml: string;
   try {
@@ -155,6 +160,7 @@ export async function POST(
       redirectTo: '/thank-you',
       pixelUrl: pixelInstallUrl || undefined,
       callrailScriptUrl,
+      heatmapTrackerUrl,
     });
     indexHtml = composed.html;
     // Thank-you page is always shipped; copy falls back to niche defaults

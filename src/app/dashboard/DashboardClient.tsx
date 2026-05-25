@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Sparkles, Plus, Pencil, Trash2, ExternalLink, LogOut, Loader2, Inbox } from 'lucide-react';
+import { Sparkles, Plus, Pencil, Trash2, ExternalLink, LogOut, Loader2, Inbox, Activity } from 'lucide-react';
 import type { ProjectDTO } from '@/lib/projects/types';
 import type { DeploymentDTO } from '@/lib/deployments/types';
 import { deleteProject, updateProject } from '@/lib/projects/remoteStorage';
@@ -325,6 +325,16 @@ function ProjectList({
               >
                 <ExternalLink className="w-4 h-4" />
               </button>
+              <Link
+                href={`/dashboard/projects/${p.id}/heatmap`}
+                aria-disabled={isBusy}
+                className={`p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg ${
+                  isBusy ? 'pointer-events-none opacity-50' : ''
+                }`}
+                title="View heatmap"
+              >
+                <Activity className="w-4 h-4" />
+              </Link>
               <button
                 onClick={() => onStartRename(p)}
                 disabled={isBusy}

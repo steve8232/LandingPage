@@ -1646,6 +1646,8 @@ export default function PreviewDownload({
 						onClarityProjectIdChange={(id) => updateV1Meta({ clarityProjectId: id })}
 						googleTagId={String(v1Overrides?.meta?.googleTagId ?? '')}
 						onGoogleTagIdChange={(id) => updateV1Meta({ googleTagId: id })}
+						heatmapEnabled={v1Overrides?.meta?.heatmapEnabled !== false}
+						onHeatmapEnabledChange={(enabled) => updateV1Meta({ heatmapEnabled: enabled })}
 						audiencelabPixelId={v1AudiencelabPixelId}
 						audiencelabInstallUrl={v1AudiencelabInstallUrl}
 						publishStatus={publishStatus}

@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from 'next/server';
+import { NextResponse, after, type NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getDeployment, toFullUrl } from '@/lib/vercel/client';
@@ -9,6 +9,7 @@ import {
   type DeploymentRow,
 } from '@/lib/deployments/types';
 import { selfHealSubdomainStatus } from '@/lib/projects/subdomainHealth';
+import { triggerSnapshot } from '@/lib/snapshots/trigger';
 
 /**
  * GET /api/deployments/[id]
@@ -24,7 +25,7 @@ const SELECT_COLS =
   'id, project_id, revision_id, vercel_deployment_id, url, status, error_message, created_at, updated_at';
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   const { id } = await context.params;
@@ -86,6 +87,33 @@ export async function GET(
         // failure), trust HEAD-reachability as the source of truth.
         if (nextStatus === 'ready') {
           await markSubdomainReadyIfClaimed(admin, current.project_id);
+          // Heatmap snapshot capture — insert pending rows now and queue the
+          // long-running Playwright calls to fire after the response so the
+          // polling client isn't blocked. Failures are logged inside the
+          // helper; never throws. Desktop + mobile fan out as independent
+          // /api/internal/snapshot invocations so they run in parallel Lambdas
+          // and a flake on one device doesn't block the other. Tablet is
+          // intentionally skipped — h.js buckets visitors into desktop/mobile
+          // only, so a tablet snapshot would have no events to render.
+          const appOrigin =
+            process.env.NEXT_PUBLIC_APP_URL ||
+            process.env.NEXT_PUBLIC_SITE_URL ||
+            request.nextUrl.origin;
+          await Promise.all(
+            (['desktop', 'mobile'] as const).map((device) =>
+              triggerSnapshot(
+                {
+                  admin,
+                  projectId: current.project_id,
+                  deploymentId: current.id,
+                  url: nextUrl,
+                  appOrigin,
+                  device,
+                },
+                { afterFn: after }
+              )
+            )
+          );
         }
         return NextResponse.json({ deployment: rowToDTO(updated as DeploymentRow) });
       }
@@ -137,3 +165,5 @@ async function markSubdomainReadyIfClaimed(
     console.warn('[api/deployments] markSubdomainReadyIfClaimed failed:', err);
   }
 }
+
+

@@ -11,6 +11,7 @@ import {
   Rocket,
   Loader2,
   BarChart3,
+  MousePointerClick,
 } from 'lucide-react';
 import SubdomainPicker, { type SubdomainPickerHandle } from './SubdomainPicker';
 import CustomDomainPicker from './CustomDomainPicker';
@@ -53,6 +54,10 @@ export interface PublishIntegrationsMenuProps {
   // Microsoft Clarity (heatmaps + session replay)
   clarityProjectId: string;
   onClarityProjectIdChange: (id: string) => void;
+
+  // SparkPage first-party heatmap (default-on, opt-out)
+  heatmapEnabled: boolean;
+  onHeatmapEnabledChange: (enabled: boolean) => void;
 
   // Google Tag (gtag.js — Google Ads / GA4 / Floodlight)
   googleTagId: string;
@@ -107,6 +112,7 @@ const PublishIntegrationsMenu = forwardRef<SubdomainPickerHandle, PublishIntegra
     const clarityTone: DotTone = props.clarityProjectId.trim() ? 'ok' : 'off';
     const googleTagTone: DotTone = props.googleTagId.trim() ? 'ok' : 'off';
     const audiencelabTone: DotTone = props.audiencelabInstallUrl ? 'ok' : 'off';
+    const heatmapTone: DotTone = props.heatmapEnabled ? 'ok' : 'off';
 
     const publishing =
       props.publishStatus === 'publishing' || props.publishStatus === 'polling';
@@ -136,6 +142,7 @@ const PublishIntegrationsMenu = forwardRef<SubdomainPickerHandle, PublishIntegra
             <TriggerDot tone={clarityTone} />
             <TriggerDot tone={googleTagTone} />
             <TriggerDot tone={audiencelabTone} />
+            <TriggerDot tone={heatmapTone} />
           </span>
           <ChevronDown className="w-3.5 h-3.5 opacity-80" />
         </button>
@@ -278,6 +285,26 @@ const PublishIntegrationsMenu = forwardRef<SubdomainPickerHandle, PublishIntegra
                     A pixel will be provisioned automatically on your next publish.
                   </div>
                 )}
+              </Section>
+
+              <Section
+                icon={<MousePointerClick className="w-3.5 h-3.5" />}
+                title="SparkPage Heatmap"
+                tone={heatmapTone}
+                statusLabel={heatmapTone === 'ok' ? 'On' : 'Off'}
+              >
+                <label className="flex items-center gap-2 text-xs text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={props.heatmapEnabled}
+                    onChange={(e) => props.onHeatmapEnabledChange(e.target.checked)}
+                    className="accent-orange-500"
+                  />
+                  Track clicks, rage clicks &amp; scroll depth on this page
+                </label>
+                <p className="text-[11px] text-gray-500 mt-1.5">
+                  First-party tracker — all data stays on SparkPage. Heatmaps appear under your dashboard once visitors arrive.
+                </p>
               </Section>
 
               <div className="pt-2 border-t border-gray-100">

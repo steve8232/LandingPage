@@ -205,6 +205,13 @@ export interface V1MetaOverrides {
    * the document `<head>` so page views and conversions are reported.
    */
   googleTagId?: string;
+  /**
+   * First-party heatmap tracker switch. The deploy route passes a
+   * pre-built tracker URL (`heatmapTrackerUrl` option) on every publish;
+   * this flag lets the project owner opt out. Treated as `true` when
+   * undefined so newly created projects ship with tracking on.
+   */
+  heatmapEnabled?: boolean;
 }
 
 export interface V1ImageAttribution {
@@ -287,6 +294,15 @@ export interface ComposeV1Options {
    * tracking number. Omit for preview/editor mode.
    */
   callrailScriptUrl?: string;
+  /**
+   * Absolute URL of the SparkPage heatmap tracker including the project
+   * id as a query parameter (e.g. `https://app.sparkpage.us/h.js?p=<id>`).
+   * When set AND `meta.heatmapEnabled !== false`, a single
+   * `<script async src="…">` is injected into <head> so the first-party
+   * tracker batches clicks back to `/api/heatmap/ingest/<id>`. Omit for
+   * preview/editor mode.
+   */
+  heatmapTrackerUrl?: string;
 }
 
 export function composeV1Template(
@@ -302,6 +318,7 @@ export function composeV1Template(
       : '/thank-you';
   const pixelUrl = typeof options?.pixelUrl === 'string' ? options.pixelUrl : '';
   const callrailScriptUrl = typeof options?.callrailScriptUrl === 'string' ? options.callrailScriptUrl : '';
+  const heatmapTrackerUrl = typeof options?.heatmapTrackerUrl === 'string' ? options.heatmapTrackerUrl : '';
 
   // 1. Load spec
   const spec = getV1Spec(templateId);
@@ -540,7 +557,8 @@ export function composeV1Template(
     overrides?.meta,
     submitUrl ? { submitUrl, redirectTo } : undefined,
     pixelUrl || undefined,
-    callrailScriptUrl || undefined
+    callrailScriptUrl || undefined,
+    heatmapTrackerUrl || undefined
   );
 
   return { html, templateId };
@@ -584,7 +602,8 @@ export function buildV1Document(
   meta?: V1MetaOverrides,
   formConfig?: BuildV1DocumentFormConfig,
   pixelUrl?: string,
-  callrailScriptUrl?: string
+  callrailScriptUrl?: string,
+  heatmapTrackerUrl?: string
 ): string {
   const pageTitle = meta?.pageTitle || spec.metadata.name;
   const metaDesc = meta?.metaDescription || spec.metadata.description;
@@ -632,12 +651,21 @@ export function buildV1Document(
     ? `\n  <!-- Google tag (gtag.js) -->\n  <script async src="https://www.googletagmanager.com/gtag/js?id=${escapeAttr(googleTagId)}"></script>\n  <script>\n    window.dataLayer = window.dataLayer || [];\n    function gtag(){dataLayer.push(arguments);}\n    gtag('js', new Date());\n    gtag('config', ${JSON.stringify(googleTagId).replace(/</g, '\\u003c')});\n  </script>`
     : '';
 
+  // SparkPage first-party heatmap tracker — emitted when the deploy route
+  // passes a tracker URL AND the project hasn't opted out via
+  // `meta.heatmapEnabled === false`. The tracker self-configures from the
+  // `?p=<projectId>` query string baked into the src URL.
+  const heatmapOptOut = meta?.heatmapEnabled === false;
+  const heatmapTag = heatmapTrackerUrl && !heatmapOptOut
+    ? `\n  <script async src="${escapeAttr(heatmapTrackerUrl)}"></script>`
+    : '';
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="${escapeAttr(metaDesc)}">${taglineTag}${pixelTag}${callrailTag}${clarityTag}${googleTag}
+  <meta name="description" content="${escapeAttr(metaDesc)}">${taglineTag}${pixelTag}${callrailTag}${clarityTag}${googleTag}${heatmapTag}
   <title>${escapeHtml(pageTitle)}</title>
   <style>
 /* === v1 tokens === */
