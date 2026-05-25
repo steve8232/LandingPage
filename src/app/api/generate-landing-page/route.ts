@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { FormData, GeneratedContent } from '@/types';
 import { generateHTML } from '@/lib/generateHtml';
 import { generateFullCSS } from '@/lib/generateCss';
+import { requireAdmin } from '@/lib/auth/role';
 
 // ── v1 adapter ─────────────────────────────────────────────────────────────────
 // If the selected template is a v1 spec, we use the v1 composer instead of the
@@ -128,6 +129,8 @@ Make testimonials realistic and varied, based on the customer benefits mentioned
 
 export async function POST(request: NextRequest) {
   try {
+    const gate = await requireAdmin();
+    if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });
     const formData: FormData = await request.json();
 
     // ── v1 adapter: intercept v1 template IDs ──────────────────────────────

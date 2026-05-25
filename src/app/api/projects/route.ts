@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { isV1Template } from '../../../../v1/specs';
 import { makeSlug, rowToDTO, PROJECT_COLS, type ProjectRow } from '@/lib/projects/types';
 import { selfHealManyProjects } from '@/lib/projects/subdomainHealth';
+import { requireAdmin } from '@/lib/auth/role';
 
 /**
  * GET  /api/projects        — list current user's projects (most-recent first)
@@ -34,6 +35,8 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const gate = await requireAdmin();
+  if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

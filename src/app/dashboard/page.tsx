@@ -8,17 +8,22 @@ import {
   type DeploymentRow,
 } from '@/lib/deployments/types';
 import { selfHealManyProjects } from '@/lib/projects/subdomainHealth';
+import { getCurrentRole } from '@/lib/auth/role';
 import DashboardClient from './DashboardClient';
 
 export const dynamic = 'force-dynamic';
 
 export default async function DashboardPage() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const [{ data: { user } }, { role }] = await Promise.all([
+    supabase.auth.getUser(),
+    getCurrentRole(),
+  ]);
 
   if (!user) {
     redirect('/login?next=/dashboard');
   }
+  const viewerRole: 'admin' | 'user' = role === 'admin' ? 'admin' : 'user';
 
   const { data, error } = await supabase
     .from('projects')
@@ -53,6 +58,7 @@ export default async function DashboardPage() {
       initialLatestDeployments={latestDeployments}
       userEmail={user.email ?? ''}
       loadError={error?.message ?? ''}
+      viewerRole={viewerRole}
     />
   );
 }

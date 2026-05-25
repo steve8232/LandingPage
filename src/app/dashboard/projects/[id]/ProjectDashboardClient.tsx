@@ -17,7 +17,12 @@ import {
   type IdentifiedVisitorDTO,
 } from '@/lib/audiencelab/identified';
 import { buildCallsCsv, type CallDTO } from '@/lib/callrail/calls';
+import type {
+  CollaboratorDTO,
+  CollaboratorOwnerDTO,
+} from '@/lib/projects/collaborators';
 import ProjectTabs from './ProjectTabs';
+import ShareAccessCard from './ShareAccessCard';
 import { buildTimeline } from './timeline';
 import TimelineRow from './TimelineRow';
 
@@ -36,10 +41,14 @@ interface Props {
   calls: CallDTO[];
   userEmail: string;
   loadError: string;
+  viewerRole: 'admin' | 'user';
+  owner: CollaboratorOwnerDTO;
+  collaborators: CollaboratorDTO[];
 }
 
 export default function ProjectDashboardClient({
   project, leads, identified, calls, userEmail, loadError,
+  viewerRole, owner, collaborators,
 }: Props) {
   const router = useRouter();
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -137,6 +146,15 @@ export default function ProjectDashboardClient({
           callCount={calls.length}
           visitorCount={identified.length}
         />
+
+        <div className="mt-4">
+          <ShareAccessCard
+            projectId={project.id}
+            viewerRole={viewerRole}
+            initialOwner={owner}
+            initialCollaborators={collaborators}
+          />
+        </div>
 
         <div className="mt-4 flex items-center justify-end gap-2">
           <ExportButton

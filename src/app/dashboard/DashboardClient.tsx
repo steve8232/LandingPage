@@ -41,6 +41,7 @@ interface DashboardClientProps {
   initialLatestDeployments: Record<string, DeploymentDTO>;
   userEmail: string;
   loadError: string;
+  viewerRole: 'admin' | 'user';
 }
 
 export default function DashboardClient({
@@ -48,7 +49,9 @@ export default function DashboardClient({
   initialLatestDeployments,
   userEmail,
   loadError,
+  viewerRole,
 }: DashboardClientProps) {
+  const isAdmin = viewerRole === 'admin';
   const router = useRouter();
   const [projects, setProjects] = useState<ProjectDTO[]>(initialProjects);
   const [latestDeployments] = useState<Record<string, DeploymentDTO>>(initialLatestDeployments);
@@ -129,13 +132,15 @@ export default function DashboardClient({
       <main className="max-w-5xl mx-auto px-4 md:px-8 py-8">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-gray-900">My SparkPages</h1>
-          <Link
-            href="/"
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-orange-500 text-white font-medium rounded-lg hover:bg-orange-600 shadow-md shadow-orange-200"
-          >
-            <Plus className="w-4 h-4" />
-            New page
-          </Link>
+          {isAdmin && (
+            <Link
+              href="/"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-orange-500 text-white font-medium rounded-lg hover:bg-orange-600 shadow-md shadow-orange-200"
+            >
+              <Plus className="w-4 h-4" />
+              New page
+            </Link>
+          )}
         </div>
 
         {(loadError || actionError) && (
@@ -151,15 +156,19 @@ export default function DashboardClient({
             </div>
             <h2 className="text-lg font-semibold text-gray-900 mb-1">No saved pages yet</h2>
             <p className="text-sm text-gray-600 mb-6">
-              Build a landing page and click <span className="font-medium">Save changes</span> in the editor to add it here.
+              {isAdmin
+                ? 'Build a landing page and click Save changes in the editor to add it here.'
+                : 'Ask a SparkPage admin to create a page and share access with you.'}
             </p>
-            <Link
-              href="/"
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-orange-500 text-white font-medium rounded-lg hover:bg-orange-600"
-            >
-              <Plus className="w-4 h-4" />
-              Create your first page
-            </Link>
+            {isAdmin && (
+              <Link
+                href="/"
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-orange-500 text-white font-medium rounded-lg hover:bg-orange-600"
+              >
+                <Plus className="w-4 h-4" />
+                Create your first page
+              </Link>
+            )}
           </div>
         ) : (
           <ProjectList
@@ -168,6 +177,7 @@ export default function DashboardClient({
             renamingId={renamingId}
             renameValue={renameValue}
             busyId={busyId}
+            isAdmin={isAdmin}
             onOpen={openProject}
             onStartRename={(p) => { setRenamingId(p.id); setRenameValue(p.title); }}
             onRenameChange={setRenameValue}
@@ -187,6 +197,7 @@ interface ProjectListProps {
   renamingId: string | null;
   renameValue: string;
   busyId: string | null;
+  isAdmin: boolean;
   onOpen: (p: ProjectDTO) => void;
   onStartRename: (p: ProjectDTO) => void;
   onRenameChange: (v: string) => void;
@@ -196,7 +207,7 @@ interface ProjectListProps {
 }
 
 function ProjectList({
-  projects, latestDeployments, renamingId, renameValue, busyId,
+  projects, latestDeployments, renamingId, renameValue, busyId, isAdmin,
   onOpen, onStartRename, onRenameChange, onRenameSubmit, onRenameCancel, onDelete,
 }: ProjectListProps) {
   return (
@@ -335,14 +346,16 @@ function ProjectList({
               >
                 <Pencil className="w-4 h-4" />
               </button>
-              <button
-                onClick={() => onDelete(p)}
-                disabled={isBusy}
-                className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg disabled:opacity-50"
-                title="Delete"
-              >
-                {isBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-              </button>
+              {isAdmin && (
+                <button
+                  onClick={() => onDelete(p)}
+                  disabled={isBusy}
+                  className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg disabled:opacity-50"
+                  title="Delete"
+                >
+                  {isBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                </button>
+              )}
             </div>
           </li>
         );

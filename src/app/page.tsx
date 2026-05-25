@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import WelcomeScreen from '@/components/WelcomeScreen';
+import NonAdminMarketing from '@/components/NonAdminMarketing';
 import ProgressIndicator from '@/components/ProgressIndicator';
 import Step0TemplateSelect from '@/components/Step0TemplateSelect';
 import Step1DesignInput from '@/components/Step1DesignInput';
@@ -17,6 +18,8 @@ import {
 } from '@/lib/v1EditorStorage';
 import { buildPrefillFromSpec } from '@/lib/specToFormData';
 import { getProject } from '@/lib/projects/remoteStorage';
+import { useSession } from '@/lib/useSession';
+import { useRole } from '@/lib/useRole';
 
 type AppState = 'welcome' | 'form' | 'generating' | 'preview';
 
@@ -51,6 +54,17 @@ export default function Home() {
   const [landingPage, setLandingPage] = useState<GeneratedLandingPage | null>(null);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { user, loading: sessionLoading } = useSession();
+  const { role, loading: roleLoading } = useRole();
+
+  // Whether the current URL is loading a specific cloud project via
+  // ?project=<id>. Computed once on mount so the marketing gate doesn't
+  // flip after the restore() effect mutates window state.
+  const hasProjectParam = useMemo(() => {
+    if (typeof window === 'undefined') return false;
+    try { return !!new URLSearchParams(window.location.search).get('project'); }
+    catch { return false; }
+  }, []);
 
   // A1: Boot strategy:
   //   1. If `?project=<id>` is present, load that cloud project (Phase 2).
@@ -70,7 +84,8 @@ export default function Home() {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
-        throw new Error((data as any)?.error || `Failed to compose (${res.status})`);
+        const errMsg = (data as { error?: unknown } | null)?.error;
+        throw new Error(typeof errMsg === 'string' ? errMsg : `Failed to compose (${res.status})`);
       }
       const data = (await res.json()) as { html?: unknown };
       const html = typeof data.html === 'string' ? data.html : '';
@@ -231,7 +246,8 @@ export default function Home() {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
-        throw new Error((data as any)?.error || `Failed to load template (${res.status})`);
+        const errMsg = (data as { error?: unknown } | null)?.error;
+        throw new Error(typeof errMsg === 'string' ? errMsg : `Failed to load template (${res.status})`);
       }
       const data = (await res.json()) as { html?: unknown };
       const html = typeof data.html === 'string' ? data.html : '';
@@ -327,6 +343,17 @@ export default function Home() {
 	      />
 	    );
 	  }
+
+  // Marketing gate: a signed-in non-admin can't create new pages. When they
+  // didn't arrive via ?project=<id> (which loads an existing cloud project
+  // they already have access to), replace the wizard with a marketing screen
+  // pointing them at their dashboard. Anonymous + admin flow is unchanged.
+  if (
+    !sessionLoading && !roleLoading && user && role !== 'admin' && !hasProjectParam
+    && appState !== 'preview'
+  ) {
+    return <NonAdminMarketing email={user.email ?? null} />;
+  }
 
   if (appState === 'welcome') {
     return <WelcomeScreen onStart={() => setAppState('form')} />;

@@ -9,6 +9,7 @@ import {
   selfHealCustomDomainStatus,
   selfHealSubdomainStatus,
 } from '@/lib/projects/subdomainHealth';
+import { requireAdmin } from '@/lib/auth/role';
 
 /**
  * GET    /api/projects/[id]  — fetch one project (owner only, enforced by RLS)
@@ -127,6 +128,8 @@ export async function DELETE(
   context: { params: Promise<{ id: string }> }
 ) {
   const { id } = await context.params;
+  const gate = await requireAdmin();
+  if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

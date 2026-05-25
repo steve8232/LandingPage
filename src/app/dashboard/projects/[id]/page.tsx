@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { leadRowToDTO, type LeadRow } from '@/lib/leads/types';
 import { lookupPixelV4 } from '@/lib/audiencelab/client';
 import {
@@ -13,6 +14,11 @@ import {
   getCallRailApiKey,
   isCallRailConfigured,
 } from '@/lib/callrail/server-config';
+import { getCurrentRole } from '@/lib/auth/role';
+import type {
+  CollaboratorDTO,
+  CollaboratorOwnerDTO,
+} from '@/lib/projects/collaborators';
 import ProjectDashboardClient, {
   type ProjectLite,
 } from './ProjectDashboardClient';
@@ -36,6 +42,7 @@ interface ProjectMetaRow {
   id: string;
   title: string;
   slug: string;
+  user_id: string;
   subdomain: string | null;
   custom_domain: string | null;
   audiencelab_pixel_id: string | null;
@@ -53,14 +60,18 @@ export default async function ProjectDashboardPage({
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect(`/login?next=/dashboard/projects/${id}`);
 
-  const { data: projectRow } = await supabase
-    .from('projects')
-    .select(
-      'id, title, slug, subdomain, custom_domain, audiencelab_pixel_id, callrail_company_id, callrail_company_name'
-    )
-    .eq('id', id)
-    .maybeSingle<ProjectMetaRow>();
+  const [{ data: projectRow }, { role }] = await Promise.all([
+    supabase
+      .from('projects')
+      .select(
+        'id, title, slug, user_id, subdomain, custom_domain, audiencelab_pixel_id, callrail_company_id, callrail_company_name'
+      )
+      .eq('id', id)
+      .maybeSingle<ProjectMetaRow>(),
+    getCurrentRole(),
+  ]);
   if (!projectRow) redirect('/dashboard');
+  const viewerRole: 'admin' | 'user' = role === 'admin' ? 'admin' : 'user';
 
   const [leadsRes, callsRes] = await Promise.all([
     supabase
@@ -175,6 +186,47 @@ export default async function ProjectDashboardPage({
     customDomain: projectRow.custom_domain,
   };
 
+  // Collaborator + owner-email lookup (service-role; emails live in profiles).
+  const admin = createAdminClient();
+  const [ownerProfileRes, collabRowsRes] = await Promise.all([
+    admin
+      .from('profiles')
+      .select('email')
+      .eq('user_id', projectRow.user_id)
+      .maybeSingle<{ email: string | null }>(),
+    admin
+      .from('project_collaborators')
+      .select('user_id, role, added_at')
+      .eq('project_id', projectRow.id),
+  ]);
+  const collabRows = (collabRowsRes.data ?? []) as Array<{
+    user_id: string;
+    role: 'viewer' | 'editor';
+    added_at: string;
+  }>;
+  let collabEmailById = new Map<string, string | null>();
+  if (collabRows.length > 0) {
+    const { data: profs } = await admin
+      .from('profiles')
+      .select('user_id, email')
+      .in('user_id', collabRows.map((r) => r.user_id));
+    collabEmailById = new Map(
+      ((profs ?? []) as Array<{ user_id: string; email: string | null }>).map(
+        (p) => [p.user_id, p.email]
+      )
+    );
+  }
+  const owner: CollaboratorOwnerDTO = {
+    userId: projectRow.user_id,
+    email: ownerProfileRes.data?.email ?? null,
+  };
+  const collaborators: CollaboratorDTO[] = collabRows.map((r) => ({
+    userId: r.user_id,
+    email: collabEmailById.get(r.user_id) ?? null,
+    role: r.role,
+    addedAt: r.added_at,
+  }));
+
   const loadError = leadsRes.error?.message || callsRes.error?.message || '';
 
   return (
@@ -185,6 +237,9 @@ export default async function ProjectDashboardPage({
       calls={calls}
       userEmail={user.email ?? ''}
       loadError={loadError}
+      viewerRole={viewerRole}
+      owner={owner}
+      collaborators={collaborators}
     />
   );
 }
