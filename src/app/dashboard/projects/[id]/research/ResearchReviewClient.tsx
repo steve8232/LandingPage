@@ -1,10 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  ArrowLeft, ArrowRight, Check, Loader2, RotateCw, Search, Sparkles,
+  ArrowLeft, ArrowRight, Camera, Check, Clock, Loader2, MapPin,
+  Plug, RotateCw, Search, Sparkles, Star,
 } from 'lucide-react';
 import ProjectTabs from '../ProjectTabs';
 
@@ -36,6 +37,7 @@ interface ResearchResponse {
   locationName: string | null;
   draft: ResearchDraft;
   errorMessage: string | null;
+  createdAt: string;
 }
 
 const POLL_INTERVAL_MS = 5000;
@@ -224,18 +226,12 @@ function ReviewBody({
 
   if (data.status === 'pending') {
     return (
-      <div className="bg-white rounded-2xl shadow-sm p-10 text-center">
-        <Loader2 className="w-6 h-6 animate-spin text-orange-500 mx-auto mb-3" />
-        <h2 className="text-lg font-semibold text-gray-900 mb-1">Searching for your business…</h2>
-        <p className="text-sm text-gray-600 max-w-md mx-auto">
-          DataForSEO is fetching your Google Business Profile. This usually takes 1–3 minutes.
-          We&apos;ll auto-refresh when results are ready.
-        </p>
-        <p className="mt-4 text-xs text-gray-400">
-          Searching <span className="font-mono">{data.keyword}</span>
-          {data.locationName ? <> in <span className="font-mono">{data.locationName}</span></> : null}
-        </p>
-      </div>
+      <PendingState
+        keyword={data.keyword}
+        locationName={data.locationName}
+        createdAt={data.createdAt}
+        onRefresh={onRefresh}
+      />
     );
   }
 
@@ -386,4 +382,124 @@ function TextField({
       )}
     </label>
   );
+}
+
+
+// ── Pending state ────────────────────────────────────────────────────────
+//
+// Replaces the bare spinner with three composable affordances that make the
+// 1–3 minute DataForSEO wait feel intentional rather than hung:
+//
+//   1. Search-bar echo of the keyword the wizard sent, with a blinking caret.
+//   2. Phase narrative pegged to elapsed time. Doesn't claim more than we
+//      know — DataForSEO exposes no real progress signal — but it maps the
+//      operator's wait onto the actual six things the task is doing.
+//   3. Skeleton preview of the form that's about to render, so the transition
+//      from pending → ready is a fill rather than a swap.
+//
+// `createdAt` (row.created_at) anchors the elapsed timer, so a page refresh
+// mid-task keeps the narrative aligned with reality.
+
+interface PendingStateProps {
+  keyword: string;
+  locationName: string | null;
+  createdAt: string;
+  onRefresh: () => void;
+}
+
+function PendingState({ keyword, locationName, createdAt, onRefresh }: PendingStateProps) {
+  const startMs = useMemo(() => new Date(createdAt).getTime(), [createdAt]);
+  const [elapsedMs, setElapsedMs] = useState(() => Math.max(0, Date.now() - startMs));
+  useEffect(() => {
+    const id = setInterval(() => setElapsedMs(Math.max(0, Date.now() - startMs)), 1000);
+    return () => clearInterval(id);
+  }, [startMs]);
+
+  const phase = phaseAt(elapsedMs);
+  const PhaseIcon = phase.Icon;
+  const longRunning = elapsedMs > 4 * 60_000;
+
+  return (
+    <>
+      <div className="bg-white rounded-2xl shadow-sm p-6 mb-4">
+        <div className="flex items-center gap-2 px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg mb-5 font-mono text-sm text-gray-800">
+          <Search className="w-4 h-4 text-gray-400 shrink-0" />
+          <span className="truncate">{keyword}</span>
+          {locationName && (
+            <span className="text-gray-500 truncate">· {locationName}</span>
+          )}
+          <span aria-hidden className="ml-auto inline-block w-[2px] h-4 bg-orange-500 animate-pulse" />
+        </div>
+
+        <div className="flex items-center gap-2.5 mb-1.5">
+          <PhaseIcon className="w-5 h-5 text-orange-500 animate-pulse shrink-0" />
+          <p className="text-base font-semibold text-gray-900">{phase.text}</p>
+        </div>
+        <p className="text-xs text-gray-500">
+          Elapsed {formatElapsed(elapsedMs)} · typically 1–3 min
+        </p>
+
+        {longRunning && (
+          <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800 flex items-center justify-between gap-3">
+            <span>Taking longer than usual — DataForSEO can be slow during peak hours.</span>
+            <button
+              onClick={onRefresh}
+              className="inline-flex items-center gap-1 px-2.5 py-1 bg-white border border-amber-300 rounded-md text-amber-900 hover:bg-amber-100 text-xs font-medium shrink-0"
+            >
+              <RotateCw className="w-3.5 h-3.5" />
+              Refresh
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div className="bg-white rounded-2xl shadow-sm p-6">
+        <p className="text-xs uppercase tracking-wide text-gray-400 mb-4">
+          Preview · fills in when results arrive
+        </p>
+        <div className="space-y-5">
+          <SkeletonField label="Business name" />
+          <SkeletonField label="Phone" />
+          <SkeletonField label="Website" />
+          <SkeletonField label="Address" />
+          <SkeletonField label="Description" multiline />
+        </div>
+      </div>
+    </>
+  );
+}
+
+function SkeletonField({ label, multiline }: { label: string; multiline?: boolean }) {
+  return (
+    <div>
+      <div className="block text-sm font-medium text-gray-900 mb-1">{label}</div>
+      <div
+        className={`w-full ${multiline ? 'h-20' : 'h-10'} bg-gray-100 rounded-lg animate-pulse`}
+      />
+    </div>
+  );
+}
+
+interface Phase {
+  Icon: typeof Plug;
+  text: string;
+}
+
+// Six stages mapped onto the realistic 0–3.5 min window of a Business-Info
+// task. After 3.5 min we stay on the "finalising" line — the timer + the
+// long-running banner below take over the "is this stuck?" question.
+function phaseAt(ms: number): Phase {
+  if (ms < 15_000)  return { Icon: Plug,     text: 'Connecting to DataForSEO…' };
+  if (ms < 45_000)  return { Icon: MapPin,   text: 'Locating your Google Business Profile…' };
+  if (ms < 90_000)  return { Icon: Star,     text: 'Reading reviews and ratings…' };
+  if (ms < 150_000) return { Icon: Clock,    text: 'Pulling hours, phone, and address…' };
+  if (ms < 210_000) return { Icon: Camera,   text: 'Collecting profile photos…' };
+  return                   { Icon: Sparkles, text: 'Almost there — finalising results…' };
+}
+
+function formatElapsed(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
 }
