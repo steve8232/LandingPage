@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Sparkles, Plus, Pencil, Trash2, ExternalLink, LayoutDashboard, LogOut, Loader2, Activity, Shield } from 'lucide-react';
+import { Sparkles, Plus, Pencil, Trash2, ExternalLink, LayoutDashboard, LogOut, Loader2, Activity, Shield, Search } from 'lucide-react';
 import type { ProjectDTO } from '@/lib/projects/types';
 import type { DeploymentDTO } from '@/lib/deployments/types';
 import { deleteProject, updateProject } from '@/lib/projects/remoteStorage';
@@ -143,13 +143,22 @@ export default function DashboardClient({
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-gray-900">My SparkPages</h1>
           {isAdmin && (
-            <Link
-              href="/"
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-orange-500 text-white font-medium rounded-lg hover:bg-orange-600 shadow-md shadow-orange-200"
-            >
-              <Plus className="w-4 h-4" />
-              New page
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link
+                href="/dashboard/new/research"
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-white text-gray-700 font-medium rounded-lg border border-gray-200 hover:bg-gray-50"
+              >
+                <Search className="w-4 h-4" />
+                Look up my business
+              </Link>
+              <Link
+                href="/"
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-orange-500 text-white font-medium rounded-lg hover:bg-orange-600 shadow-md shadow-orange-200"
+              >
+                <Plus className="w-4 h-4" />
+                New page
+              </Link>
+            </div>
           )}
         </div>
 
@@ -171,13 +180,22 @@ export default function DashboardClient({
                 : 'Ask a SparkPage admin to create a page and share access with you.'}
             </p>
             {isAdmin && (
-              <Link
-                href="/"
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-orange-500 text-white font-medium rounded-lg hover:bg-orange-600"
-              >
-                <Plus className="w-4 h-4" />
-                Create your first page
-              </Link>
+              <div className="inline-flex flex-wrap items-center justify-center gap-2">
+                <Link
+                  href="/"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-orange-500 text-white font-medium rounded-lg hover:bg-orange-600"
+                >
+                  <Plus className="w-4 h-4" />
+                  Create your first page
+                </Link>
+                <Link
+                  href="/dashboard/new/research"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-white text-gray-700 font-medium rounded-lg border border-gray-200 hover:bg-gray-50"
+                >
+                  <Search className="w-4 h-4" />
+                  Look up my business
+                </Link>
+              </div>
             )}
           </div>
         ) : (
