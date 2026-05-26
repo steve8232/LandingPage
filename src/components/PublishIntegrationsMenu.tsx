@@ -18,6 +18,7 @@ import CustomDomainPicker from './CustomDomainPicker';
 import CallRailPicker from './CallRailPicker';
 import type { CustomDomainStatus, ProjectDTO, SubdomainStatus } from '@/lib/projects/types';
 import { PAGES_PARENT_DOMAIN } from '@/lib/projects/subdomain';
+import { formatPhoneDisplay, normalizePhoneToTen } from '@/lib/phone/format';
 
 type DotTone = 'ok' | 'pending' | 'error' | 'off';
 
@@ -197,10 +198,9 @@ const PublishIntegrationsMenu = forwardRef<SubdomainPickerHandle, PublishIntegra
                 <input
                   type="tel"
                   inputMode="tel"
-                  value={formatBusinessPhoneInput(props.overridesBusinessPhone ?? props.businessPhone ?? '')}
+                  value={formatPhoneDisplay(props.overridesBusinessPhone ?? props.businessPhone ?? '')}
                   onChange={(e) => {
-                    const raw = e.target.value.replace(/\D/g, '').slice(0, 10);
-                    props.onBusinessPhoneChange(raw);
+                    props.onBusinessPhoneChange(normalizePhoneToTen(e.target.value));
                   }}
                   placeholder="(555) 123-4567"
                   className="w-full px-2 py-1.5 border border-gray-200 rounded-md text-xs font-mono mb-1"
@@ -417,14 +417,6 @@ function subdomainStatusLabel(tone: DotTone, status: SubdomainStatus | null): st
   if (tone === 'error') return 'Error';
   if (status === 'pending') return 'Setting up…';
   return 'Pending';
-}
-
-function formatBusinessPhoneInput(input: string): string {
-  const d = input.replace(/\D/g, '').slice(0, 10);
-  if (d.length === 0) return '';
-  if (d.length <= 3) return `(${d}`;
-  if (d.length <= 6) return `(${d.slice(0, 3)}) ${d.slice(3)}`;
-  return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
 }
 
 function customDomainStatusLabel(tone: DotTone, status: CustomDomainStatus | null): string {

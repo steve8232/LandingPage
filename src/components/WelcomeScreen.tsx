@@ -124,7 +124,7 @@ function StartChooser({ onStartTemplate }: { onStartTemplate: () => void }) {
       href: '/dashboard/new/research',
       icon: Search,
       title: 'Look up my business',
-      body: "We'll find your Google Business Profile and pre-fill the page.",
+      body: "We'll research your business and pre-fill the page.",
       accent: 'orange',
     },
     {

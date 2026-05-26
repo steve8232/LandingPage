@@ -102,7 +102,7 @@ export default function ResearchWizardClient() {
             <div className="mb-6">
               <h1 className="text-2xl font-bold text-gray-900 mb-1">Pick a template</h1>
               <p className="text-sm text-gray-600">
-                We&apos;ll fetch your Google Business Profile and use it to draft the copy. Choose
+                We&apos;ll research your business and use the results to draft the copy. Choose
                 the layout closest to your niche — you can fine-tune everything in the editor afterwards.
               </p>
             </div>
@@ -166,7 +166,7 @@ export default function ResearchWizardClient() {
               <h1 className="text-2xl font-bold text-gray-900 mb-1">Tell us about your business</h1>
               <p className="text-sm text-gray-600">
                 Template: <span className="font-medium text-gray-900">{selected?.name}</span>.
-                We&apos;ll research your Google Business Profile and pre-fill the page.
+                We&apos;ll research your business and pre-fill the page.
               </p>
             </div>
 
