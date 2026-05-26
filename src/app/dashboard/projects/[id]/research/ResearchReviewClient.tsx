@@ -46,6 +46,10 @@ export default function ResearchReviewClient({ project }: { project: ProjectLite
   const router = useRouter();
   const [data, setData] = useState<ResearchResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [pulling, setPulling] = useState(false);
+  const [pullMsg, setPullMsg] = useState<string | null>(null);
+  const [pullErr, setPullErr] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [draft, setDraft] = useState<ResearchDraft | null>(null);
   const [saving, setSaving] = useState(false);
@@ -54,7 +58,8 @@ export default function ResearchReviewClient({ project }: { project: ProjectLite
   const [actionErr, setActionErr] = useState<string | null>(null);
   const pollHandle = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const fetchOnce = useCallback(async () => {
+  const fetchOnce = useCallback(async (opts?: { manual?: boolean }) => {
+    if (opts?.manual) setRefreshing(true);
     try {
       const res = await fetch(`/api/projects/${project.id}/research`, { credentials: 'include' });
       if (!res.ok) {
@@ -71,8 +76,40 @@ export default function ResearchReviewClient({ project }: { project: ProjectLite
       return null;
     } finally {
       setLoading(false);
+      if (opts?.manual) setRefreshing(false);
     }
   }, [project.id]);
+
+  const handleManualRefresh = useCallback(() => {
+    void fetchOnce({ manual: true });
+  }, [fetchOnce]);
+
+  const handlePullNow = useCallback(async () => {
+    setPulling(true);
+    setPullErr(null);
+    setPullMsg(null);
+    try {
+      const res = await fetch(`/api/projects/${project.id}/research/poll`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      const j = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        status?: 'pending' | 'ready' | 'error';
+      };
+      if (!res.ok) throw new Error(j.error || `Pull failed (${res.status})`);
+      if (j.status === 'pending') {
+        setPullMsg('DataForSEO says the task is still running. Try again in 30s.');
+      } else if (j.status === 'error') {
+        setPullMsg('DataForSEO reported an error for this task.');
+      }
+      await fetchOnce();
+    } catch (err) {
+      setPullErr(err instanceof Error ? err.message : 'Pull failed');
+    } finally {
+      setPulling(false);
+    }
+  }, [project.id, fetchOnce]);
 
   // Initial fetch + polling while pending.
   useEffect(() => {
@@ -173,7 +210,12 @@ export default function ResearchReviewClient({ project }: { project: ProjectLite
           actionMsg={actionMsg}
           onSave={handleSave}
           onApply={handleApply}
-          onRefresh={fetchOnce}
+          onRefresh={handleManualRefresh}
+          refreshing={refreshing}
+          onPullNow={handlePullNow}
+          pulling={pulling}
+          pullMsg={pullMsg}
+          pullErr={pullErr}
         />
       </main>
     </div>
@@ -193,12 +235,18 @@ interface BodyProps {
   onSave: () => void;
   onApply: () => void;
   onRefresh: () => void;
+  refreshing: boolean;
+  onPullNow: () => void;
+  pulling: boolean;
+  pullMsg: string | null;
+  pullErr: string | null;
 }
 
 function ReviewBody({
   loading, loadError, data, draft, setDraft,
   saving, applying, actionErr, actionMsg,
-  onSave, onApply, onRefresh,
+  onSave, onApply, onRefresh, refreshing,
+  onPullNow, pulling, pullMsg, pullErr,
 }: BodyProps) {
   if (loading && !data) {
     return (
@@ -214,9 +262,10 @@ function ReviewBody({
         <p className="text-sm text-red-700 mb-4">{loadError}</p>
         <button
           onClick={onRefresh}
-          className="inline-flex items-center gap-1.5 px-4 py-2 bg-orange-500 text-white font-medium rounded-lg hover:bg-orange-600"
+          disabled={refreshing}
+          className="inline-flex items-center gap-1.5 px-4 py-2 bg-orange-500 text-white font-medium rounded-lg hover:bg-orange-600 disabled:opacity-60"
         >
-          <RotateCw className="w-4 h-4" />
+          {refreshing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCw className="w-4 h-4" />}
           Try again
         </button>
       </div>
@@ -231,6 +280,11 @@ function ReviewBody({
         locationName={data.locationName}
         createdAt={data.createdAt}
         onRefresh={onRefresh}
+        refreshing={refreshing}
+        onPullNow={onPullNow}
+        pulling={pulling}
+        pullMsg={pullMsg}
+        pullErr={pullErr}
       />
     );
   }
@@ -405,9 +459,18 @@ interface PendingStateProps {
   locationName: string | null;
   createdAt: string;
   onRefresh: () => void;
+  refreshing: boolean;
+  onPullNow: () => void;
+  pulling: boolean;
+  pullMsg: string | null;
+  pullErr: string | null;
 }
 
-function PendingState({ keyword, locationName, createdAt, onRefresh }: PendingStateProps) {
+function PendingState({
+  keyword, locationName, createdAt,
+  onRefresh, refreshing,
+  onPullNow, pulling, pullMsg, pullErr,
+}: PendingStateProps) {
   const startMs = useMemo(() => new Date(createdAt).getTime(), [createdAt]);
   const [elapsedMs, setElapsedMs] = useState(() => Math.max(0, Date.now() - startMs));
   useEffect(() => {
@@ -440,15 +503,34 @@ function PendingState({ keyword, locationName, createdAt, onRefresh }: PendingSt
         </p>
 
         {longRunning && (
-          <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800 flex items-center justify-between gap-3">
-            <span>Taking longer than usual — research can be slow during peak hours.</span>
-            <button
-              onClick={onRefresh}
-              className="inline-flex items-center gap-1 px-2.5 py-1 bg-white border border-amber-300 rounded-md text-amber-900 hover:bg-amber-100 text-xs font-medium shrink-0"
-            >
-              <RotateCw className="w-3.5 h-3.5" />
-              Refresh
-            </button>
+          <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+            <div className="flex items-center justify-between gap-3 mb-2">
+              <span>Taking longer than usual — the postback from DataForSEO may have been lost.</span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={onRefresh}
+                disabled={refreshing || pulling}
+                className="inline-flex items-center gap-1 px-2.5 py-1 bg-white border border-amber-300 rounded-md text-amber-900 hover:bg-amber-100 text-xs font-medium shrink-0 disabled:opacity-60"
+              >
+                {refreshing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCw className="w-3.5 h-3.5" />}
+                Refresh
+              </button>
+              <button
+                onClick={onPullNow}
+                disabled={refreshing || pulling}
+                className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-600 text-white rounded-md hover:bg-amber-700 text-xs font-medium shrink-0 disabled:opacity-60"
+              >
+                {pulling ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+                Pull from DataForSEO now
+              </button>
+            </div>
+            {pullErr && (
+              <p className="mt-2 text-xs text-red-700">{pullErr}</p>
+            )}
+            {pullMsg && !pullErr && (
+              <p className="mt-2 text-xs text-amber-900">{pullMsg}</p>
+            )}
           </div>
         )}
       </div>

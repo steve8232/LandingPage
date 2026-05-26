@@ -274,3 +274,72 @@ export async function postMyBusinessInfoTask(
     throw err;
   }
 }
+
+// ── My Business Info — task GET (recover from a missed postback) ───────────
+
+export interface GetMyBusinessInfoTaskResult {
+  /** Full envelope as returned by DataForSEO — shape matches the postback body. */
+  envelope: TaskEnvelope<unknown>;
+  /** True while DataForSEO still has the task queued/in-progress (status 40602). */
+  pending: boolean;
+}
+
+/**
+ * GET /v3/business_data/google/my_business_info/task_get/advanced/{id} — fetch
+ * the result of an async task synchronously. Used as a recovery path when the
+ * postback to /api/webhooks/dataforseo/[token] never arrived or didn't match
+ * a research row (token rotated, deployment-protection 401, network drop).
+ *
+ * Returns the full envelope verbatim so callers can persist it as
+ * `dataforseo_research.raw_payload` and feed it through `parsePostback` /
+ * `normalizeResearchPayload` — the postback path and the polling path share
+ * one downstream pipeline.
+ *
+ * `pending: true` is returned (instead of throwing) when DataForSEO replies
+ * with the task-not-yet-ready code (40602). All other 4xxxx/5xxxx codes throw
+ * as a DataForSEOError so the UI can surface them.
+ */
+export async function getMyBusinessInfoTask(
+  taskId: string,
+): Promise<GetMyBusinessInfoTaskResult> {
+  const { basicAuth, apiBase } = readApiConfig();
+  const url = `${apiBase}/v3/business_data/google/my_business_info/task_get/advanced/${encodeURIComponent(taskId)}`;
+  const res = await fetch(url, {
+    method: 'GET',
+    headers: buildHeaders(basicAuth),
+    cache: 'no-store',
+  });
+
+  let envelope: TaskEnvelope<unknown>;
+  try {
+    envelope = (await res.json()) as TaskEnvelope<unknown>;
+  } catch {
+    throw new DataForSEOError(
+      `DataForSEO returned a non-JSON response (${res.status})`,
+      null,
+      res.status,
+    );
+  }
+
+  if (res.status === 401 || envelope.status_code === 40100) {
+    throw new DataForSEOAuthError(
+      envelope.status_message || `DataForSEO rejected the credentials (${res.status})`,
+    );
+  }
+
+  // 40602 "Task In Queue / In Progress" — surface as pending, not error.
+  const task = Array.isArray(envelope.tasks) ? envelope.tasks[0] : undefined;
+  const taskCode = task?.status_code ?? envelope.status_code ?? 0;
+  if (taskCode === 40602) {
+    return { envelope, pending: true };
+  }
+
+  if (!res.ok) {
+    throw new DataForSEOError(
+      envelope.status_message || `DataForSEO HTTP ${res.status}`,
+      envelope.status_code ?? null,
+      res.status,
+    );
+  }
+  return { envelope, pending: false };
+}

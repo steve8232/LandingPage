@@ -81,8 +81,19 @@ export async function POST(
 
   // 4) Unknown task_id → 200 no-op. DataForSEO retries 5xx; returning ok
   // here keeps us off their retry treadmill for tasks whose project was
-  // deleted between submit and postback.
+  // deleted between submit and postback. Log a warning with the incoming
+  // task_id and the most recent pending task_ids so a stuck-row report
+  // can be cross-referenced against the upstream id in Vercel logs.
   if (!data) {
+    const { data: recent } = await admin
+      .from('dataforseo_research')
+      .select('task_id, status, created_at')
+      .order('created_at', { ascending: false })
+      .limit(5);
+    console.warn(
+      '[webhooks/dataforseo.POST] unmatched task_id',
+      JSON.stringify({ incoming: parsed.taskId, recent: recent ?? [] }),
+    );
     return NextResponse.json({ ok: true, matched: false });
   }
 
