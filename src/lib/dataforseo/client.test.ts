@@ -9,6 +9,7 @@ import { test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  normalizeLocationName,
   postMyBusinessInfoTask,
   DataForSEOAuthError,
   DataForSEOError,
@@ -30,8 +31,17 @@ interface MockResponse {
 function mockFetchOnce(response: MockResponse): {
   calls: Array<{ url: string; init?: RequestInit }>;
 } {
+  return mockFetchSequence([response]);
+}
+
+function mockFetchSequence(responses: MockResponse[]): {
+  calls: Array<{ url: string; init?: RequestInit }>;
+} {
   const calls: Array<{ url: string; init?: RequestInit }> = [];
+  let i = 0;
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const response = responses[Math.min(i, responses.length - 1)];
+    i += 1;
     calls.push({ url: String(input), init });
     return {
       ok: response.status >= 200 && response.status < 300,
@@ -167,4 +177,172 @@ test('postMyBusinessInfoTask: non-JSON response throws DataForSEOError', async (
     postMyBusinessInfoTask({ keyword: 'x', postbackUrl: 'https://e.t/w' }),
     (err) => err instanceof DataForSEOError && (err as DataForSEOError).httpStatus === 502,
   );
+});
+
+
+// ── normalizeLocationName ─────────────────────────────────────────────────
+
+test('normalizeLocationName: empty/undefined/whitespace → United States', () => {
+  assert.equal(normalizeLocationName(undefined), 'United States');
+  assert.equal(normalizeLocationName(null), 'United States');
+  assert.equal(normalizeLocationName(''), 'United States');
+  assert.equal(normalizeLocationName('   '), 'United States');
+  assert.equal(normalizeLocationName(', , ,'), 'United States');
+});
+
+test('normalizeLocationName: appends ",United States" when missing', () => {
+  assert.equal(normalizeLocationName('Chicago, Illinois'), 'Chicago,Illinois,United States');
+  assert.equal(normalizeLocationName('Austin,Texas'), 'Austin,Texas,United States');
+  assert.equal(normalizeLocationName('Brooklyn'), 'Brooklyn,United States');
+});
+
+test('normalizeLocationName: canonicalizes US identifier variants', () => {
+  assert.equal(normalizeLocationName('Chicago, Illinois, USA'), 'Chicago,Illinois,United States');
+  assert.equal(normalizeLocationName('Chicago, Illinois, US'), 'Chicago,Illinois,United States');
+  assert.equal(normalizeLocationName('Chicago, Illinois, U.S.A.'), 'Chicago,Illinois,United States');
+  assert.equal(normalizeLocationName('united states'), 'United States');
+});
+
+test('normalizeLocationName: strips whitespace around commas and drops empties', () => {
+  assert.equal(normalizeLocationName('  Chicago  ,   Illinois  '), 'Chicago,Illinois,United States');
+  assert.equal(normalizeLocationName('Chicago,,Illinois'), 'Chicago,Illinois,United States');
+});
+
+test('normalizeLocationName: leaves already-canonical form intact', () => {
+  assert.equal(
+    normalizeLocationName('Chicago,Illinois,United States'),
+    'Chicago,Illinois,United States',
+  );
+});
+
+// ── postMyBusinessInfoTask: normalization + retry ─────────────────────────
+
+test('postMyBusinessInfoTask: applies location normalization to outgoing request', async () => {
+  const { calls } = mockFetchOnce({ status: 200, body: OK_BODY });
+  await postMyBusinessInfoTask({
+    keyword: 'plumber',
+    locationName: 'Chicago, Illinois',
+    postbackUrl: 'https://example.test/webhook',
+  });
+  const sent = JSON.parse(String(calls[0].init?.body)) as Array<Record<string, unknown>>;
+  assert.equal(sent[0].location_name, 'Chicago,Illinois,United States');
+});
+
+const RETRY_OK_BODY = {
+  status_code: 20000,
+  status_message: 'Ok.',
+  tasks: [
+    {
+      id: 'task-retry-456',
+      status_code: 20100,
+      status_message: 'Task Created.',
+      cost: 0.0025,
+    },
+  ],
+};
+
+const LOCATION_REJECT_BODY = {
+  status_code: 20000,
+  status_message: 'Ok.',
+  tasks: [
+    {
+      id: null,
+      status_code: 40501,
+      status_message: "Invalid Field: 'location_name'.",
+    },
+  ],
+};
+
+test('postMyBusinessInfoTask: retries with country-only when DataForSEO rejects location_name', async () => {
+  const { calls } = mockFetchSequence([
+    { status: 200, body: LOCATION_REJECT_BODY },
+    { status: 200, body: RETRY_OK_BODY },
+  ]);
+  const out = await postMyBusinessInfoTask({
+    keyword: 'Aqua Pro Plumbing',
+    locationName: 'Chicago, Illinois',
+    postbackUrl: 'https://example.test/webhook',
+  });
+  assert.equal(calls.length, 2);
+  const firstSent = JSON.parse(String(calls[0].init?.body)) as Array<Record<string, unknown>>;
+  const secondSent = JSON.parse(String(calls[1].init?.body)) as Array<Record<string, unknown>>;
+  assert.equal(firstSent[0].location_name, 'Chicago,Illinois,United States');
+  assert.equal(secondSent[0].location_name, 'United States');
+  // City/state folded into keyword on the fallback attempt.
+  assert.equal(secondSent[0].keyword, 'Aqua Pro Plumbing Chicago, Illinois');
+  assert.equal(out.taskId, 'task-retry-456');
+});
+
+test('postMyBusinessInfoTask: retries when status_message names location_name even if code differs', async () => {
+  const { calls } = mockFetchSequence([
+    {
+      status: 200,
+      body: {
+        status_code: 20000,
+        status_message: 'Ok.',
+        tasks: [{
+          id: null,
+          status_code: 40400,
+          status_message: "Validation failed for field 'location_name'.",
+        }],
+      },
+    },
+    { status: 200, body: RETRY_OK_BODY },
+  ]);
+  const out = await postMyBusinessInfoTask({
+    keyword: 'plumber',
+    locationName: 'Smallsville, Wherever',
+    postbackUrl: 'https://example.test/webhook',
+  });
+  assert.equal(calls.length, 2);
+  assert.equal(out.taskId, 'task-retry-456');
+});
+
+test('postMyBusinessInfoTask: does NOT retry when locationName was already country-only', async () => {
+  const { calls } = mockFetchSequence([{ status: 200, body: LOCATION_REJECT_BODY }]);
+  await assert.rejects(
+    postMyBusinessInfoTask({
+      keyword: 'plumber',
+      locationName: 'United States',
+      postbackUrl: 'https://example.test/webhook',
+    }),
+    (err) => err instanceof DataForSEOError && (err as DataForSEOError).code === 40501,
+  );
+  assert.equal(calls.length, 1);
+});
+
+test('postMyBusinessInfoTask: does NOT retry on auth errors', async () => {
+  const { calls } = mockFetchSequence([{
+    status: 401,
+    body: { status_code: 40100, status_message: 'Authentication failed.', tasks: [] },
+  }]);
+  await assert.rejects(
+    postMyBusinessInfoTask({
+      keyword: 'plumber',
+      locationName: 'Chicago, Illinois',
+      postbackUrl: 'https://example.test/webhook',
+    }),
+    (err) => err instanceof DataForSEOAuthError,
+  );
+  assert.equal(calls.length, 1);
+});
+
+test('postMyBusinessInfoTask: does NOT retry on non-location task errors (40400)', async () => {
+  const { calls } = mockFetchSequence([{
+    status: 200,
+    body: {
+      status_code: 20000,
+      status_message: 'Ok.',
+      tasks: [{ id: 't1', status_code: 40400, status_message: 'Not Found.' }],
+    },
+  }]);
+  await assert.rejects(
+    postMyBusinessInfoTask({
+      keyword: 'plumber',
+      locationName: 'Chicago, Illinois',
+      postbackUrl: 'https://example.test/webhook',
+    }),
+    (err) => err instanceof DataForSEOError && (err as DataForSEOError).code === 40400,
+  );
+  assert.equal(calls.length, 1);
 });

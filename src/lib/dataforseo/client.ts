@@ -14,6 +14,50 @@
 
 const DEFAULT_API_BASE = 'https://api.dataforseo.com';
 
+// ── Location normalization ────────────────────────────────────────────────
+//
+// DataForSEO's `location_name` is a controlled vocabulary keyed off their
+// locations dictionary; the matcher is whitespace-sensitive and requires
+// the country segment. Users type things like "Chicago, Illinois" or
+// "Chicago, IL"; both get rejected as `Invalid Field: 'location_name'`.
+//
+// This helper folds the common variants into the shape DataForSEO accepts
+// ("Chicago,Illinois,United States"). Anything we can't confidently fix
+// is left for the caller's fallback path (country-only retry) below.
+
+/**
+ * Normalize a user-typed location string into the shape DataForSEO expects.
+ * Strips whitespace around commas, drops empty segments, and appends
+ * `,United States` when the last segment isn't already a US identifier.
+ * Returns "United States" when the input is empty or whitespace-only.
+ */
+export function normalizeLocationName(input: string | undefined | null): string {
+  if (!input) return 'United States';
+  const parts = input
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+  if (parts.length === 0) return 'United States';
+  const last = parts[parts.length - 1].toLowerCase().replace(/\./g, '');
+  if (last === 'united states' || last === 'usa' || last === 'us') {
+    parts[parts.length - 1] = 'United States';
+  } else {
+    parts.push('United States');
+  }
+  return parts.join(',');
+}
+
+/**
+ * True when the DataForSEO error looks like a `location_name` rejection,
+ * so the caller can retry with the country-only fallback. Matches both
+ * the canonical 40501 "Invalid Field" code and any message that names
+ * `location_name` explicitly (covers minor wording changes upstream).
+ */
+function isLocationNameRejection(err: DataForSEOError): boolean {
+  if (err.code === 40501) return true;
+  return /location[_\s]name/i.test(err.message);
+}
+
 // ── Errors ─────────────────────────────────────────────────────────────────
 
 /**
@@ -157,54 +201,76 @@ export async function postMyBusinessInfoTask(
   input: PostMyBusinessInfoTaskInput,
 ): Promise<PostMyBusinessInfoTaskResult> {
   const { basicAuth, apiBase } = readApiConfig();
-  const body = [
-    {
-      keyword: input.keyword,
-      location_name: input.locationName || 'United States',
-      language_code: input.languageCode || 'en',
-      postback_url: input.postbackUrl,
-      postback_data: input.postbackDataType || 'advanced',
-      ...(input.tag ? { tag: input.tag } : {}),
-    },
-  ];
   const url = `${apiBase}/v3/business_data/google/my_business_info/task_post`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: buildHeaders(basicAuth),
-    body: JSON.stringify(body),
-    cache: 'no-store',
-  });
+  const normalizedLocation = normalizeLocationName(input.locationName);
 
-  let envelope: TaskEnvelope<unknown>;
+  async function attempt(locationName: string, keyword: string): Promise<PostMyBusinessInfoTaskResult> {
+    const body = [
+      {
+        keyword,
+        location_name: locationName,
+        language_code: input.languageCode || 'en',
+        postback_url: input.postbackUrl,
+        postback_data: input.postbackDataType || 'advanced',
+        ...(input.tag ? { tag: input.tag } : {}),
+      },
+    ];
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: buildHeaders(basicAuth),
+      body: JSON.stringify(body),
+      cache: 'no-store',
+    });
+
+    let envelope: TaskEnvelope<unknown>;
+    try {
+      envelope = (await res.json()) as TaskEnvelope<unknown>;
+    } catch {
+      throw new DataForSEOError(
+        `DataForSEO returned a non-JSON response (${res.status})`,
+        null,
+        res.status,
+      );
+    }
+
+    // Catch HTTP-level failures that didn't surface as an auth error above.
+    if (!res.ok && res.status !== 401) {
+      throw new DataForSEOError(
+        envelope.status_message || `DataForSEO HTTP ${res.status}`,
+        envelope.status_code ?? null,
+        res.status,
+      );
+    }
+
+    const task = ensureOk(envelope, res.status);
+    if (!task.id) {
+      throw new DataForSEOError(
+        'DataForSEO accepted the task but returned no id',
+        task.status_code ?? null,
+        res.status,
+      );
+    }
+    return {
+      taskId: task.id,
+      cost: typeof task.cost === 'number' ? task.cost : 0,
+    };
+  }
+
   try {
-    envelope = (await res.json()) as TaskEnvelope<unknown>;
-  } catch {
-    throw new DataForSEOError(
-      `DataForSEO returned a non-JSON response (${res.status})`,
-      null,
-      res.status,
-    );
+    return await attempt(normalizedLocation, input.keyword);
+  } catch (err) {
+    // One-shot fallback when DataForSEO rejects the location string. We
+    // drop the city/state into the keyword so the query still benefits
+    // from the geographic signal even though location_name is country-only.
+    if (
+      err instanceof DataForSEOError &&
+      isLocationNameRejection(err) &&
+      normalizedLocation !== 'United States'
+    ) {
+      const raw = (input.locationName || '').trim();
+      const fallbackKeyword = raw ? `${input.keyword} ${raw}` : input.keyword;
+      return await attempt('United States', fallbackKeyword);
+    }
+    throw err;
   }
-
-  // Catch HTTP-level failures that didn't surface as an auth error above.
-  if (!res.ok && res.status !== 401) {
-    throw new DataForSEOError(
-      envelope.status_message || `DataForSEO HTTP ${res.status}`,
-      envelope.status_code ?? null,
-      res.status,
-    );
-  }
-
-  const task = ensureOk(envelope, res.status);
-  if (!task.id) {
-    throw new DataForSEOError(
-      'DataForSEO accepted the task but returned no id',
-      task.status_code ?? null,
-      res.status,
-    );
-  }
-  return {
-    taskId: task.id,
-    cost: typeof task.cost === 'number' ? task.cost : 0,
-  };
 }
