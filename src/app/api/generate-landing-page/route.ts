@@ -140,7 +140,29 @@ export async function POST(request: NextRequest) {
     if (templateId && isV1Template(templateId)) {
       console.log(`[v1 adapter] Rendering v1 template: ${templateId}`);
 
-      // Map form data to v1 input shape
+      // Map form data to v1 input shape. The wizard collects several business
+      // facts under `templateAnswers` (loose Record<string, string|boolean>);
+      // we promote the ones the AI must never invent into typed first-class
+      // fields on V1FormInput.business so the generator can rely on them.
+      const ta = (formData.business.templateAnswers || {}) as Record<string, string | boolean>;
+      const taStr = (k: string): string | undefined => {
+        const v = ta[k];
+        return typeof v === 'string' && v.trim() ? v.trim() : undefined;
+      };
+      const brandName = taStr('businessName') || taStr('brandName') || taStr('companyName');
+      const hours = taStr('hours');
+      const address = taStr('address');
+      const serviceAreaRaw = taStr('serviceArea') || taStr('serviceAreas');
+      const serviceAreas = serviceAreaRaw
+        ? serviceAreaRaw.split(/[,\n]/).map((s) => s.trim()).filter(Boolean)
+        : undefined;
+      const licensedInsured = ta['licensedInsured'] === true;
+      const yearsInBusiness = taStr('yearsInBusiness');
+      const licenseLineParts: string[] = [];
+      if (licensedInsured) licenseLineParts.push('Licensed & insured');
+      if (yearsInBusiness) licenseLineParts.push(`${yearsInBusiness}+ years in business`);
+      const licenseLine = licenseLineParts.length ? licenseLineParts.join(' · ') : undefined;
+
       const v1Input: V1FormInput = {
         business: {
           productService: formData.business.productService || '',
@@ -150,7 +172,12 @@ export async function POST(request: NextRequest) {
           uniqueValue: formData.business.uniqueValue || '',
           customerLove: formData.business.customerLove || '',
           images: formData.business.images || [],
-	          templateAnswers: formData.business.templateAnswers,
+          ...(brandName && { brandName }),
+          ...(address && { address }),
+          ...(hours && { hours }),
+          ...(serviceAreas && serviceAreas.length && { serviceAreas }),
+          ...(licenseLine && { licenseLine }),
+          templateAnswers: formData.business.templateAnswers,
         },
         contact: {
           email: formData.contact?.email || '',

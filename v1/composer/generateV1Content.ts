@@ -22,6 +22,17 @@ export interface V1FormInput {
     customerLove: string;
     images: string[];
 
+    /**
+     * Wizard-captured, typed business facts. These are the ground-truth values
+     * the AI must NOT invent — they appear verbatim in brand wordmarks, contact
+     * blocks, service-area chips, and license/insurance lines.
+     */
+    brandName?: string;
+    address?: string;
+    hours?: string;
+    serviceAreas?: string[];
+    licenseLine?: string;
+
     /** Optional template/category-specific answers coming from the wizard. */
     templateAnswers?: Record<string, string | boolean>;
   };
@@ -67,6 +78,75 @@ interface AIGeneratedContent {
     image2?: string;
     serviceIcon?: string;
   };
+}
+
+/**
+ * Second-pass response covering the 12 niche-spec sections that the
+ * marketing-spine pass leaves untouched. Every field is optional: any field
+ * left blank by the model causes the corresponding section override slot to
+ * be either dropped (so wizard-only fields still render) or omitted entirely
+ * via `_omit: true` (for sections with no wizard fallback).
+ */
+interface AISupportingContent {
+  // AnnouncementBar
+  announcementBarText?: string;
+  announcementBarHours?: string;
+  // HeroLeadForm extras
+  heroEyebrow?: string;
+  heroBullets?: string[];
+  heroProofPoints?: string[];
+  heroFormHeading?: string;
+  heroFormSubheading?: string;
+  // TrustStrip
+  trustStripItems?: Array<{
+    label: string;
+    detail?: string;
+    icon?: 'star' | 'shield' | 'check' | 'clock' | 'phone' | 'badge' | 'medal';
+  }>;
+  // DifferentiatorBlock
+  differentiatorEyebrow?: string;
+  differentiatorHeading?: string;
+  differentiatorSubheading?: string;
+  differentiatorItems?: Array<{ title: string; description: string }>;
+  // ChecklistSection
+  checklistEyebrow?: string;
+  checklistHeading?: string;
+  checklistSubheading?: string;
+  checklistItems?: string[];
+  // MidPageCTA
+  midCtaEyebrow?: string;
+  midCtaHeadline?: string;
+  midCtaSubheadline?: string;
+  midCtaLabel?: string;
+  midCtaSecondaryText?: string;
+  // PhotoGalleryStrip
+  galleryHeading?: string;
+  gallerySubheading?: string;
+  galleryCaptions?: string[];
+  // ProcessSteps
+  processEyebrow?: string;
+  processHeading?: string;
+  processSubheading?: string;
+  processSteps?: Array<{ title: string; description: string }>;
+  // FAQAccordion
+  faqEyebrow?: string;
+  faqHeading?: string;
+  faqSubheading?: string;
+  faqItems?: Array<{ question: string; answer: string }>;
+  // ServiceAreas
+  serviceAreasEyebrow?: string;
+  serviceAreasHeading?: string;
+  serviceAreasSubheading?: string;
+  serviceAreasFootnote?: string;
+  // GuaranteeBar
+  guaranteeEyebrow?: string;
+  guaranteeHeadline?: string;
+  guaranteeDescription?: string;
+  // FinalCTA extras
+  finalCtaNextSteps?: string[];
+  finalCtaPrivacyNote?: string;
+  // Footer
+  footerTagline?: string;
 }
 
 // ── Prompt builder ─────────────────────────────────────────────────────────────
@@ -172,6 +252,90 @@ Generate JSON with these EXACT fields:
 }`;
 }
 
+// ── Supporting-content prompt ───────────────────────────────────────────────────
+
+function buildSupportingPrompt(input: V1FormInput, spec: TemplateSpec): string {
+  const biz = input.business;
+  const trustCount = getArrayPropCount(spec, 'TrustStrip', 'items', 4);
+  const differentiatorCount = getArrayPropCount(spec, 'DifferentiatorBlock', 'items', 3);
+  const checklistCount = getArrayPropCount(spec, 'ChecklistSection', 'items', 6);
+  const galleryCount = getArrayPropCount(spec, 'PhotoGalleryStrip', 'items', 4);
+  const processCount = getArrayPropCount(spec, 'ProcessSteps', 'steps', 4);
+  const faqCount = getArrayPropCount(spec, 'FAQAccordion', 'items', 5);
+
+  const niche = spec.niche || spec.metadata.name;
+  const brand = biz.brandName || biz.productService;
+  const areas = (biz.serviceAreas || []).filter(Boolean).join(', ') || '(none provided)';
+
+  return `You are an elite direct-response copywriter writing supporting page sections for a ${niche} landing page. The HERO, SERVICES, TESTIMONIALS and FINAL CTA have already been written in a separate pass — focus ONLY on the supporting sections listed below.
+
+BUSINESS BRIEF:
+- Brand name: ${brand}
+- What they sell: ${biz.productService}
+- Their offer: ${biz.offer}
+- What makes them different: ${biz.uniqueValue}
+- Why customers love them: ${biz.customerLove}
+- Phone: ${input.contact.phone}
+- Hours: ${biz.hours || '(not provided)'}
+- Service areas: ${areas}
+- License / insurance line: ${biz.licenseLine || '(not provided)'}
+
+OPTIONAL TEMPLATE DETAILS:
+${formatTemplateAnswers(biz.templateAnswers)}
+
+RULES:
+- Use the brand name "${brand}" verbatim. NEVER invent a different brand name.
+- NEVER invent a phone number, address, hours, license number, or city/region — if the value isn't in the brief, leave that field out.
+- Write in the voice of a credible local ${niche} business. Be specific, concrete, and benefit-first.
+- Every list item must earn its place. No filler, no marketing fluff.
+
+Generate JSON with these EXACT fields (omit any field you genuinely cannot write well — DO NOT pad with placeholders):
+{
+  "announcementBarText": "Short, scannable line for the top bar — emphasizes urgency or availability (e.g. 'Same-day service available'). Max 10 words.",
+  "announcementBarHours": "Concise hours phrase if hours are provided, else omit. Max 8 words.",
+  "heroEyebrow": "1–4 word eyebrow above the hero headline, e.g. 'Licensed & Insured'",
+  "heroBullets": ["3 short benefit bullets, max 8 words each — appear under the hero subheadline"],
+  "heroProofPoints": ["3 credibility chips, e.g. '24/7 emergency', '${biz.licenseLine ? 'Licensed' : 'Family-owned'}', '5-star rated'"],
+  "heroFormHeading": "Heading above the lead form on the hero, max 6 words",
+  "heroFormSubheading": "1 sentence under the form heading, max 18 words",
+  "trustStripItems": [${Array(trustCount).fill('{"label": "Trust signal label, max 5 words", "detail": "Optional supporting detail, max 6 words", "icon": "one of: star, shield, check, clock, phone, badge, medal"}').join(', ')}],
+  "differentiatorEyebrow": "Eyebrow for the differentiator section, max 4 words",
+  "differentiatorHeading": "Headline, max 8 words — why customers pick this business",
+  "differentiatorSubheading": "1 sentence intro, max 25 words",
+  "differentiatorItems": [${Array(differentiatorCount).fill('{"title": "Differentiator title, max 6 words", "description": "1–2 sentence proof, max 25 words"}').join(', ')}],
+  "checklistEyebrow": "Eyebrow, max 4 words",
+  "checklistHeading": "Headline for the included/covered checklist, max 8 words",
+  "checklistSubheading": "1 sentence intro, max 25 words",
+  "checklistItems": [${Array(checklistCount).fill('"Specific item the customer gets / a problem solved, max 10 words"').join(', ')}],
+  "midCtaEyebrow": "Short eyebrow, max 4 words",
+  "midCtaHeadline": "Mid-page CTA headline, max 10 words",
+  "midCtaSubheadline": "Supporting text, max 20 words",
+  "midCtaLabel": "Button label, max 4 words",
+  "midCtaSecondaryText": "Microcopy under the button, max 10 words (e.g. 'Call ${input.contact.phone}')",
+  "galleryHeading": "Photo strip heading, max 6 words",
+  "gallerySubheading": "1 sentence under the heading, max 18 words",
+  "galleryCaptions": [${Array(galleryCount).fill('"Caption, max 8 words"').join(', ')}],
+  "processEyebrow": "Eyebrow, max 4 words",
+  "processHeading": "How-it-works headline, max 8 words",
+  "processSubheading": "1 sentence, max 22 words",
+  "processSteps": [${Array(processCount).fill('{"title": "Step title, max 5 words", "description": "1 sentence, max 22 words"}').join(', ')}],
+  "faqEyebrow": "Eyebrow, max 3 words",
+  "faqHeading": "FAQ headline, max 6 words",
+  "faqSubheading": "1 sentence intro, max 20 words",
+  "faqItems": [${Array(faqCount).fill('{"question": "Real question a ${niche} customer would ask, max 12 words", "answer": "Specific, honest answer, max 40 words"}').join(', ')}],
+  "serviceAreasEyebrow": "Eyebrow, max 4 words",
+  "serviceAreasHeading": "Service-area headline, max 8 words",
+  "serviceAreasSubheading": "1 sentence about coverage, max 22 words",
+  "serviceAreasFootnote": "Short footnote, e.g. 'Don't see your area? Give us a call.', max 14 words",
+  "guaranteeEyebrow": "Eyebrow, max 3 words",
+  "guaranteeHeadline": "Guarantee headline, max 8 words",
+  "guaranteeDescription": "1–2 sentence guarantee explanation, max 35 words",
+  "finalCtaNextSteps": ["3 short next-step lines, max 8 words each — appear above the final CTA button"],
+  "finalCtaPrivacyNote": "Privacy/SMS-consent line, max 18 words",
+  "footerTagline": "1 short line for the footer, max 12 words — sub-brand line, not a CTA"
+}`;
+}
+
 // ── Helpers ─────────────────────────────────────────────────────────────────────
 
 function getServiceCount(spec: TemplateSpec): number {
@@ -181,11 +345,23 @@ function getServiceCount(spec: TemplateSpec): number {
   return Array.isArray(services) ? services.length : 4;
 }
 
+function getArrayPropCount(
+  spec: TemplateSpec,
+  sectionType: string,
+  propName: string,
+  fallback: number
+): number {
+  const entry = spec.sections.find((s) => s.type === sectionType);
+  if (!entry) return fallback;
+  const arr = (entry.props as Record<string, unknown>)[propName];
+  return Array.isArray(arr) && arr.length > 0 ? arr.length : fallback;
+}
+
 // ── OpenAI call ─────────────────────────────────────────────────────────────────
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
-async function callOpenAI(prompt: string): Promise<AIGeneratedContent> {
+async function callOpenAIJSON<T>(prompt: string, maxTokens: number = 3000): Promise<T> {
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -201,7 +377,7 @@ async function callOpenAI(prompt: string): Promise<AIGeneratedContent> {
         },
         { role: 'user', content: prompt },
       ],
-      max_tokens: 3000,
+      max_tokens: maxTokens,
       temperature: 0.8,
       response_format: { type: 'json_object' },
     }),
@@ -214,44 +390,100 @@ async function callOpenAI(prompt: string): Promise<AIGeneratedContent> {
   }
 
   const raw = data.choices?.[0]?.message?.content || '{}';
-  return JSON.parse(raw) as AIGeneratedContent;
+  return JSON.parse(raw) as T;
 }
 
 // ── Map AI content → V1ContentOverrides ─────────────────────────────────────────
 
+const VALID_SERVICE_ICONS = ['wrench', 'tool', 'shield', 'search'];
+const VALID_TRUST_ICONS = ['star', 'shield', 'check', 'clock', 'phone', 'badge', 'medal'];
+
 function mapToOverrides(
-  ai: AIGeneratedContent,
+  ai: AIGeneratedContent | null,
+  supporting: AISupportingContent | null,
   spec: TemplateSpec,
   input: V1FormInput
 ): V1ContentOverrides {
-  const validIcons = ['wrench', 'tool', 'shield', 'search'];
+  const biz = input.business;
+  const brand = biz.brandName || biz.productService || 'Your Business';
+  const phone = input.contact.phone || '';
+  const email = input.contact.email || '';
+
+  // Helper: when an AI-only section is missing required content, omit it so the
+  // spec's demo strings never leak through to the rendered page.
+  const omit = () => ({ _omit: true });
 
   const sectionOverrides: (Record<string, unknown> | null)[] = spec.sections.map(
     (entry: V1SectionEntry) => {
       switch (entry.type) {
-        case 'HeroSplit':
-        case 'HeroLeadForm':
+        case 'AnnouncementBar': {
+          const text = supporting?.announcementBarText;
+          const hours = supporting?.announcementBarHours || biz.hours;
+          if (!text && !hours && !phone) return omit();
           return {
-            headline: ai.heroHeadline,
-            subheadline: ai.heroSubheadline,
-            ctaLabel: ai.heroCta,
-            ...(ai.heroTrustBadge && { trustBadge: ai.heroTrustBadge }),
+            ...(text && { text }),
+            ...(phone && { phone }),
+            ...(hours && { hours }),
+          };
+        }
+
+        case 'StickyHeader':
+          return {
+            brandName: brand,
+            ...(phone && { phone }),
+            ...(ai?.heroCta && { ctaLabel: ai.heroCta }),
           };
 
-        case 'SocialProofLogos':
+        case 'HeroSplit':
+        case 'HeroLeadForm': {
+          const headline = ai?.heroHeadline || biz.uniqueValue || biz.productService;
+          const subheadline = ai?.heroSubheadline || biz.offer;
+          const ctaLabel = ai?.heroCta || biz.cta;
+          if (!headline || !subheadline || !ctaLabel) return omit();
+          return {
+            headline,
+            subheadline,
+            ctaLabel,
+            ...(supporting?.heroEyebrow && { eyebrow: supporting.heroEyebrow }),
+            ...(supporting?.heroBullets?.length && { bullets: supporting.heroBullets }),
+            ...(supporting?.heroProofPoints?.length && { proofPoints: supporting.heroProofPoints }),
+            ...(supporting?.heroFormHeading && { formHeading: supporting.heroFormHeading }),
+            ...(supporting?.heroFormSubheading && { formSubheading: supporting.heroFormSubheading }),
+            ...(ai?.heroTrustBadge && { trustBadge: ai.heroTrustBadge }),
+          };
+        }
+
+        case 'SocialProofLogos': {
+          if (!ai?.socialProofHeading) return omit();
           return {
             heading: ai.socialProofHeading,
             ...(ai.socialProofLogos?.length && { logos: ai.socialProofLogos }),
           };
+        }
+
+        case 'TrustStrip': {
+          const items = supporting?.trustStripItems?.filter((i) => i && i.label);
+          if (!items?.length) return omit();
+          return {
+            items: items.map((i) => ({
+              label: i.label,
+              ...(i.detail && { detail: i.detail }),
+              icon: i.icon && VALID_TRUST_ICONS.includes(i.icon) ? i.icon : 'check',
+            })),
+          };
+        }
 
         case 'ServiceList': {
+          if (!ai?.services?.length || !ai.servicesHeading) return omit();
           const origServices = (entry.props as Record<string, unknown>).services as
             Array<{ icon?: string }> | undefined;
           const services = ai.services.map((s, i) => ({
             title: s.title,
             description: s.description,
             ...(s.benefit && { benefit: s.benefit }),
-            icon: (s.icon && validIcons.includes(s.icon)) ? s.icon : (origServices?.[i]?.icon || 'tool'),
+            icon: (s.icon && VALID_SERVICE_ICONS.includes(s.icon))
+              ? s.icon
+              : (origServices?.[i]?.icon || 'tool'),
           }));
           return {
             heading: ai.servicesHeading,
@@ -260,15 +492,51 @@ function mapToOverrides(
           };
         }
 
-        case 'ImagePair':
+        case 'DifferentiatorBlock': {
+          const items = supporting?.differentiatorItems?.filter((i) => i?.title && i.description);
+          if (!items?.length || !supporting?.differentiatorHeading) return omit();
+          return {
+            ...(supporting.differentiatorEyebrow && { eyebrow: supporting.differentiatorEyebrow }),
+            heading: supporting.differentiatorHeading,
+            ...(supporting.differentiatorSubheading && { subheading: supporting.differentiatorSubheading }),
+            items,
+          };
+        }
+
+        case 'ChecklistSection': {
+          const items = supporting?.checklistItems?.filter(Boolean);
+          if (!items?.length || !supporting?.checklistHeading) return omit();
+          return {
+            ...(supporting.checklistEyebrow && { eyebrow: supporting.checklistEyebrow }),
+            heading: supporting.checklistHeading,
+            ...(supporting.checklistSubheading && { subheading: supporting.checklistSubheading }),
+            items,
+          };
+        }
+
+        case 'MidPageCTA': {
+          if (!supporting?.midCtaHeadline || !supporting?.midCtaLabel) return omit();
+          return {
+            ...(supporting.midCtaEyebrow && { eyebrow: supporting.midCtaEyebrow }),
+            headline: supporting.midCtaHeadline,
+            ...(supporting.midCtaSubheadline && { subheadline: supporting.midCtaSubheadline }),
+            ctaLabel: supporting.midCtaLabel,
+            ...(supporting.midCtaSecondaryText && { secondaryText: supporting.midCtaSecondaryText }),
+          };
+        }
+
+        case 'ImagePair': {
+          if (!ai?.imagePairHeading) return omit();
           return {
             heading: ai.imagePairHeading,
             ...(ai.imagePairSubheading && { subheading: ai.imagePairSubheading }),
             ...(ai.imagePairCaption1 && { caption1: ai.imagePairCaption1 }),
             ...(ai.imagePairCaption2 && { caption2: ai.imagePairCaption2 }),
           };
+        }
 
-        case 'TestimonialsCards':
+        case 'TestimonialsCards': {
+          if (!ai?.testimonials?.length || !ai.testimonialsHeading) return omit();
           return {
             heading: ai.testimonialsHeading,
             ...(ai.testimonialsSubheading && { subheading: ai.testimonialsSubheading }),
@@ -280,14 +548,92 @@ function mapToOverrides(
               ...(t.rating && { rating: Math.min(5, Math.max(1, t.rating)) }),
             })),
           };
+        }
 
-        case 'FinalCTA':
+        case 'PhotoGalleryStrip': {
+          if (!supporting?.galleryHeading) return omit();
+          const captions = supporting.galleryCaptions || [];
+          const origItems = (entry.props as Record<string, unknown>).items as
+            Array<{ imageAsset: string; fallbackAsset?: string }> | undefined;
+          const items = origItems?.map((it, i) => ({
+            imageAsset: it.imageAsset,
+            ...(it.fallbackAsset && { fallbackAsset: it.fallbackAsset }),
+            ...(captions[i] && { caption: captions[i] }),
+          }));
           return {
-            heading: ai.ctaHeading,
-            subheading: ai.ctaSubheading,
-            ctaLabel: ai.ctaButtonLabel,
-            ...(ai.ctaUrgency && { urgency: ai.ctaUrgency }),
-            ...(ai.ctaGuarantee && { guarantee: ai.ctaGuarantee }),
+            heading: supporting.galleryHeading,
+            ...(supporting.gallerySubheading && { subheading: supporting.gallerySubheading }),
+            ...(items?.length && { items }),
+          };
+        }
+
+        case 'ProcessSteps': {
+          const steps = supporting?.processSteps?.filter((s) => s?.title && s.description);
+          if (!steps?.length || !supporting?.processHeading) return omit();
+          return {
+            ...(supporting.processEyebrow && { eyebrow: supporting.processEyebrow }),
+            heading: supporting.processHeading,
+            ...(supporting.processSubheading && { subheading: supporting.processSubheading }),
+            steps,
+          };
+        }
+
+        case 'FAQAccordion': {
+          const items = supporting?.faqItems?.filter((q) => q?.question && q.answer);
+          if (!items?.length || !supporting?.faqHeading) return omit();
+          return {
+            ...(supporting.faqEyebrow && { eyebrow: supporting.faqEyebrow }),
+            heading: supporting.faqHeading,
+            ...(supporting.faqSubheading && { subheading: supporting.faqSubheading }),
+            items,
+          };
+        }
+
+        case 'ServiceAreas': {
+          const areas = (biz.serviceAreas || []).filter(Boolean);
+          if (!areas.length) return omit();
+          return {
+            ...(supporting?.serviceAreasEyebrow && { eyebrow: supporting.serviceAreasEyebrow }),
+            ...(supporting?.serviceAreasHeading && { heading: supporting.serviceAreasHeading }),
+            ...(supporting?.serviceAreasSubheading && { subheading: supporting.serviceAreasSubheading }),
+            areas,
+            ...(supporting?.serviceAreasFootnote && { footnote: supporting.serviceAreasFootnote }),
+          };
+        }
+
+        case 'GuaranteeBar': {
+          if (!supporting?.guaranteeHeadline) return omit();
+          return {
+            ...(supporting.guaranteeEyebrow && { eyebrow: supporting.guaranteeEyebrow }),
+            headline: supporting.guaranteeHeadline,
+            ...(supporting.guaranteeDescription && { description: supporting.guaranteeDescription }),
+          };
+        }
+
+        case 'FinalCTA': {
+          const heading = ai?.ctaHeading;
+          const ctaLabel = ai?.ctaButtonLabel || biz.cta;
+          if (!ctaLabel) return omit();
+          return {
+            ...(heading && { heading }),
+            ...(ai?.ctaSubheading && { subheading: ai.ctaSubheading }),
+            ctaLabel,
+            ...(ai?.ctaUrgency && { urgency: ai.ctaUrgency }),
+            ...(ai?.ctaGuarantee && { guarantee: ai.ctaGuarantee }),
+            ...(supporting?.finalCtaNextSteps?.length && { nextSteps: supporting.finalCtaNextSteps }),
+            ...(supporting?.finalCtaPrivacyNote && { privacyNote: supporting.finalCtaPrivacyNote }),
+          };
+        }
+
+        case 'Footer':
+          return {
+            brandName: brand,
+            ...(supporting?.footerTagline && { tagline: supporting.footerTagline }),
+            ...(phone && { phone }),
+            ...(email && { email }),
+            ...(biz.address && { address: biz.address }),
+            ...(biz.hours && { hours: biz.hours }),
+            ...(biz.licenseLine && { licenseLine: biz.licenseLine }),
           };
 
         default:
@@ -298,9 +644,9 @@ function mapToOverrides(
 
   // Map user-uploaded images to asset slots
   const assetOverrides: Record<string, string> = {};
-  if (input.business.images && input.business.images.length > 0) {
+  if (biz.images && biz.images.length > 0) {
     const imgKeys = ['heroImageId', 'supportImage1', 'supportImage2'];
-    input.business.images.forEach((img, i) => {
+    biz.images.forEach((img, i) => {
       if (i < imgKeys.length && img) {
         assetOverrides[imgKeys[i]] = img;
       }
@@ -310,59 +656,57 @@ function mapToOverrides(
   return {
     sections: sectionOverrides,
     assets: Object.keys(assetOverrides).length > 0 ? assetOverrides : undefined,
-    imageSearchTerms: ai.imageSearchTerms || undefined,
+    meta: {
+      ...(phone && { businessPhone: phone }),
+      ...(biz.brandName && { businessName: biz.brandName }),
+    },
+    imageSearchTerms: ai?.imageSearchTerms || undefined,
   };
-}
-
-// ── Fallback content (when OpenAI fails) ────────────────────────────────────────
-
-function buildFallbackOverrides(
-  spec: TemplateSpec,
-  input: V1FormInput
-): V1ContentOverrides {
-  const biz = input.business;
-
-  const sectionOverrides: (Record<string, unknown> | null)[] = spec.sections.map(
-    (entry: V1SectionEntry) => {
-      switch (entry.type) {
-        case 'HeroSplit':
-        case 'HeroLeadForm':
-          return {
-            headline: biz.uniqueValue || biz.productService || entry.props.headline,
-            subheadline: biz.offer || entry.props.subheadline,
-            ctaLabel: biz.cta || entry.props.ctaLabel,
-            trustBadge: '✓ Trusted by businesses like yours',
-          };
-        case 'FinalCTA':
-          return {
-            ctaLabel: biz.cta || (entry.props as Record<string, unknown>).ctaLabel,
-            guarantee: 'No obligation — get a response within 24 hours',
-          };
-        default:
-          return null;
-      }
-    }
-  );
-
-  return { sections: sectionOverrides };
 }
 
 // ── Public API ──────────────────────────────────────────────────────────────────
 
+/**
+ * Two-pass AI generation:
+ *   1. Marketing spine (Hero, SocialProof, Services, Testimonials, FinalCTA,
+ *      ImagePair). The original `buildPrompt`/`AIGeneratedContent` payload.
+ *   2. Supporting content (the 12 niche-only sections). The new
+ *      `buildSupportingPrompt`/`AISupportingContent` payload.
+ *
+ * The two passes run in parallel via `Promise.allSettled` so a failure in one
+ * never cascades to the other. `mapToOverrides` then merges whichever passes
+ * succeeded with the typed wizard fields from `input.business` and the contact
+ * block. Any section that ends up without enough content is marked
+ * `_omit: true` so the composer drops it rather than rendering the spec's
+ * demo strings (e.g. "Aqua Pro Plumbing").
+ */
 export async function generateV1Content(
   input: V1FormInput,
   spec: TemplateSpec
 ): Promise<V1ContentOverrides> {
-  try {
-    const prompt = buildPrompt(input, spec);
-    console.log('[v1 content] Calling OpenAI for content generation...');
-    const ai = await callOpenAI(prompt);
-    console.log('[v1 content] AI content received, mapping to overrides...');
-    return mapToOverrides(ai, spec, input);
-  } catch (err) {
-    console.error('[v1 content] AI generation failed, using fallback:', err);
-    return buildFallbackOverrides(spec, input);
+  const marketingPrompt = buildPrompt(input, spec);
+  const supportingPrompt = buildSupportingPrompt(input, spec);
+
+  console.log('[v1 content] Calling OpenAI (marketing + supporting passes)...');
+  const [marketingRes, supportingRes] = await Promise.allSettled([
+    callOpenAIJSON<AIGeneratedContent>(marketingPrompt, 3000),
+    callOpenAIJSON<AISupportingContent>(supportingPrompt, 3500),
+  ]);
+
+  const marketing = marketingRes.status === 'fulfilled' ? marketingRes.value : null;
+  const supporting = supportingRes.status === 'fulfilled' ? supportingRes.value : null;
+
+  if (marketingRes.status === 'rejected') {
+    console.error('[v1 content] Marketing pass failed:', marketingRes.reason);
   }
+  if (supportingRes.status === 'rejected') {
+    console.error('[v1 content] Supporting pass failed:', supportingRes.reason);
+  }
+
+  console.log(
+    `[v1 content] Mapping (marketing=${marketing ? 'ok' : 'failed'}, supporting=${supporting ? 'ok' : 'failed'})`
+  );
+  return mapToOverrides(marketing, supporting, spec, input);
 }
 
 function getTestimonialCount(spec: TemplateSpec): number {
