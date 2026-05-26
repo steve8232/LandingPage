@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { Sparkles, Zap, Download, LayoutGrid, LogIn } from 'lucide-react';
+import { Sparkles, Zap, Download, LayoutGrid, LogIn, Search, MessageCircle, ArrowRight } from 'lucide-react';
 import { useSession } from '@/lib/useSession';
+import { useRole } from '@/lib/useRole';
 
 interface WelcomeScreenProps {
   onStart: () => void;
@@ -10,6 +11,8 @@ interface WelcomeScreenProps {
 
 export default function WelcomeScreen({ onStart }: WelcomeScreenProps) {
   const { user, loading } = useSession();
+  const { role, loading: roleLoading } = useRole();
+  const showAdminChooser = !loading && !roleLoading && !!user && role === 'admin';
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-orange-50 to-amber-100 p-4">
       <header className="w-full max-w-2xl mx-auto flex items-center justify-end pt-2 pb-4 text-sm">
@@ -79,12 +82,16 @@ export default function WelcomeScreen({ onStart }: WelcomeScreenProps) {
             </div>
           </div>
 
-          <button
-            onClick={onStart}
-            className="w-full md:w-auto px-8 py-4 bg-orange-500 text-white font-semibold rounded-xl hover:bg-orange-600 transition-colors shadow-lg shadow-orange-200"
-          >
-            Get Started →
-          </button>
+          {showAdminChooser ? (
+            <StartChooser onStartTemplate={onStart} />
+          ) : (
+            <button
+              onClick={onStart}
+              className="w-full md:w-auto px-8 py-4 bg-orange-500 text-white font-semibold rounded-xl hover:bg-orange-600 transition-colors shadow-lg shadow-orange-200"
+            >
+              Get Started →
+            </button>
+          )}
         </div>
       </div>
       </div>
@@ -92,3 +99,90 @@ export default function WelcomeScreen({ onStart }: WelcomeScreenProps) {
   );
 }
 
+
+// ── Admin start chooser ────────────────────────────────────────────────────
+//
+// Replaces the bare "Get Started" CTA for signed-in admins with three
+// equally-weighted paths into project creation. Anonymous visitors and
+// non-admins are routed away from this surface entirely (NonAdminMarketing
+// + the manual wizard), so this list is admin-tailored: "Look up" and
+// "Describe" both lean on the research backend; "Start with template" is
+// the original wizard kept around for the operator who wants a blank slate.
+
+interface ChooserCardSpec {
+  href?: string;
+  onClick?: () => void;
+  icon: typeof Search;
+  title: string;
+  body: string;
+  accent: 'orange' | 'amber' | 'slate';
+}
+
+function StartChooser({ onStartTemplate }: { onStartTemplate: () => void }) {
+  const cards: ChooserCardSpec[] = [
+    {
+      href: '/dashboard/new/research',
+      icon: Search,
+      title: 'Look up my business',
+      body: "We'll find your Google Business Profile and pre-fill the page.",
+      accent: 'orange',
+    },
+    {
+      href: '/dashboard/new/chat',
+      icon: MessageCircle,
+      title: 'Describe my business',
+      body: 'Answer four short questions and we research the rest in the background.',
+      accent: 'amber',
+    },
+    {
+      onClick: onStartTemplate,
+      icon: LayoutGrid,
+      title: 'Start with a template',
+      body: 'Pick a niche template and fill it in yourself.',
+      accent: 'slate',
+    },
+  ];
+
+  return (
+    <div className="grid md:grid-cols-3 gap-3 text-left">
+      {cards.map((c) => (
+        <ChooserCard key={c.title} {...c} />
+      ))}
+    </div>
+  );
+}
+
+const ACCENTS: Record<ChooserCardSpec['accent'], { iconWrap: string; iconText: string; ring: string }> = {
+  orange: { iconWrap: 'bg-orange-100', iconText: 'text-orange-600', ring: 'hover:border-orange-300' },
+  amber:  { iconWrap: 'bg-amber-100',  iconText: 'text-amber-700',  ring: 'hover:border-amber-300' },
+  slate:  { iconWrap: 'bg-gray-100',   iconText: 'text-gray-700',   ring: 'hover:border-gray-300' },
+};
+
+function ChooserCard({ href, onClick, icon: Icon, title, body, accent }: ChooserCardSpec) {
+  const a = ACCENTS[accent];
+  const inner = (
+    <>
+      <div className={`inline-flex w-10 h-10 ${a.iconWrap} rounded-lg items-center justify-center mb-3`}>
+        <Icon className={`w-5 h-5 ${a.iconText}`} />
+      </div>
+      <h3 className="font-semibold text-gray-900 mb-1 flex items-center gap-1">
+        {title}
+        <ArrowRight className="w-3.5 h-3.5 text-gray-400" />
+      </h3>
+      <p className="text-sm text-gray-600">{body}</p>
+    </>
+  );
+  const className = `block p-4 bg-white border-2 border-gray-200 rounded-xl transition-all ${a.ring}`;
+  if (href) {
+    return (
+      <Link href={href} className={className}>
+        {inner}
+      </Link>
+    );
+  }
+  return (
+    <button type="button" onClick={onClick} className={`${className} text-left w-full`}>
+      {inner}
+    </button>
+  );
+}

@@ -5,8 +5,10 @@ import type { CreationMethod } from '@/lib/projects/types';
 /**
  * Sibling-nav tab strip for project-scoped dashboard views. Rendered below
  * the breadcrumb on every per-project page (Dashboard / Editor / Heatmap /
- * Research). The Research tab is only surfaced when the project was created
- * via Lane B (`creation_method='research'`).
+ * Research). The Research tab is surfaced for projects created via Lane B
+ * (`creation_method='research'`) or Lane C (`creation_method='chat'`) —
+ * the chat flow also queues a research lookup in the background, so the
+ * Research tab is the merge surface for both.
  *
  * Editor lives at `/?project=<id>` so it's wired with a regular Link rather
  * than a `/dashboard/projects/[id]/...` segment.
@@ -39,7 +41,9 @@ const RESEARCH_TAB: TabSpec = {
 };
 
 export default function ProjectTabs({ projectId, active, creationMethod }: Props) {
-  const tabs = creationMethod === 'research' ? [...BASE_TABS, RESEARCH_TAB] : BASE_TABS;
+  const tabs = (creationMethod === 'research' || creationMethod === 'chat')
+    ? [...BASE_TABS, RESEARCH_TAB]
+    : BASE_TABS;
   return (
     <nav
       role="tablist"

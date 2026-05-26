@@ -166,7 +166,7 @@ export default function ResearchWizardClient() {
               <h1 className="text-2xl font-bold text-gray-900 mb-1">Tell us about your business</h1>
               <p className="text-sm text-gray-600">
                 Template: <span className="font-medium text-gray-900">{selected?.name}</span>.
-                We&apos;ll search DataForSEO for your Google Business Profile and pre-fill the page.
+                We&apos;ll research your Google Business Profile and pre-fill the page.
               </p>
             </div>
 

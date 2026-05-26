@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
     taskId = out.taskId;
   } catch (err) {
     if (err instanceof DataForSEOAuthError) {
-      return NextResponse.json({ error: 'DataForSEO auth failed' }, { status: 502 });
+      return NextResponse.json({ error: 'Research lookup auth failed' }, { status: 502 });
     }
     if (err instanceof DataForSEOError) {
       return NextResponse.json(
@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
         { status: 502 },
       );
     }
-    const message = err instanceof Error ? err.message : 'DataForSEO call failed';
+    const message = err instanceof Error ? err.message : 'Research lookup failed';
     return NextResponse.json({ error: message }, { status: 502 });
   }
 

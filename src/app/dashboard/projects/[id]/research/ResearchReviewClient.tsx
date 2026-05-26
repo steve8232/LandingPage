@@ -239,7 +239,7 @@ function ReviewBody({
     return (
       <div className="bg-white rounded-2xl shadow-sm p-10 text-center">
         <h2 className="text-lg font-semibold text-gray-900 mb-1">Research failed</h2>
-        <p className="text-sm text-red-700 mb-4">{data.errorMessage || 'DataForSEO returned an error.'}</p>
+        <p className="text-sm text-red-700 mb-4">{data.errorMessage || 'The research lookup returned an error.'}</p>
         <p className="text-xs text-gray-500">
           You can still build this page manually from the editor.
         </p>
@@ -441,7 +441,7 @@ function PendingState({ keyword, locationName, createdAt, onRefresh }: PendingSt
 
         {longRunning && (
           <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800 flex items-center justify-between gap-3">
-            <span>Taking longer than usual — DataForSEO can be slow during peak hours.</span>
+            <span>Taking longer than usual — research can be slow during peak hours.</span>
             <button
               onClick={onRefresh}
               className="inline-flex items-center gap-1 px-2.5 py-1 bg-white border border-amber-300 rounded-md text-amber-900 hover:bg-amber-100 text-xs font-medium shrink-0"
@@ -489,7 +489,7 @@ interface Phase {
 // task. After 3.5 min we stay on the "finalising" line — the timer + the
 // long-running banner below take over the "is this stuck?" question.
 function phaseAt(ms: number): Phase {
-  if (ms < 15_000)  return { Icon: Plug,     text: 'Connecting to DataForSEO…' };
+  if (ms < 15_000)  return { Icon: Plug,     text: 'Connecting to the research provider…' };
   if (ms < 45_000)  return { Icon: MapPin,   text: 'Locating your Google Business Profile…' };
   if (ms < 90_000)  return { Icon: Star,     text: 'Reading reviews and ratings…' };
   if (ms < 150_000) return { Icon: Clock,    text: 'Pulling hours, phone, and address…' };
