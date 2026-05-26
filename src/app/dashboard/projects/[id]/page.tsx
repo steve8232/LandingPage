@@ -48,6 +48,7 @@ interface ProjectMetaRow {
   audiencelab_pixel_id: string | null;
   callrail_company_id: string | null;
   callrail_company_name: string | null;
+  creation_method: 'manual' | 'research' | 'chat';
 }
 
 export default async function ProjectDashboardPage({
@@ -64,7 +65,7 @@ export default async function ProjectDashboardPage({
     supabase
       .from('projects')
       .select(
-        'id, title, slug, user_id, subdomain, custom_domain, audiencelab_pixel_id, callrail_company_id, callrail_company_name'
+        'id, title, slug, user_id, subdomain, custom_domain, audiencelab_pixel_id, callrail_company_id, callrail_company_name, creation_method'
       )
       .eq('id', id)
       .maybeSingle<ProjectMetaRow>(),
@@ -184,6 +185,7 @@ export default async function ProjectDashboardPage({
     slug: projectRow.slug,
     subdomain: projectRow.subdomain,
     customDomain: projectRow.custom_domain,
+    creationMethod: projectRow.creation_method,
   };
 
   // Collaborator + owner-email lookup (service-role; emails live in profiles).

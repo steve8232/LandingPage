@@ -21,6 +21,7 @@ interface ProjectRow {
   title: string;
   subdomain: string | null;
   custom_domain: string | null;
+  creation_method: 'manual' | 'research' | 'chat';
 }
 
 interface DeploymentRow {
@@ -73,7 +74,7 @@ export default async function HeatmapPage({
 
   const { data: projectRaw } = await supabase
     .from('projects')
-    .select('id, title, subdomain, custom_domain')
+    .select('id, title, subdomain, custom_domain, creation_method')
     .eq('id', id)
     .maybeSingle<ProjectRow>();
   if (!projectRaw) redirect('/dashboard');
@@ -99,6 +100,7 @@ export default async function HeatmapPage({
     title: projectRaw.title,
     subdomain: projectRaw.subdomain,
     customDomain: projectRaw.custom_domain,
+    creationMethod: projectRaw.creation_method,
   };
 
   return (

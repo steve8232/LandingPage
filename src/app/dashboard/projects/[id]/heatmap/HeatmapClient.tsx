@@ -5,12 +5,14 @@ import Link from 'next/link';
 import { Sparkles, ArrowLeft, Loader2, AlertCircle, Camera } from 'lucide-react';
 import simpleheat from 'simpleheat';
 import ProjectTabs from '../ProjectTabs';
+import type { CreationMethod } from '@/lib/projects/types';
 
 export interface ProjectLite {
   id: string;
   title: string;
   subdomain: string | null;
   customDomain: string | null;
+  creationMethod?: CreationMethod;
 }
 
 export interface DeploymentLite {
@@ -111,7 +113,7 @@ export default function HeatmapClient({ project, deployments, userEmail }: Props
         </div>
 
         <div className="mb-4">
-          <ProjectTabs projectId={project.id} active="heatmap" />
+          <ProjectTabs projectId={project.id} active="heatmap" creationMethod={project.creationMethod} />
         </div>
 
         <Controls

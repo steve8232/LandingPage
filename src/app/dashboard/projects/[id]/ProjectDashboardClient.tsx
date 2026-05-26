@@ -32,6 +32,7 @@ export interface ProjectLite {
   slug: string;
   subdomain: string | null;
   customDomain: string | null;
+  creationMethod?: 'manual' | 'research' | 'chat';
 }
 
 interface Props {
@@ -138,7 +139,7 @@ export default function ProjectDashboardClient({
         </div>
 
         <div className="mb-4">
-          <ProjectTabs projectId={project.id} active="dashboard" />
+          <ProjectTabs projectId={project.id} active="dashboard" creationMethod={project.creationMethod} />
         </div>
 
         <SummaryCards

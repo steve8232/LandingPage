@@ -74,7 +74,7 @@ export default function ResearchWizardClient() {
         setSubmitting(false);
         return;
       }
-      router.push(`/dashboard/projects/${data.project.id}?research=pending`);
+      router.push(`/dashboard/projects/${data.project.id}/research`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Network error');
       setSubmitting(false);
