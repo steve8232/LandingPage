@@ -417,21 +417,26 @@ function mapToOverrides(
     (entry: V1SectionEntry) => {
       switch (entry.type) {
         case 'AnnouncementBar': {
+          // Omit entirely when the AI didn't supply a tailored message — the
+          // wizard phone/hours alone aren't worth letting the spec's demo
+          // promo line leak through the {...entry.props, ...override} merge.
           const text = supporting?.announcementBarText;
-          const hours = supporting?.announcementBarHours || biz.hours;
-          if (!text && !hours && !phone) return omit();
+          if (!text) return omit();
+          const hours = supporting?.announcementBarHours || biz.hours || '';
           return {
-            ...(text && { text }),
+            text,
             ...(phone && { phone }),
-            ...(hours && { hours }),
+            hours,
           };
         }
 
         case 'StickyHeader':
           return {
             brandName: brand,
-            ...(phone && { phone }),
-            ...(ai?.heroCta && { ctaLabel: ai.heroCta }),
+            phone: phone || '',
+            // Prefer AI CTA, fall back to wizard CTA, then a generic label.
+            // Never let the spec's niche-flavored demo CTA survive.
+            ctaLabel: ai?.heroCta || biz.cta || 'Get a free quote',
           };
 
         case 'HeroSplit':
@@ -440,16 +445,19 @@ function mapToOverrides(
           const subheadline = ai?.heroSubheadline || biz.offer;
           const ctaLabel = ai?.heroCta || biz.cta;
           if (!headline || !subheadline || !ctaLabel) return omit();
+          // Explicitly clear every spec-controlled niche field so a partial
+          // supporting-pass failure can't leak the demo eyebrow/bullets/
+          // proofPoints through the composer's shallow merge.
           return {
             headline,
             subheadline,
             ctaLabel,
-            ...(supporting?.heroEyebrow && { eyebrow: supporting.heroEyebrow }),
-            ...(supporting?.heroBullets?.length && { bullets: supporting.heroBullets }),
-            ...(supporting?.heroProofPoints?.length && { proofPoints: supporting.heroProofPoints }),
-            ...(supporting?.heroFormHeading && { formHeading: supporting.heroFormHeading }),
-            ...(supporting?.heroFormSubheading && { formSubheading: supporting.heroFormSubheading }),
-            ...(ai?.heroTrustBadge && { trustBadge: ai.heroTrustBadge }),
+            eyebrow: supporting?.heroEyebrow || '',
+            bullets: supporting?.heroBullets?.length ? supporting.heroBullets : [],
+            proofPoints: supporting?.heroProofPoints?.length ? supporting.heroProofPoints : [],
+            formHeading: supporting?.heroFormHeading || '',
+            formSubheading: supporting?.heroFormSubheading || '',
+            trustBadge: ai?.heroTrustBadge || '',
           };
         }
 
@@ -593,11 +601,11 @@ function mapToOverrides(
           const areas = (biz.serviceAreas || []).filter(Boolean);
           if (!areas.length) return omit();
           return {
-            ...(supporting?.serviceAreasEyebrow && { eyebrow: supporting.serviceAreasEyebrow }),
-            ...(supporting?.serviceAreasHeading && { heading: supporting.serviceAreasHeading }),
-            ...(supporting?.serviceAreasSubheading && { subheading: supporting.serviceAreasSubheading }),
+            eyebrow: supporting?.serviceAreasEyebrow || '',
+            heading: supporting?.serviceAreasHeading || '',
+            subheading: supporting?.serviceAreasSubheading || '',
             areas,
-            ...(supporting?.serviceAreasFootnote && { footnote: supporting.serviceAreasFootnote }),
+            footnote: supporting?.serviceAreasFootnote || '',
           };
         }
 
@@ -615,25 +623,25 @@ function mapToOverrides(
           const ctaLabel = ai?.ctaButtonLabel || biz.cta;
           if (!ctaLabel) return omit();
           return {
-            ...(heading && { heading }),
-            ...(ai?.ctaSubheading && { subheading: ai.ctaSubheading }),
+            heading: heading || '',
+            subheading: ai?.ctaSubheading || '',
             ctaLabel,
-            ...(ai?.ctaUrgency && { urgency: ai.ctaUrgency }),
-            ...(ai?.ctaGuarantee && { guarantee: ai.ctaGuarantee }),
-            ...(supporting?.finalCtaNextSteps?.length && { nextSteps: supporting.finalCtaNextSteps }),
-            ...(supporting?.finalCtaPrivacyNote && { privacyNote: supporting.finalCtaPrivacyNote }),
+            urgency: ai?.ctaUrgency || '',
+            guarantee: ai?.ctaGuarantee || '',
+            nextSteps: supporting?.finalCtaNextSteps?.length ? supporting.finalCtaNextSteps : [],
+            privacyNote: supporting?.finalCtaPrivacyNote || '',
           };
         }
 
         case 'Footer':
           return {
             brandName: brand,
-            ...(supporting?.footerTagline && { tagline: supporting.footerTagline }),
-            ...(phone && { phone }),
-            ...(email && { email }),
-            ...(biz.address && { address: biz.address }),
-            ...(biz.hours && { hours: biz.hours }),
-            ...(biz.licenseLine && { licenseLine: biz.licenseLine }),
+            tagline: supporting?.footerTagline || '',
+            phone: phone || '',
+            email: email || '',
+            address: biz.address || '',
+            hours: biz.hours || '',
+            licenseLine: biz.licenseLine || '',
           };
 
         default:
@@ -653,12 +661,26 @@ function mapToOverrides(
     });
   }
 
+  // Build AI-grounded SEO metadata so the spec's stock `metadata.name` and
+  // `metadata.description` never leak into <title> / <meta name="description">.
+  // Page title: brand name first (so it appears in browser tabs and search
+  // results), followed by a short tagline derived from AI or wizard copy.
+  const titleTagline = ai?.heroHeadline || biz.uniqueValue || biz.productService || '';
+  const pageTitle = titleTagline ? `${brand} — ${titleTagline}` : brand;
+  // Meta description: prefer AI subheadline, then wizard offer/unique-value.
+  // Capped at ~155 chars for SERP-friendly truncation.
+  const metaSeed =
+    ai?.heroSubheadline || ai?.ctaSubheading || biz.offer || biz.uniqueValue || biz.productService || '';
+  const metaDescription = metaSeed.length > 155 ? `${metaSeed.slice(0, 152)}…` : metaSeed;
+
   return {
     sections: sectionOverrides,
     assets: Object.keys(assetOverrides).length > 0 ? assetOverrides : undefined,
     meta: {
       ...(phone && { businessPhone: phone }),
       ...(biz.brandName && { businessName: biz.brandName }),
+      pageTitle,
+      metaDescription,
     },
     imageSearchTerms: ai?.imageSearchTerms || undefined,
   };
