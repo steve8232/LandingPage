@@ -70,19 +70,8 @@ export async function POST(
     );
   }
 
-  // 2) Compose the meta slice. Reviewer edits win; normalizer fills blanks.
-  const normalized = normalizeResearchPayload(research.raw_payload);
-  const reviewed = (research.reviewed_overrides && typeof research.reviewed_overrides === 'object'
-    ? (research.reviewed_overrides as Partial<ResearchDraft>)
-    : null);
-  const draft: ResearchDraft = reviewed
-    ? { ...normalized, ...reviewed, hours: reviewed.hours ?? normalized.hours, photos: reviewed.photos ?? normalized.photos }
-    : normalized;
-  const slice = draftToOverrides(draft);
-
-  // 3) Merge into project.overrides. RLS-respecting read because the admin
-  // gate above only confirms global role; per-project membership is enforced
-  // by the projects table policies.
+  // 2) Read the project first so draftToOverrides can honor any values the
+  // user already supplied at wizard time (research enriches, never clobbers).
   const { data: project, error: pErr } = await supabase
     .from('projects')
     .select('id, overrides, business_phone')
@@ -91,16 +80,28 @@ export async function POST(
   if (pErr) return NextResponse.json({ error: pErr.message }, { status: 500 });
   if (!project) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
+  // 3) Compose the meta slice. Reviewer edits win; normalizer fills blanks;
+  // user-supplied wizard meta wins over both via the `existing` arg.
+  const normalized = normalizeResearchPayload(research.raw_payload);
+  const reviewed = (research.reviewed_overrides && typeof research.reviewed_overrides === 'object'
+    ? (research.reviewed_overrides as Partial<ResearchDraft>)
+    : null);
+  const draft: ResearchDraft = reviewed
+    ? { ...normalized, ...reviewed, hours: reviewed.hours ?? normalized.hours, photos: reviewed.photos ?? normalized.photos }
+    : normalized;
   const currentOverrides: V1ContentOverrides = project.overrides || {};
+  const slice = draftToOverrides(draft, currentOverrides.meta);
+
   const nextOverrides: V1ContentOverrides = {
     ...currentOverrides,
     meta: { ...(currentOverrides.meta || {}), ...(slice.meta || {}) },
   };
 
   // Also bubble the business phone up to the dedicated column so CallRail
-  // provision picks it up without a re-read of the override JSON.
+  // provision picks it up without a re-read of the override JSON. Existing
+  // value wins so a user-typed phone survives a research postback.
   const nextBusinessPhone =
-    draft.phone || project.business_phone || null;
+    project.business_phone || draft.phone || null;
 
   // 4) Persist + append revision.
   const { data: updated, error: uErr } = await supabase

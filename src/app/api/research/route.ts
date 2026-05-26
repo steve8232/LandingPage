@@ -45,6 +45,14 @@ interface RequestBody {
   locationName?: string;
   /** ISO-639-1 language code, defaults to 'en'. */
   languageCode?: string;
+  /** Mapbox-confirmed street line (optional). */
+  streetAddress?: string;
+  /** Mapbox `context.place.name` (optional). */
+  city?: string;
+  /** Mapbox `context.region.name` (optional). */
+  region?: string;
+  /** Raw 10-digit US phone, normalized client-side (optional). */
+  phone?: string;
 }
 
 export async function POST(request: NextRequest) {
@@ -68,6 +76,12 @@ export async function POST(request: NextRequest) {
   const keywordInput = typeof body.keyword === 'string' ? body.keyword.trim() : '';
   const locationName = typeof body.locationName === 'string' ? body.locationName.trim() : '';
   const languageCode = typeof body.languageCode === 'string' ? body.languageCode.trim() : '';
+  const streetAddress = typeof body.streetAddress === 'string' ? body.streetAddress.trim() : '';
+  const city = typeof body.city === 'string' ? body.city.trim() : '';
+  const region = typeof body.region === 'string' ? body.region.trim() : '';
+  // Phone arrives raw 10-digit from the wizard; defensively re-strip in case
+  // a future caller posts a formatted string.
+  const phone = typeof body.phone === 'string' ? body.phone.replace(/\D/g, '').slice(0, 10) : '';
 
   if (!templateId || !isV1Template(templateId)) {
     return NextResponse.json({ error: 'Unknown templateId' }, { status: 400 });
@@ -116,6 +130,17 @@ export async function POST(request: NextRequest) {
   // requireAdmin(), so projects_admin_insert allows the row.
   const title = titleInput || keyword;
   const slug = makeSlug(title);
+  // Pre-seed overrides with anything the user typed in the wizard so the
+  // page reflects their values from the first revision. DataForSEO's
+  // postback later layers on top (without clobbering, see normalize.ts).
+  const meta: Record<string, string> = {};
+  if (titleInput) meta.businessName = titleInput;
+  if (phone) meta.businessPhone = phone;
+  const addressLine = [streetAddress, [city, region].filter(Boolean).join(', ')]
+    .filter(Boolean)
+    .join(', ');
+  if (addressLine) meta.businessAddress = addressLine;
+  const overrides = Object.keys(meta).length ? { meta } : {};
   const { data: project, error: projectErr } = await supabase
     .from('projects')
     .insert({
@@ -123,7 +148,8 @@ export async function POST(request: NextRequest) {
       template_id: templateId,
       title,
       slug,
-      overrides: {},
+      overrides,
+      business_phone: phone || null,
       creation_method: 'research',
     })
     .select(PROJECT_COLS)
@@ -138,7 +164,7 @@ export async function POST(request: NextRequest) {
   // Best-effort initial revision so history is non-empty from day one.
   await supabase.from('project_revisions').insert({
     project_id: project.id,
-    overrides: {},
+    overrides,
     created_by: user.id,
   });
 

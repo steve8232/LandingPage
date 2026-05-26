@@ -150,3 +150,56 @@ test('draftToOverrides: empty / blank fields → empty object (no meta key)', ()
   });
   assert.deepEqual(out, {});
 });
+
+test('draftToOverrides: maps address → meta.businessAddress', () => {
+  const out = draftToOverrides({
+    businessName: '',
+    phone: '',
+    website: '',
+    address: '123 Main St, Chicago, IL',
+    description: '',
+    rating: null, reviewCount: null, hours: [], photos: [],
+  });
+  assert.deepEqual(out, { meta: { businessAddress: '123 Main St, Chicago, IL' } });
+});
+
+test('draftToOverrides: existing user values are not clobbered', () => {
+  const out = draftToOverrides(
+    {
+      businessName: 'DataForSEO Name',
+      phone: '3125550199',
+      website: '',
+      address: 'DataForSEO address',
+      description: 'DataForSEO description',
+      rating: null, reviewCount: null, hours: [], photos: [],
+    },
+    {
+      businessName: 'User Typed Name',
+      businessPhone: '3125550100',
+      businessAddress: 'User Typed address',
+      metaDescription: 'User typed description',
+    },
+  );
+  // All four were pre-set by the user, so the slice contains no overrides.
+  assert.deepEqual(out, {});
+});
+
+test('draftToOverrides: existing fills only the blanks', () => {
+  const out = draftToOverrides(
+    {
+      businessName: 'DataForSEO Name',
+      phone: '3125550199',
+      website: '',
+      address: 'DataForSEO address',
+      description: '',
+      rating: null, reviewCount: null, hours: [], photos: [],
+    },
+    { businessName: 'User Typed Name' }, // phone + address blank → DataForSEO fills
+  );
+  assert.deepEqual(out, {
+    meta: {
+      businessPhone: '3125550199',
+      businessAddress: 'DataForSEO address',
+    },
+  });
+});

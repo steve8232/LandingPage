@@ -136,11 +136,19 @@ export function normalizeResearchPayload(payload: unknown): ResearchDraft {
  * editor will merge with the project's existing overrides. Keeps the
  * mapping intentionally minimal — just the safe `meta` fields. Anything
  * that requires picking a section index is left to a future pass.
+ *
+ * When `existing` is passed (the project's current overrides.meta), any
+ * field the user already supplied at wizard time wins over the DataForSEO
+ * postback — research enriches, it doesn't overwrite user intent.
  */
-export function draftToOverrides(draft: ResearchDraft): V1ContentOverrides {
+export function draftToOverrides(
+  draft: ResearchDraft,
+  existing?: V1ContentOverrides['meta'],
+): V1ContentOverrides {
   const meta: NonNullable<V1ContentOverrides['meta']> = {};
-  if (draft.businessName) meta.businessName = draft.businessName;
-  if (draft.phone) meta.businessPhone = draft.phone;
-  if (draft.description) meta.metaDescription = draft.description;
+  if (draft.businessName && !existing?.businessName) meta.businessName = draft.businessName;
+  if (draft.phone && !existing?.businessPhone) meta.businessPhone = draft.phone;
+  if (draft.address && !existing?.businessAddress) meta.businessAddress = draft.address;
+  if (draft.description && !existing?.metaDescription) meta.metaDescription = draft.description;
   return Object.keys(meta).length ? { meta } : {};
 }

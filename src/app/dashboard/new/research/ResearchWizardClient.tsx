@@ -17,6 +17,9 @@ import {
   type V1DisplayCategory,
   type V1TemplateEntry,
 } from '@/lib/v1Templates';
+import MapboxAddressInput from '@/components/MapboxAddressInput';
+import { formatPhoneDisplay, normalizePhoneToTen } from '@/lib/phone/format';
+import type { MapboxFeature } from '@/lib/mapbox/searchBox';
 
 /**
  * Two-step research-method wizard.
@@ -41,7 +44,15 @@ export default function ResearchWizardClient() {
   const [activeCategory, setActiveCategory] = useState<V1DisplayCategory | 'all'>('all');
   const [selected, setSelected] = useState<V1TemplateEntry | null>(null);
   const [businessName, setBusinessName] = useState('');
-  const [location, setLocation] = useState('');
+  // Address: Mapbox autofills city/region when the user picks a suggestion.
+  // Manual fallback (`manualLocation`) handles addresses Mapbox doesn't know.
+  const [streetAddress, setStreetAddress] = useState('');
+  const [city, setCity] = useState('');
+  const [region, setRegion] = useState('');
+  const [manualLocation, setManualLocation] = useState('');
+  const [manualMode, setManualMode] = useState(false);
+  // Phone is stored raw (10-digit), formatted only for display.
+  const [phone, setPhone] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,22 +61,38 @@ export default function ResearchWizardClient() {
     ? v1Templates
     : v1Templates.filter((t) => t.category === activeCategory);
 
+  function handleAddressSelect(f: MapboxFeature) {
+    setCity(f.city);
+    setRegion(f.region);
+    // The MapboxAddressInput's onChange already set streetAddress to the
+    // canonical street line.
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!selected || submitting) return;
     setSubmitting(true);
     setError(null);
     try {
+      // Prefer the Mapbox-derived city/region as the DataForSEO location.
+      // Manual mode falls back to the free-text input. Empty → server default.
+      const locationHint = manualMode
+        ? manualLocation.trim()
+        : [city.trim(), region.trim()].filter(Boolean).join(', ');
+      const name = businessName.trim();
+      const keyword = locationHint ? `${name} ${locationHint}` : name;
       const res = await fetch('/api/research', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           templateId: selected.id,
-          title: businessName.trim(),
-          keyword: location.trim()
-            ? `${businessName.trim()} ${location.trim()}`
-            : businessName.trim(),
-          locationName: location.trim() || undefined,
+          title: name,
+          keyword,
+          locationName: locationHint || undefined,
+          streetAddress: manualMode ? undefined : streetAddress.trim() || undefined,
+          city: manualMode ? undefined : city.trim() || undefined,
+          region: manualMode ? undefined : region.trim() || undefined,
+          phone: phone || undefined,
         }),
       });
       const data = (await res.json().catch(() => ({}))) as ResearchResponse;
@@ -183,15 +210,65 @@ export default function ResearchWizardClient() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
                 />
               </label>
+
+              {!manualMode ? (
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 mb-1" htmlFor="research-address">
+                    Street address <span className="text-gray-500 font-normal">(optional)</span>
+                  </label>
+                  <MapboxAddressInput
+                    inputId="research-address"
+                    value={streetAddress}
+                    onChange={setStreetAddress}
+                    onSelect={handleAddressSelect}
+                    placeholder="Start typing your business address…"
+                  />
+                  {(city || region) && (
+                    <p className="mt-1 text-xs text-gray-500">
+                      {[city, region].filter(Boolean).join(', ')}
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setManualMode(true)}
+                    className="mt-2 text-xs text-orange-600 hover:text-orange-700 underline"
+                  >
+                    Can&apos;t find your address? Enter city &amp; state manually
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 mb-1" htmlFor="research-manual-location">
+                    City &amp; state <span className="text-gray-500 font-normal">(improves research accuracy)</span>
+                  </label>
+                  <input
+                    id="research-manual-location"
+                    type="text"
+                    value={manualLocation}
+                    onChange={(e) => setManualLocation(e.target.value)}
+                    placeholder="e.g. Chicago, Illinois"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setManualMode(false)}
+                    className="mt-2 text-xs text-orange-600 hover:text-orange-700 underline"
+                  >
+                    Use address autocomplete instead
+                  </button>
+                </div>
+              )}
+
               <label className="block">
                 <span className="block text-sm font-medium text-gray-900 mb-1">
-                  City &amp; state <span className="text-gray-500 font-normal">(optional, improves accuracy)</span>
+                  Phone number <span className="text-gray-500 font-normal">(optional, used for CallRail)</span>
                 </span>
                 <input
-                  type="text"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  placeholder="e.g. Chicago, Illinois"
+                  type="tel"
+                  inputMode="tel"
+                  value={formatPhoneDisplay(phone)}
+                  onChange={(e) => setPhone(normalizePhoneToTen(e.target.value))}
+                  placeholder="(555) 123-4567"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
                 />
               </label>

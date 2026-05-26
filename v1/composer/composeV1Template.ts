@@ -47,6 +47,7 @@ function inlineLocalSvgIfPossible(src: string): string {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       _readFileSync = require('fs').readFileSync;
     }
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const path = require('path');
     const relativePath = src.replace(/^\//, ''); // "/v1/assets/..." → "v1/assets/..."
     const filePath = path.resolve(process.cwd(), relativePath);
@@ -77,6 +78,7 @@ function readCssFile(relativePath: string): string {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       _readFileSync = require('fs').readFileSync;
     }
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const path = require('path');
     const filePath = path.resolve(process.cwd(), relativePath);
     return _readFileSync!(filePath, 'utf-8');
@@ -190,6 +192,13 @@ export interface V1MetaOverrides {
    * real business name in CallRail instead of "<template> – <date>".
    */
   businessName?: string;
+  /**
+   * Mailing/visit address. Captured by the research wizard's Mapbox
+   * autocomplete (street + city/state joined by composer) and rendered
+   * in any section whose props declare an `address` field. Treated as
+   * free-form: the composer does no further parsing.
+   */
+  businessAddress?: string;
   /**
    * Microsoft Clarity project ID. When set, the standard Clarity tracking
    * snippet is injected into the document `<head>` so visits to the
