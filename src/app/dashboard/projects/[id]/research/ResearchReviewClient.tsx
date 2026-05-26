@@ -50,6 +50,8 @@ export default function ResearchReviewClient({ project }: { project: ProjectLite
   const [pulling, setPulling] = useState(false);
   const [pullMsg, setPullMsg] = useState<string | null>(null);
   const [pullErr, setPullErr] = useState<string | null>(null);
+  const [requeuing, setRequeuing] = useState(false);
+  const [requeueErr, setRequeueErr] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [draft, setDraft] = useState<ResearchDraft | null>(null);
   const [saving, setSaving] = useState(false);
@@ -96,10 +98,13 @@ export default function ResearchReviewClient({ project }: { project: ProjectLite
       const j = (await res.json().catch(() => ({}))) as {
         error?: string;
         status?: 'pending' | 'ready' | 'error';
+        missing?: boolean;
       };
       if (!res.ok) throw new Error(j.error || `Pull failed (${res.status})`);
       if (j.status === 'pending') {
         setPullMsg('DataForSEO says the task is still running. Try again in 30s.');
+      } else if (j.missing) {
+        setPullMsg('DataForSEO no longer has this task. Re-queue to start a new one.');
       } else if (j.status === 'error') {
         setPullMsg('DataForSEO reported an error for this task.');
       }
@@ -108,6 +113,26 @@ export default function ResearchReviewClient({ project }: { project: ProjectLite
       setPullErr(err instanceof Error ? err.message : 'Pull failed');
     } finally {
       setPulling(false);
+    }
+  }, [project.id, fetchOnce]);
+
+  const handleRequeue = useCallback(async () => {
+    setRequeuing(true);
+    setRequeueErr(null);
+    setPullErr(null);
+    setPullMsg(null);
+    try {
+      const res = await fetch(`/api/projects/${project.id}/research/requeue`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      const j = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) throw new Error(j.error || `Re-queue failed (${res.status})`);
+      await fetchOnce();
+    } catch (err) {
+      setRequeueErr(err instanceof Error ? err.message : 'Re-queue failed');
+    } finally {
+      setRequeuing(false);
     }
   }, [project.id, fetchOnce]);
 
@@ -216,6 +241,9 @@ export default function ResearchReviewClient({ project }: { project: ProjectLite
           pulling={pulling}
           pullMsg={pullMsg}
           pullErr={pullErr}
+          onRequeue={handleRequeue}
+          requeuing={requeuing}
+          requeueErr={requeueErr}
         />
       </main>
     </div>
@@ -240,6 +268,9 @@ interface BodyProps {
   pulling: boolean;
   pullMsg: string | null;
   pullErr: string | null;
+  onRequeue: () => void;
+  requeuing: boolean;
+  requeueErr: string | null;
 }
 
 function ReviewBody({
@@ -247,6 +278,7 @@ function ReviewBody({
   saving, applying, actionErr, actionMsg,
   onSave, onApply, onRefresh, refreshing,
   onPullNow, pulling, pullMsg, pullErr,
+  onRequeue, requeuing, requeueErr,
 }: BodyProps) {
   if (loading && !data) {
     return (
@@ -285,6 +317,9 @@ function ReviewBody({
         pulling={pulling}
         pullMsg={pullMsg}
         pullErr={pullErr}
+        onRequeue={onRequeue}
+        requeuing={requeuing}
+        requeueErr={requeueErr}
       />
     );
   }
@@ -294,8 +329,20 @@ function ReviewBody({
       <div className="bg-white rounded-2xl shadow-sm p-10 text-center">
         <h2 className="text-lg font-semibold text-gray-900 mb-1">Research failed</h2>
         <p className="text-sm text-red-700 mb-4">{data.errorMessage || 'The research lookup returned an error.'}</p>
+        <div className="flex items-center justify-center gap-2 mb-3">
+          <button
+            type="button"
+            onClick={onRequeue}
+            disabled={requeuing}
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-orange-500 text-white font-medium rounded-lg hover:bg-orange-600 disabled:opacity-60 shadow-md shadow-orange-200"
+          >
+            {requeuing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCw className="w-4 h-4" />}
+            Re-queue research
+          </button>
+        </div>
+        {requeueErr && <p className="text-xs text-red-700 mb-2">{requeueErr}</p>}
         <p className="text-xs text-gray-500">
-          You can still build this page manually from the editor.
+          You can also build this page manually from the editor.
         </p>
       </div>
     );
@@ -464,12 +511,16 @@ interface PendingStateProps {
   pulling: boolean;
   pullMsg: string | null;
   pullErr: string | null;
+  onRequeue: () => void;
+  requeuing: boolean;
+  requeueErr: string | null;
 }
 
 function PendingState({
   keyword, locationName, createdAt,
   onRefresh, refreshing,
   onPullNow, pulling, pullMsg, pullErr,
+  onRequeue, requeuing, requeueErr,
 }: PendingStateProps) {
   const startMs = useMemo(() => new Date(createdAt).getTime(), [createdAt]);
   const [elapsedMs, setElapsedMs] = useState(() => Math.max(0, Date.now() - startMs));
@@ -518,11 +569,19 @@ function PendingState({
               </button>
               <button
                 onClick={onPullNow}
-                disabled={refreshing || pulling}
+                disabled={refreshing || pulling || requeuing}
                 className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-600 text-white rounded-md hover:bg-amber-700 text-xs font-medium shrink-0 disabled:opacity-60"
               >
                 {pulling ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
                 Pull from DataForSEO now
+              </button>
+              <button
+                onClick={onRequeue}
+                disabled={refreshing || pulling || requeuing}
+                className="inline-flex items-center gap-1 px-2.5 py-1 bg-white border border-amber-300 rounded-md text-amber-900 hover:bg-amber-100 text-xs font-medium shrink-0 disabled:opacity-60"
+              >
+                {requeuing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCw className="w-3.5 h-3.5" />}
+                Re-queue research
               </button>
             </div>
             {pullErr && (
@@ -530,6 +589,9 @@ function PendingState({
             )}
             {pullMsg && !pullErr && (
               <p className="mt-2 text-xs text-amber-900">{pullMsg}</p>
+            )}
+            {requeueErr && (
+              <p className="mt-2 text-xs text-red-700">{requeueErr}</p>
             )}
           </div>
         )}

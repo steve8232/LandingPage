@@ -282,6 +282,13 @@ export interface GetMyBusinessInfoTaskResult {
   envelope: TaskEnvelope<unknown>;
   /** True while DataForSEO still has the task queued/in-progress (status 40602). */
   pending: boolean;
+  /**
+   * True when DataForSEO replied that this task id is unknown (HTTP 404 or
+   * envelope/task-level status_code 40400 "Not Found."). Lets the caller
+   * distinguish "task never existed / was purged" from generic failures so
+   * the UI can offer a re-queue path instead of an infinite retry.
+   */
+  missing: boolean;
 }
 
 /**
@@ -331,7 +338,14 @@ export async function getMyBusinessInfoTask(
   const task = Array.isArray(envelope.tasks) ? envelope.tasks[0] : undefined;
   const taskCode = task?.status_code ?? envelope.status_code ?? 0;
   if (taskCode === 40602) {
-    return { envelope, pending: true };
+    return { envelope, pending: true, missing: false };
+  }
+
+  // 40400 "Not Found." / HTTP 404 — task id is unknown to DataForSEO. Either
+  // expired (results aren't kept indefinitely) or never accepted on their
+  // side. Surface as `missing` so the caller can offer a re-queue.
+  if (res.status === 404 || taskCode === 40400 || envelope.status_code === 40400) {
+    return { envelope, pending: false, missing: true };
   }
 
   if (!res.ok) {
@@ -341,5 +355,5 @@ export async function getMyBusinessInfoTask(
       res.status,
     );
   }
-  return { envelope, pending: false };
+  return { envelope, pending: false, missing: false };
 }

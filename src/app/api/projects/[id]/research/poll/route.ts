@@ -66,10 +66,12 @@ export async function POST(
   // Reach into DataForSEO with the stored task id.
   let envelope: unknown;
   let pending: boolean;
+  let missing: boolean;
   try {
     const out = await getMyBusinessInfoTask(existing.task_id);
     envelope = out.envelope;
     pending = out.pending;
+    missing = out.missing;
   } catch (err) {
     if (err instanceof DataForSEOAuthError) {
       return NextResponse.json({ error: 'DataForSEO auth failed' }, { status: 502 });
@@ -85,6 +87,25 @@ export async function POST(
   // postback (or a future poll) will settle the row.
   if (pending) {
     return NextResponse.json({ ok: true, status: 'pending' });
+  }
+
+  // DataForSEO no longer knows this task id. Settle the row to 'error' with
+  // a clear, actionable message so the UI can flip out of the pending state
+  // and offer the re-queue path. raw_payload stays untouched so a future
+  // forensic inspection still has the empty/404 envelope to look at.
+  if (missing) {
+    const admin = createAdminClient();
+    const { error: updateErr } = await admin
+      .from('dataforseo_research')
+      .update({
+        status: 'error',
+        raw_payload: envelope,
+        error_message:
+          'DataForSEO no longer has this task (expired or never accepted). Re-queue to try again.',
+      })
+      .eq('id', existing.id);
+    if (updateErr) return NextResponse.json({ error: updateErr.message }, { status: 500 });
+    return NextResponse.json({ ok: true, status: 'error', missing: true, settled: true });
   }
 
   // Settle the row exactly the way the webhook would: same parser, same
