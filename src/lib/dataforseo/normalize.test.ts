@@ -113,6 +113,51 @@ test('normalize: accepts `result` as a single object (legacy sandbox shape)', ()
   assert.equal(draft.businessName, 'Legacy Co');
 });
 
+// Regression: a real `google_business_info` postback observed in production
+// against d4autospa.com. Shapes differ from the docs sample in three ways
+// the original normalizer missed:
+//   - type discriminator is "google_business_info" (not "my_business_info")
+//   - `snippet` duplicates the address; the real blurb is in `description`
+//   - hours live under `work_time.work_hours.timetable` and open/close are
+//     `{hour,minute}` objects, not "HH:MM" strings.
+test('normalize: real google_business_info postback shape', () => {
+  const draft = normalizeResearchPayload({
+    tasks: [{
+      result: [{
+        items: [{
+          type: 'google_business_info',
+          title: 'D4 Mobile auto spa and Detailing',
+          phone: '+1614-270-0908',
+          url: 'https://d4autospa.com/',
+          address: '3737 Easton Market #1244, Columbus, OH 43219',
+          snippet: '3737 Easton Market #1244, Columbus, OH 43219',
+          description: 'We are committed to exceeding your expectations with quality and affordable detailing services.',
+          rating: { value: 4.6, votes_count: 268 },
+          work_time: {
+            work_hours: {
+              timetable: {
+                monday: [{ open: { hour: 9, minute: 0 }, close: { hour: 19, minute: 0 } }],
+                sunday: [{ open: { hour: 9, minute: 0 }, close: { hour: 17, minute: 0 } }],
+              },
+            },
+          },
+        }],
+      }],
+    }],
+  });
+  assert.equal(draft.businessName, 'D4 Mobile auto spa and Detailing');
+  assert.equal(draft.phone, '+1614-270-0908');
+  assert.equal(draft.website, 'https://d4autospa.com/');
+  assert.equal(draft.address, '3737 Easton Market #1244, Columbus, OH 43219');
+  assert.ok(draft.description.startsWith('We are committed'), 'description must win over snippet');
+  assert.equal(draft.rating, 4.6);
+  assert.equal(draft.reviewCount, 268);
+  assert.deepEqual(draft.hours, [
+    'monday: 09:00–19:00',
+    'sunday: 09:00–17:00',
+  ]);
+});
+
 // ── draftToOverrides ───────────────────────────────────────────────────────
 
 test('draftToOverrides: maps populated fields to meta-only overrides', () => {

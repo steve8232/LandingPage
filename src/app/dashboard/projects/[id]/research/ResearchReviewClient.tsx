@@ -71,7 +71,11 @@ export default function ResearchReviewClient({ project }: { project: ProjectLite
       }
       const json = (await res.json()) as ResearchResponse;
       setData(json);
-      setDraft((prev) => prev ?? json.draft);
+      // Only seed `draft` once the postback has landed. The pending-state
+      // response carries an EMPTY ResearchDraft (normalizing a null payload),
+      // and `prev ?? json.draft` would lock that empty object in — subsequent
+      // ready-state polls would then be ignored because `prev` is truthy.
+      if (json.status === 'ready') setDraft((prev) => prev ?? json.draft);
       setLoadError(null);
       return json;
     } catch (err) {

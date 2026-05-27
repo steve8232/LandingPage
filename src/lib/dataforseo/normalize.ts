@@ -57,6 +57,25 @@ function pickString(v: unknown): string {
 function pickNumber(v: unknown): number | null {
   return typeof v === 'number' && Number.isFinite(v) ? v : null;
 }
+/**
+ * Time slots in DataForSEO postbacks arrive in two shapes:
+ *   - Real `google_business_info` rows:   { hour: 9, minute: 0 } → "09:00"
+ *   - Legacy/sandbox `my_business_info`:  "08:00"                → "08:00"
+ * Returns "" for anything else.
+ */
+function pickTime(v: unknown): string {
+  if (typeof v === 'string') return v.trim();
+  if (v && typeof v === 'object') {
+    const h = (v as Record<string, unknown>).hour;
+    const m = (v as Record<string, unknown>).minute;
+    if (typeof h === 'number') {
+      const hh = String(h).padStart(2, '0');
+      const mm = typeof m === 'number' ? String(m).padStart(2, '0') : '00';
+      return `${hh}:${mm}`;
+    }
+  }
+  return '';
+}
 
 /**
  * DataForSEO `business_data/google/my_business_info/task_get` returns an
@@ -77,7 +96,9 @@ function firstBusinessItem(payload: unknown): Record<string, unknown> | null {
     if (!Array.isArray(itemList)) continue;
     const match = itemList.find(
       (e) => typeof e === 'object' && e !== null && pickString((e as Record<string, unknown>).type)
-        ? (e as Record<string, unknown>).type === 'my_business_info' || (e as Record<string, unknown>).type === 'business_info'
+        ? (e as Record<string, unknown>).type === 'my_business_info'
+          || (e as Record<string, unknown>).type === 'business_info'
+          || (e as Record<string, unknown>).type === 'google_business_info'
         : false,
     );
     if (match && typeof match === 'object') return match as Record<string, unknown>;
@@ -93,15 +114,20 @@ export function normalizeResearchPayload(payload: unknown): ResearchDraft {
   const item = firstBusinessItem(payload);
   if (!item) return EMPTY;
 
-  const hoursRaw = get(item, ['work_hours', 'timetable']);
+  // DataForSEO's `google_business_info` endpoint nests hours under
+  // `work_time.work_hours.timetable`. The legacy `my_business_info` shape
+  // (used by the docs example + sandbox fixtures) puts them at the top
+  // level. Try the nested path first, fall back to the legacy one.
+  const hoursRaw = get(item, ['work_time', 'work_hours', 'timetable'])
+    ?? get(item, ['work_hours', 'timetable']);
   const hours: string[] = [];
   if (hoursRaw && typeof hoursRaw === 'object') {
     for (const [day, entries] of Object.entries(hoursRaw as Record<string, unknown>)) {
       if (!Array.isArray(entries) || entries.length === 0) continue;
       const slots = entries
         .map((e) => {
-          const open = pickString(get(e, ['open', 'hour'])) || pickString(get(e, ['open']));
-          const close = pickString(get(e, ['close', 'hour'])) || pickString(get(e, ['close']));
+          const open = pickTime(get(e, ['open']));
+          const close = pickTime(get(e, ['close']));
           return open && close ? `${open}–${close}` : open || close;
         })
         .filter(Boolean);
@@ -123,7 +149,10 @@ export function normalizeResearchPayload(payload: unknown): ResearchDraft {
     phone: pickString(item.phone),
     website: pickString(item.url) || pickString(item.website) || pickString(item.domain),
     address: pickString(item.address),
-    description: pickString(item.snippet) || pickString(item.description),
+    // Prefer `description` over `snippet`: real `google_business_info` rows
+    // populate `snippet` with the address (duplicates `address`), so reading
+    // it first would clobber the actual descriptive blurb.
+    description: pickString(item.description) || pickString(item.snippet),
     rating: pickNumber(get(item, ['rating', 'value'])) ?? pickNumber(item.rating),
     reviewCount: pickNumber(get(item, ['rating', 'votes_count'])) ?? pickNumber(item.reviews_count),
     hours,
