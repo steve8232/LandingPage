@@ -121,7 +121,7 @@ export default function ResearchReviewClient({ project }: { project: ProjectLite
     }
   }, [project.id, fetchOnce]);
 
-  const handleRequeue = useCallback(async () => {
+  const handleRequeue = useCallback(async (override?: { keyword?: string; locationName?: string }) => {
     setRequeuing(true);
     setRequeueErr(null);
     setPullErr(null);
@@ -130,6 +130,8 @@ export default function ResearchReviewClient({ project }: { project: ProjectLite
       const res = await fetch(`/api/projects/${project.id}/research/requeue`, {
         method: 'POST',
         credentials: 'include',
+        headers: override ? { 'Content-Type': 'application/json' } : undefined,
+        body: override ? JSON.stringify(override) : undefined,
       });
       const j = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) throw new Error(j.error || `Re-queue failed (${res.status})`);
@@ -303,7 +305,7 @@ interface BodyProps {
   pulling: boolean;
   pullMsg: string | null;
   pullErr: string | null;
-  onRequeue: () => void;
+  onRequeue: (override?: { keyword?: string; locationName?: string }) => void;
   requeuing: boolean;
   requeueErr: string | null;
 }
@@ -361,25 +363,14 @@ function ReviewBody({
 
   if (data.status === 'error') {
     return (
-      <div className="bg-white rounded-2xl shadow-sm p-10 text-center">
-        <h2 className="text-lg font-semibold text-gray-900 mb-1">Research failed</h2>
-        <p className="text-sm text-red-700 mb-4">{data.errorMessage || 'The research lookup returned an error.'}</p>
-        <div className="flex items-center justify-center gap-2 mb-3">
-          <button
-            type="button"
-            onClick={onRequeue}
-            disabled={requeuing}
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-orange-500 text-white font-medium rounded-lg hover:bg-orange-600 disabled:opacity-60 shadow-md shadow-orange-200"
-          >
-            {requeuing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCw className="w-4 h-4" />}
-            Re-queue research
-          </button>
-        </div>
-        {requeueErr && <p className="text-xs text-red-700 mb-2">{requeueErr}</p>}
-        <p className="text-xs text-gray-500">
-          You can also build this page manually from the editor.
-        </p>
-      </div>
+      <ErrorState
+        errorMessage={data.errorMessage}
+        keyword={data.keyword}
+        locationName={data.locationName}
+        onRequeue={onRequeue}
+        requeuing={requeuing}
+        requeueErr={requeueErr}
+      />
     );
   }
 
@@ -532,6 +523,105 @@ function TextField({
         />
       )}
     </label>
+  );
+}
+
+
+// ── Error state ──────────────────────────────────────────────────────────
+//
+// Renders when the DataForSEO task came back without results (the common
+// "No Search Results." case from a too-vague keyword). The original lookup
+// terms are surfaced as editable inputs so the user can tighten them and
+// retry without re-running the whole wizard. Submitting with both fields
+// untouched is equivalent to the no-body requeue (DataForSEO flakiness
+// retry).
+
+interface ErrorStateProps {
+  errorMessage: string | null;
+  keyword: string;
+  locationName: string | null;
+  onRequeue: (override?: { keyword?: string; locationName?: string }) => void;
+  requeuing: boolean;
+  requeueErr: string | null;
+}
+
+function ErrorState({
+  errorMessage, keyword, locationName, onRequeue, requeuing, requeueErr,
+}: ErrorStateProps) {
+  const [keywordEdit, setKeywordEdit] = useState(keyword);
+  const [locationEdit, setLocationEdit] = useState(locationName ?? '');
+
+  // Send overrides only when the user actually changed something; otherwise
+  // the route reuses the stored terms (same effect, but keeps the server
+  // path symmetric with the lost-postback retry from the pending screen).
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const kwChanged = keywordEdit.trim() !== keyword.trim();
+    const locChanged = locationEdit.trim() !== (locationName ?? '').trim();
+    if (kwChanged || locChanged) {
+      onRequeue({
+        keyword: keywordEdit.trim() || undefined,
+        locationName: locationEdit.trim(),
+      });
+    } else {
+      onRequeue();
+    }
+  }
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm p-8">
+      <div className="text-center mb-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-1">Research failed</h2>
+        <p className="text-sm text-red-700">{errorMessage || 'The research lookup returned an error.'}</p>
+        {errorMessage === 'No Search Results.' && (
+          <p className="mt-2 text-xs text-gray-600">
+            DataForSEO couldn&apos;t find a listing for these terms. Try a more specific
+            business name or a tighter location (street address or city + state).
+          </p>
+        )}
+      </div>
+
+      <form onSubmit={handleSubmit} className="max-w-md mx-auto space-y-4">
+        <label className="block">
+          <span className="block text-sm font-medium text-gray-900 mb-1">Search term</span>
+          <input
+            type="text"
+            value={keywordEdit}
+            onChange={(e) => setKeywordEdit(e.target.value)}
+            placeholder="e.g. JP Mobile Detail Columbus OH"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+          />
+        </label>
+        <label className="block">
+          <span className="block text-sm font-medium text-gray-900 mb-1">
+            Location <span className="text-gray-500 font-normal">(city, state or address)</span>
+          </span>
+          <input
+            type="text"
+            value={locationEdit}
+            onChange={(e) => setLocationEdit(e.target.value)}
+            placeholder="e.g. Columbus, Ohio"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+          />
+        </label>
+
+        {requeueErr && <p className="text-xs text-red-700">{requeueErr}</p>}
+
+        <div className="flex items-center justify-center gap-2 pt-2">
+          <button
+            type="submit"
+            disabled={requeuing || !keywordEdit.trim()}
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-orange-500 text-white font-medium rounded-lg hover:bg-orange-600 disabled:opacity-60 shadow-md shadow-orange-200"
+          >
+            {requeuing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCw className="w-4 h-4" />}
+            Retry research
+          </button>
+        </div>
+        <p className="text-xs text-gray-500 text-center">
+          You can also build this page manually from the editor.
+        </p>
+      </form>
+    </div>
   );
 }
 

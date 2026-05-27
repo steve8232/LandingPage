@@ -61,6 +61,14 @@ export default function ResearchWizardClient() {
     ? v1Templates
     : v1Templates.filter((t) => t.category === activeCategory);
 
+  // A location is now required — without it DataForSEO's my_business_info
+  // search defaults to a national scope, which returns "No Search Results."
+  // for any business whose name isn't unique nationwide.
+  const hasLocation = manualMode
+    ? manualLocation.trim().length > 0
+    : Boolean(city.trim() && region.trim());
+  const canSubmit = Boolean(businessName.trim()) && hasLocation && !submitting;
+
   function handleAddressSelect(f: MapboxFeature) {
     setCity(f.city);
     setRegion(f.region);
@@ -214,7 +222,7 @@ export default function ResearchWizardClient() {
               {!manualMode ? (
                 <div>
                   <label className="block text-sm font-medium text-gray-900 mb-1" htmlFor="research-address">
-                    Street address <span className="text-gray-500 font-normal">(optional)</span>
+                    Street address
                   </label>
                   <MapboxAddressInput
                     inputId="research-address"
@@ -239,7 +247,7 @@ export default function ResearchWizardClient() {
               ) : (
                 <div>
                   <label className="block text-sm font-medium text-gray-900 mb-1" htmlFor="research-manual-location">
-                    City &amp; state <span className="text-gray-500 font-normal">(improves research accuracy)</span>
+                    City &amp; state
                   </label>
                   <input
                     id="research-manual-location"
@@ -291,7 +299,8 @@ export default function ResearchWizardClient() {
               </button>
               <button
                 type="submit"
-                disabled={!businessName.trim() || submitting}
+                disabled={!canSubmit}
+                title={!hasLocation ? 'Enter your business address so we can find the right listing' : undefined}
                 className="inline-flex items-center gap-1.5 px-4 py-2 bg-orange-500 text-white font-medium rounded-lg hover:bg-orange-600 disabled:bg-gray-300 disabled:cursor-not-allowed shadow-md shadow-orange-200"
               >
                 {submitting ? (
