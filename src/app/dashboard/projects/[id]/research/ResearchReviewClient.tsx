@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft, ArrowRight, Camera, Check, Clock, Loader2, MapPin,
-  Plug, RotateCw, Search, Sparkles, Star,
+  Plug, RotateCw, Search, Sparkle, Sparkles, Star,
 } from 'lucide-react';
 import ProjectTabs from '../ProjectTabs';
 
@@ -56,6 +56,7 @@ export default function ResearchReviewClient({ project }: { project: ProjectLite
   const [draft, setDraft] = useState<ResearchDraft | null>(null);
   const [saving, setSaving] = useState(false);
   const [applying, setApplying] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
   const [actionMsg, setActionMsg] = useState<string | null>(null);
   const [actionErr, setActionErr] = useState<string | null>(null);
   const pollHandle = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -203,6 +204,32 @@ export default function ResearchReviewClient({ project }: { project: ProjectLite
     }
   }
 
+  async function handleRegenerate() {
+    setRegenerating(true); setActionErr(null); setActionMsg(null);
+    try {
+      const res = await fetch(`/api/projects/${project.id}/regenerate`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      const j = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        sources?: { reviews?: number; questions?: number; competitorContext?: boolean };
+      };
+      if (!res.ok) throw new Error(j.error || `Regenerate failed (${res.status})`);
+      const parts = [
+        `${j.sources?.reviews ?? 0} review quotes`,
+        `${j.sources?.questions ?? 0} Q&A pairs`,
+      ];
+      if (j.sources?.competitorContext) parts.push('competitor brief');
+      setActionMsg(`AI copy regenerated (${parts.join(', ')}). Open the editor to review.`);
+      router.refresh();
+    } catch (err) {
+      setActionErr(err instanceof Error ? err.message : 'Regenerate failed');
+    } finally {
+      setRegenerating(false);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b border-gray-200">
@@ -231,10 +258,12 @@ export default function ResearchReviewClient({ project }: { project: ProjectLite
           setDraft={setDraft}
           saving={saving}
           applying={applying}
+          regenerating={regenerating}
           actionErr={actionErr}
           actionMsg={actionMsg}
           onSave={handleSave}
           onApply={handleApply}
+          onRegenerate={handleRegenerate}
           onRefresh={handleManualRefresh}
           refreshing={refreshing}
           onPullNow={handlePullNow}
@@ -258,10 +287,12 @@ interface BodyProps {
   setDraft: (d: ResearchDraft) => void;
   saving: boolean;
   applying: boolean;
+  regenerating: boolean;
   actionErr: string | null;
   actionMsg: string | null;
   onSave: () => void;
   onApply: () => void;
+  onRegenerate: () => void;
   onRefresh: () => void;
   refreshing: boolean;
   onPullNow: () => void;
@@ -275,8 +306,8 @@ interface BodyProps {
 
 function ReviewBody({
   loading, loadError, data, draft, setDraft,
-  saving, applying, actionErr, actionMsg,
-  onSave, onApply, onRefresh, refreshing,
+  saving, applying, regenerating, actionErr, actionMsg,
+  onSave, onApply, onRegenerate, onRefresh, refreshing,
   onPullNow, pulling, pullMsg, pullErr,
   onRequeue, requeuing, requeueErr,
 }: BodyProps) {
@@ -356,10 +387,12 @@ function ReviewBody({
       setDraft={setDraft}
       saving={saving}
       applying={applying}
+      regenerating={regenerating}
       actionErr={actionErr}
       actionMsg={actionMsg}
       onSave={onSave}
       onApply={onApply}
+      onRegenerate={onRegenerate}
     />
   );
 }
@@ -369,14 +402,17 @@ interface FormProps {
   setDraft: (d: ResearchDraft) => void;
   saving: boolean;
   applying: boolean;
+  regenerating: boolean;
   actionErr: string | null;
   actionMsg: string | null;
   onSave: () => void;
   onApply: () => void;
+  onRegenerate: () => void;
 }
 
 function DraftForm({
-  draft, setDraft, saving, applying, actionErr, actionMsg, onSave, onApply,
+  draft, setDraft, saving, applying, regenerating,
+  actionErr, actionMsg, onSave, onApply, onRegenerate,
 }: FormProps) {
   function field<K extends keyof ResearchDraft>(key: K, value: ResearchDraft[K]) {
     setDraft({ ...draft, [key]: value });
@@ -431,11 +467,11 @@ function DraftForm({
         </div>
       )}
 
-      <div className="flex items-center justify-end gap-2">
+      <div className="flex items-center justify-end gap-2 flex-wrap">
         <button
           type="button"
           onClick={onSave}
-          disabled={saving || applying}
+          disabled={saving || applying || regenerating}
           className="inline-flex items-center gap-1.5 px-4 py-2 bg-white text-gray-700 font-medium rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50"
         >
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
@@ -444,11 +480,21 @@ function DraftForm({
         <button
           type="button"
           onClick={onApply}
-          disabled={saving || applying}
+          disabled={saving || applying || regenerating}
           className="inline-flex items-center gap-1.5 px-4 py-2 bg-orange-500 text-white font-medium rounded-lg hover:bg-orange-600 disabled:opacity-50 shadow-md shadow-orange-200"
         >
           {applying ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
           Apply to page
+        </button>
+        <button
+          type="button"
+          onClick={onRegenerate}
+          disabled={saving || applying || regenerating}
+          title="Run AI generation grounded in this listing's reviews and Q&A. Apply first so business facts (name, phone, address) are pinned."
+          className="inline-flex items-center gap-1.5 px-4 py-2 bg-white text-orange-700 font-medium rounded-lg border border-orange-300 hover:bg-orange-50 disabled:opacity-50"
+        >
+          {regenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkle className="w-4 h-4" />}
+          {regenerating ? 'Generating…' : 'Regenerate AI copy'}
         </button>
       </div>
     </>
