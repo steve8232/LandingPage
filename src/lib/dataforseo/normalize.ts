@@ -131,6 +131,105 @@ export function normalizeResearchPayload(payload: unknown): ResearchDraft {
   };
 }
 
+// ── Reviews payload → quote excerpts ───────────────────────────────────────
+
+export interface ReviewQuote {
+  /** Verbatim review text, trimmed and length-capped. */
+  text: string;
+  /** Reviewer's display name as Google shows it. */
+  name: string;
+  /** 1–5 star rating, or null when DataForSEO omits it. */
+  rating: number | null;
+  /** Reviewer's relative time string, e.g. "2 months ago". */
+  timeAgo: string | null;
+}
+
+/**
+ * DataForSEO `business_data/google/reviews/task_get` envelope shape:
+ *   { tasks: [ { result: [ { items: [ { type:"google_reviews_search", text, rating: {value}, profile_name, timestamp, ... } ] } ] } ] }
+ *
+ * We collect non-empty review texts, cap each excerpt at 280 chars, and skip
+ * items missing the `text` field (DataForSEO occasionally returns rating-only
+ * entries).
+ */
+export function normalizeReviewsPayload(payload: unknown): ReviewQuote[] {
+  const out: ReviewQuote[] = [];
+  const tasks = get(payload, ['tasks']);
+  if (!Array.isArray(tasks)) return out;
+  for (const task of tasks) {
+    const result = get(task, ['result']);
+    const items = Array.isArray(result) ? result[0] : result;
+    const itemList = get(items, ['items']);
+    if (!Array.isArray(itemList)) continue;
+    for (const it of itemList) {
+      if (!it || typeof it !== 'object') continue;
+      const text = pickString((it as Record<string, unknown>).review_text)
+        || pickString((it as Record<string, unknown>).text)
+        || pickString((it as Record<string, unknown>).snippet);
+      if (!text) continue;
+      const capped = text.length > 280 ? `${text.slice(0, 277)}…` : text;
+      out.push({
+        text: capped,
+        name: pickString((it as Record<string, unknown>).profile_name)
+          || pickString((it as Record<string, unknown>).reviewer_name)
+          || pickString((it as Record<string, unknown>).name),
+        rating: pickNumber(get(it, ['rating', 'value'])) ?? pickNumber((it as Record<string, unknown>).rating),
+        timeAgo: pickString((it as Record<string, unknown>).time_descriptor)
+          || pickString((it as Record<string, unknown>).timestamp)
+          || null,
+      });
+    }
+  }
+  return out;
+}
+
+// ── Questions & Answers payload → Q/A pairs ────────────────────────────────
+
+export interface QuestionAnswer {
+  question: string;
+  answer: string;
+}
+
+/**
+ * DataForSEO `business_data/google/questions_and_answers/task_get` envelope:
+ *   { tasks: [ { result: [ { items: [ { type:"questions_and_answers_element",
+ *       question_text, top_answer:{ text }, answers:[ { text } ] } ] } ] } ] }
+ *
+ * We pair each question with its top answer (or the first available answer).
+ * Skips items with no answer — an unanswered Google question carries no
+ * generation value.
+ */
+export function normalizeQuestionsPayload(payload: unknown): QuestionAnswer[] {
+  const out: QuestionAnswer[] = [];
+  const tasks = get(payload, ['tasks']);
+  if (!Array.isArray(tasks)) return out;
+  for (const task of tasks) {
+    const result = get(task, ['result']);
+    const items = Array.isArray(result) ? result[0] : result;
+    const itemList = get(items, ['items']);
+    if (!Array.isArray(itemList)) continue;
+    for (const it of itemList) {
+      if (!it || typeof it !== 'object') continue;
+      const question = pickString((it as Record<string, unknown>).question_text)
+        || pickString((it as Record<string, unknown>).question);
+      if (!question) continue;
+      let answer = pickString(get(it, ['top_answer', 'text']));
+      if (!answer) {
+        const answers = (it as Record<string, unknown>).answers;
+        if (Array.isArray(answers) && answers.length) {
+          answer = pickString(get(answers[0], ['text'])) || pickString(get(answers[0], ['answer_text']));
+        }
+      }
+      if (!answer) continue;
+      out.push({
+        question: question.length > 200 ? `${question.slice(0, 197)}…` : question,
+        answer: answer.length > 400 ? `${answer.slice(0, 397)}…` : answer,
+      });
+    }
+  }
+  return out;
+}
+
 /**
  * Maps a (reviewer-edited) draft into the `V1ContentOverrides` slice the
  * editor will merge with the project's existing overrides. Keeps the

@@ -46,11 +46,14 @@ export async function POST(
 
   const admin = createAdminClient();
 
-  // 1) Latest research row for this project.
+  // 1) Latest primary research row for this project (the My Business Info
+  // task — Reviews and Q&A live alongside it but aren't applied to overrides
+  // here; they feed the generation step).
   const { data: research, error: rErr } = await admin
     .from('dataforseo_research')
     .select('id, status, raw_payload, reviewed_overrides')
     .eq('project_id', id)
+    .eq('task_kind', 'my_business_info')
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle<{

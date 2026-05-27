@@ -51,6 +51,7 @@ export async function POST(
     .from('dataforseo_research')
     .select('id, task_id, status')
     .eq('project_id', id)
+    .eq('task_kind', 'my_business_info')
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle<ResearchLookupRow>();

@@ -17,6 +17,7 @@ import {
 import {
   buildPostbackUrl,
   getWebhookToken,
+  queueSupplementalResearchTasks,
 } from '@/lib/dataforseo/research';
 
 /**
@@ -168,13 +169,15 @@ export async function POST(request: NextRequest) {
     created_by: user.id,
   });
 
-  // 3) Insert the research row via service-role (no INSERT policy on the table).
+  // 3) Insert the primary research row via service-role (no INSERT policy on
+  //    the table). Reviews + Q&A rows are queued best-effort after this.
   const admin = createAdminClient();
   const { data: research, error: researchErr } = await admin
     .from('dataforseo_research')
     .insert({
       project_id: project.id,
       task_id: taskId,
+      task_kind: 'my_business_info',
       status: 'pending',
       keyword,
       location_name: locationName || null,
@@ -189,6 +192,17 @@ export async function POST(request: NextRequest) {
       { status: 500 },
     );
   }
+
+  // 4) Best-effort: queue Reviews + Q&A. Failures are non-fatal — the page
+  //    can still ship without supplementals; missing kinds just degrade the
+  //    AI prompt grounding for that listing.
+  await queueSupplementalResearchTasks(admin, {
+    projectId: project.id,
+    keyword,
+    locationName: locationName || null,
+    languageCode: languageCode || 'en',
+    postbackUrl,
+  });
 
   return NextResponse.json(
     {

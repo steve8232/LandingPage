@@ -357,3 +357,170 @@ export async function getMyBusinessInfoTask(
   }
   return { envelope, pending: false, missing: false };
 }
+
+// ── Reviews + Q&A — shared post/get machinery ──────────────────────────────
+//
+// Both the Google Reviews and Google Questions And Answers endpoints share
+// the same async task_post / task_get / postback shape as My Business Info,
+// just under different paths. We factor the per-endpoint URL into the helpers
+// below so the wrappers stay declarative.
+
+export interface PostSupplementalTaskInput {
+  /** Free-form keyword — business name or "<niche> in <city>". */
+  keyword: string;
+  /** Defaults to "United States" so callers can omit it for nationwide queries. */
+  locationName?: string;
+  /** Defaults to "en". */
+  languageCode?: string;
+  /** Absolute postback URL — same one used for My Business Info is fine. */
+  postbackUrl: string;
+  postbackDataType?: 'advanced' | 'regular';
+  /** Maximum review/Q&A items to return. DataForSEO default is 10. */
+  depth?: number;
+  tag?: string;
+}
+
+export interface PostSupplementalTaskResult {
+  taskId: string;
+  cost: number;
+}
+
+export interface GetSupplementalTaskResult {
+  envelope: TaskEnvelope<unknown>;
+  pending: boolean;
+  missing: boolean;
+}
+
+async function postSupplementalTask(
+  endpointPath: string,
+  input: PostSupplementalTaskInput,
+): Promise<PostSupplementalTaskResult> {
+  const { basicAuth, apiBase } = readApiConfig();
+  const url = `${apiBase}${endpointPath}/task_post`;
+  const normalizedLocation = normalizeLocationName(input.locationName);
+
+  async function attempt(locationName: string, keyword: string): Promise<PostSupplementalTaskResult> {
+    const body = [
+      {
+        keyword,
+        location_name: locationName,
+        language_code: input.languageCode || 'en',
+        postback_url: input.postbackUrl,
+        postback_data: input.postbackDataType || 'advanced',
+        ...(typeof input.depth === 'number' ? { depth: input.depth } : {}),
+        ...(input.tag ? { tag: input.tag } : {}),
+      },
+    ];
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: buildHeaders(basicAuth),
+      body: JSON.stringify(body),
+      cache: 'no-store',
+    });
+    let envelope: TaskEnvelope<unknown>;
+    try {
+      envelope = (await res.json()) as TaskEnvelope<unknown>;
+    } catch {
+      throw new DataForSEOError(
+        `DataForSEO returned a non-JSON response (${res.status})`,
+        null,
+        res.status,
+      );
+    }
+    if (!res.ok && res.status !== 401) {
+      throw new DataForSEOError(
+        envelope.status_message || `DataForSEO HTTP ${res.status}`,
+        envelope.status_code ?? null,
+        res.status,
+      );
+    }
+    const task = ensureOk(envelope, res.status);
+    if (!task.id) {
+      throw new DataForSEOError(
+        'DataForSEO accepted the task but returned no id',
+        task.status_code ?? null,
+        res.status,
+      );
+    }
+    return { taskId: task.id, cost: typeof task.cost === 'number' ? task.cost : 0 };
+  }
+
+  try {
+    return await attempt(normalizedLocation, input.keyword);
+  } catch (err) {
+    if (
+      err instanceof DataForSEOError &&
+      isLocationNameRejection(err) &&
+      normalizedLocation !== 'United States'
+    ) {
+      const raw = (input.locationName || '').trim();
+      const fallbackKeyword = raw ? `${input.keyword} ${raw}` : input.keyword;
+      return await attempt('United States', fallbackKeyword);
+    }
+    throw err;
+  }
+}
+
+async function getSupplementalTask(
+  endpointPath: string,
+  taskId: string,
+): Promise<GetSupplementalTaskResult> {
+  const { basicAuth, apiBase } = readApiConfig();
+  const url = `${apiBase}${endpointPath}/task_get/${encodeURIComponent(taskId)}`;
+  const res = await fetch(url, {
+    method: 'GET',
+    headers: buildHeaders(basicAuth),
+    cache: 'no-store',
+  });
+  let envelope: TaskEnvelope<unknown>;
+  try {
+    envelope = (await res.json()) as TaskEnvelope<unknown>;
+  } catch {
+    throw new DataForSEOError(
+      `DataForSEO returned a non-JSON response (${res.status})`,
+      null,
+      res.status,
+    );
+  }
+  if (res.status === 401 || envelope.status_code === 40100) {
+    throw new DataForSEOAuthError(
+      envelope.status_message || `DataForSEO rejected the credentials (${res.status})`,
+    );
+  }
+  const task = Array.isArray(envelope.tasks) ? envelope.tasks[0] : undefined;
+  const taskCode = task?.status_code ?? envelope.status_code ?? 0;
+  if (taskCode === 40602) return { envelope, pending: true, missing: false };
+  if (res.status === 404 || taskCode === 40400 || envelope.status_code === 40400) {
+    return { envelope, pending: false, missing: true };
+  }
+  if (!res.ok) {
+    throw new DataForSEOError(
+      envelope.status_message || `DataForSEO HTTP ${res.status}`,
+      envelope.status_code ?? null,
+      res.status,
+    );
+  }
+  return { envelope, pending: false, missing: false };
+}
+
+// ── Reviews — task POST / GET ──────────────────────────────────────────────
+//
+// Docs: https://docs.dataforseo.com/v3/business_data/google/reviews/task_post/
+// Returns recent customer reviews with rating, text, and reviewer name.
+
+export const postReviewsTask = (input: PostSupplementalTaskInput) =>
+  postSupplementalTask('/v3/business_data/google/reviews', input);
+
+export const getReviewsTask = (taskId: string) =>
+  getSupplementalTask('/v3/business_data/google/reviews', taskId);
+
+// ── Questions And Answers — task POST / GET ────────────────────────────────
+//
+// Docs: https://docs.dataforseo.com/v3/business_data/google/questions_and_answers/task_post/
+// Returns Q&A pairs publicly posted to the Google Business Profile.
+
+export const postQuestionsAndAnswersTask = (input: PostSupplementalTaskInput) =>
+  postSupplementalTask('/v3/business_data/google/questions_and_answers', input);
+
+export const getQuestionsAndAnswersTask = (taskId: string) =>
+  getSupplementalTask('/v3/business_data/google/questions_and_answers', taskId);

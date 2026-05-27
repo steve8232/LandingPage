@@ -10,7 +10,11 @@ import {
 } from '@/lib/projects/types';
 import { requireAdmin } from '@/lib/auth/role';
 import { postMyBusinessInfoTask } from '@/lib/dataforseo/client';
-import { buildPostbackUrl, getWebhookToken } from '@/lib/dataforseo/research';
+import {
+  buildPostbackUrl,
+  getWebhookToken,
+  queueSupplementalResearchTasks,
+} from '@/lib/dataforseo/research';
 import {
   chatAnswersToKeyword,
   chatAnswersToOverrides,
@@ -142,6 +146,7 @@ export async function POST(request: NextRequest) {
         .insert({
           project_id: (project as ProjectRow).id,
           task_id: taskId,
+          task_kind: 'my_business_info',
           status: 'pending',
           keyword,
           location_name: location,
@@ -154,6 +159,14 @@ export async function POST(request: NextRequest) {
       } else {
         researchId = research?.id ?? null;
       }
+      // Supplemental Reviews + Q&A — best-effort, non-fatal.
+      await queueSupplementalResearchTasks(admin, {
+        projectId: (project as ProjectRow).id,
+        keyword,
+        locationName: location || null,
+        languageCode: 'en',
+        postbackUrl,
+      });
     } catch (err) {
       console.error('[api/chat.POST] research queue failed (non-fatal):', err);
     }

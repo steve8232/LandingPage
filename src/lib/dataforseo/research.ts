@@ -10,6 +10,11 @@
  */
 
 import { timingSafeEqual } from 'node:crypto';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import {
+  postQuestionsAndAnswersTask,
+  postReviewsTask,
+} from './client';
 
 /**
  * Reads DATAFORSEO_WEBHOOK_TOKEN. Throws if missing — both endpoints require
@@ -94,6 +99,65 @@ export interface ParsedPostback {
  * envelope. Returns null when the envelope is malformed (no first task or no
  * task id) — caller maps that to a 400.
  */
+// ── Supplemental tasks (Reviews + Q&A) ─────────────────────────────────────
+
+export interface QueueSupplementalInput {
+  projectId: string;
+  keyword: string;
+  locationName: string | null;
+  languageCode: string;
+  postbackUrl: string;
+}
+
+/**
+ * Best-effort queue of the Reviews and Questions & Answers tasks that
+ * supplement the primary My Business Info lookup. Insert one row per kind in
+ * `dataforseo_research` so the webhook + poll pipeline can settle them
+ * independently. Failures are swallowed — supplementals are nice-to-have for
+ * grounding generation; the project should still ship if DataForSEO rejects
+ * one of these specific endpoints (e.g. no reviews on the listing).
+ *
+ * Callers pass an admin client (createAdminClient()) because the
+ * dataforseo_research table has no INSERT RLS policy.
+ */
+export async function queueSupplementalResearchTasks(
+  admin: SupabaseClient,
+  input: QueueSupplementalInput,
+): Promise<void> {
+  const baseInput = {
+    keyword: input.keyword,
+    locationName: input.locationName || undefined,
+    languageCode: input.languageCode || 'en',
+    postbackUrl: input.postbackUrl,
+  };
+  const kinds: Array<{
+    kind: 'reviews' | 'questions_and_answers';
+    post: typeof postReviewsTask;
+  }> = [
+    { kind: 'reviews', post: postReviewsTask },
+    { kind: 'questions_and_answers', post: postQuestionsAndAnswersTask },
+  ];
+  for (const { kind, post } of kinds) {
+    try {
+      const out = await post(baseInput);
+      const { error } = await admin.from('dataforseo_research').insert({
+        project_id: input.projectId,
+        task_id: out.taskId,
+        task_kind: kind,
+        status: 'pending',
+        keyword: input.keyword,
+        location_name: input.locationName,
+        language_code: input.languageCode || 'en',
+      });
+      if (error) {
+        console.error(`[dataforseo/research] insert ${kind} row failed (non-fatal):`, error);
+      }
+    } catch (err) {
+      console.error(`[dataforseo/research] post ${kind} task failed (non-fatal):`, err);
+    }
+  }
+}
+
 export function parsePostback(body: unknown): ParsedPostback | null {
   if (!body || typeof body !== 'object') return null;
   const env = body as PostbackEnvelope;

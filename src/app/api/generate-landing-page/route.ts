@@ -12,7 +12,16 @@ import { composeV1Template } from '../../../../v1/composer/composeV1Template';
 import type { V1ContentOverrides } from '../../../../v1/composer/composeV1Template';
 import { generateV1Content, V1FormInput } from '../../../../v1/composer/generateV1Content';
 import { enhanceV1Content } from '../../../../v1/composer/enhanceV1Content';
+import { researchCompetitors } from '../../../../v1/composer/researchCompetitors';
 import type { TemplateSpec } from '../../../../v1/specs/schema';
+
+// The v1 generation pipeline runs three OpenAI calls in sequence (optional
+// competitor research → marketing spine + supporting in parallel → polish).
+// Vercel's default function timeout (15s on newer Pro projects) is too tight
+// for this on its own. 60s gives the pipeline room without changing the
+// platform plan; the OpenAI calls themselves are still bounded by their own
+// per-call timeouts so a hung upstream cannot pin the function open.
+export const maxDuration = 60;
 
 function applyV1SectionOmissions(
   spec: TemplateSpec,
@@ -204,6 +213,30 @@ export async function POST(request: NextRequest) {
       );
 
       if (spec && hasBusinessInput) {
+        // Best-effort competitor research via OpenAI web_search. Gated behind
+        // OPENAI_WEB_SEARCH_ENABLED so it can be turned on per-environment
+        // without redeploying — the marketing prompt degrades gracefully when
+        // competitorContext is absent. Off by default so the generation
+        // pipeline doesn't pick up an extra serial OpenAI call unannounced.
+        const niche = v1Input.business.productService?.trim();
+        const locationSignal =
+          v1Input.business.address?.trim() ||
+          v1Input.business.serviceAreas?.[0] ||
+          taStr('city') ||
+          taStr('serviceArea') ||
+          undefined;
+        if (niche && process.env.OPENAI_WEB_SEARCH_ENABLED === 'true') {
+          const research = await researchCompetitors({
+            niche,
+            location: locationSignal,
+            excludeBrand: v1Input.business.brandName,
+          });
+          if (research && research.brief) {
+            v1Input.business.competitorContext = research.brief;
+            console.log(`[v1 adapter] Competitor research: ${research.competitors.length} entries`);
+          }
+        }
+
         overrides = await generateV1Content(v1Input, spec);
         console.log('[v1 adapter] Content overrides generated');
 

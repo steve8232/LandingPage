@@ -35,6 +35,29 @@ export interface V1FormInput {
 
     /** Optional template/category-specific answers coming from the wizard. */
     templateAnswers?: Record<string, string | boolean>;
+
+    /**
+     * Research-grounded social proof. Populated for `creation_method='research'`
+     * (and `'chat'`) projects from the DataForSEO My Business Info / Reviews
+     * payloads. All optional — the prompts must degrade gracefully when any
+     * field is missing.
+     *
+     *   - `rating`         aggregate Google rating, 1–5
+     *   - `reviewCount`    total Google review count
+     *   - `reviewQuotes`   verbatim review excerpts (3–5 short snippets), used
+     *                      as raw material for testimonial copy so quoted
+     *                      sentiment matches what real customers actually say
+     *   - `faqs`           Google Q&A pairs scraped from the listing, used as
+     *                      seed for FAQ section copy
+     *   - `competitorContext` short summary of competitor offers/USPs gathered
+     *                      from the OpenAI competitor-research pass, used to
+     *                      differentiate the brand without naming competitors
+     */
+    rating?: number;
+    reviewCount?: number;
+    reviewQuotes?: string[];
+    faqs?: Array<{ question: string; answer: string }>;
+    competitorContext?: string;
   };
   contact: {
     email: string;
@@ -149,6 +172,47 @@ interface AISupportingContent {
   footerTagline?: string;
 }
 
+// ── Research / competitor brief formatters ────────────────────────────────────
+
+/**
+ * Renders the optional research-grounded fields (rating, reviewCount,
+ * reviewQuotes, faqs) into a compact bullet list suitable for inlining in the
+ * marketing-spine and supporting prompts. Returns an empty string when no
+ * research fields are populated so the caller can omit the section entirely.
+ */
+function formatResearchBrief(input: V1FormInput): string {
+  const biz = input.business;
+  const lines: string[] = [];
+  if (typeof biz.rating === 'number' && typeof biz.reviewCount === 'number' && biz.reviewCount > 0) {
+    lines.push(`- Verified Google rating: ${biz.rating.toFixed(1)}★ from ${biz.reviewCount} reviews`);
+  }
+  const quotes = (biz.reviewQuotes || []).map((q) => q.trim()).filter(Boolean).slice(0, 6);
+  if (quotes.length) {
+    lines.push('- Verbatim customer review excerpts:');
+    for (const q of quotes) {
+      const trimmed = q.length > 240 ? `${q.slice(0, 237)}…` : q;
+      lines.push(`  • "${trimmed}"`);
+    }
+  }
+  const faqs = (biz.faqs || []).filter((f) => f && f.question && f.answer).slice(0, 5);
+  if (faqs.length) {
+    lines.push('- Real Google Q&A pairs:');
+    for (const f of faqs) {
+      const q = f.question.length > 140 ? `${f.question.slice(0, 137)}…` : f.question;
+      const a = f.answer.length > 240 ? `${f.answer.slice(0, 237)}…` : f.answer;
+      lines.push(`  • Q: ${q}`);
+      lines.push(`    A: ${a}`);
+    }
+  }
+  return lines.join('\n');
+}
+
+function formatCompetitorContext(input: V1FormInput): string {
+  const ctx = (input.business.competitorContext || '').trim();
+  if (!ctx) return '';
+  return ctx.length > 1800 ? `${ctx.slice(0, 1797)}…` : ctx;
+}
+
 // ── Prompt builder ─────────────────────────────────────────────────────────────
 
 function buildPrompt(input: V1FormInput, spec: TemplateSpec): string {
@@ -167,6 +231,8 @@ function buildPrompt(input: V1FormInput, spec: TemplateSpec): string {
   const tone = categoryContext[spec.category] || 'professional, persuasive';
   const iconChoices = 'wrench, tool, shield, search';
   const badgeList = AVAILABLE_BADGES.join(', ');
+  const research = formatResearchBrief(input);
+  const competitor = formatCompetitorContext(input);
 
   return `You are an elite direct-response copywriter who specializes in high-converting landing pages. You write with the specificity of David Ogilvy and the urgency of Gary Halbert.
 
@@ -181,6 +247,7 @@ BUSINESS BRIEF:
 
 OPTIONAL TEMPLATE DETAILS (may be empty):
 ${formatTemplateAnswers(input.business.templateAnswers)}
+${research ? `\nREAL CUSTOMER FEEDBACK (verified Google data — use this verbatim sentiment, never invent ratings or quotes):\n${research}\n` : ''}${competitor ? `\nCOMPETITOR LANDSCAPE (for differentiation — DO NOT name competitors; use this to position the brand against them):\n${competitor}\n` : ''}
 
 LANDING PAGE BLUEPRINT:
 - Template: ${spec.metadata.name}
@@ -200,8 +267,8 @@ SECTIONS TO FILL (in order of appearance):
 COPYWRITING RULES:
 - Lead with outcomes, not features ("Save 40% on energy bills" not "Energy-efficient system")
 - Every testimonial must reference a SPECIFIC benefit of "${input.business.productService}"
-- Use the customer's language from "${input.business.customerLove}"
-- Include numbers wherever possible (percentages, time saved, money saved)
+- Use the customer's language from "${input.business.customerLove}"${input.business.reviewQuotes?.length ? `\n- Ground testimonials in the REAL CUSTOMER FEEDBACK above: paraphrase the sentiment of those quotes (do not copy them verbatim), keep the same specific outcomes they mention` : ''}
+- Include numbers wherever possible (percentages, time saved, money saved)${typeof input.business.rating === 'number' && typeof input.business.reviewCount === 'number' && input.business.reviewCount > 0 ? `\n- ANCHOR social proof on the verified Google numbers: ${input.business.rating.toFixed(1)}★ from ${input.business.reviewCount} reviews. Use these EXACT figures in heroTrustBadge, socialProofHeading, and/or testimonialsSubheading. Never round up, never invent a higher count.` : ''}
 - Match the ${tone} voice throughout
 - Service descriptions: max 15 words, benefit-first
 - Testimonials: 15-30 words, must feel like a real person wrote it
@@ -266,6 +333,8 @@ function buildSupportingPrompt(input: V1FormInput, spec: TemplateSpec): string {
   const niche = spec.niche || spec.metadata.name;
   const brand = biz.brandName || biz.productService;
   const areas = (biz.serviceAreas || []).filter(Boolean).join(', ') || '(none provided)';
+  const research = formatResearchBrief(input);
+  const competitor = formatCompetitorContext(input);
 
   return `You are an elite direct-response copywriter writing supporting page sections for a ${niche} landing page. The HERO, SERVICES, TESTIMONIALS and FINAL CTA have already been written in a separate pass — focus ONLY on the supporting sections listed below.
 
@@ -282,12 +351,12 @@ BUSINESS BRIEF:
 
 OPTIONAL TEMPLATE DETAILS:
 ${formatTemplateAnswers(biz.templateAnswers)}
-
+${research ? `\nREAL CUSTOMER FEEDBACK (verified Google data — use this verbatim sentiment, never invent ratings, counts, or quotes):\n${research}\n` : ''}${competitor ? `\nCOMPETITOR LANDSCAPE (for differentiation — DO NOT name competitors; use this to position the brand against them):\n${competitor}\n` : ''}
 RULES:
 - Use the brand name "${brand}" verbatim. NEVER invent a different brand name.
 - NEVER invent a phone number, address, hours, license number, or city/region — if the value isn't in the brief, leave that field out.
 - Write in the voice of a credible local ${niche} business. Be specific, concrete, and benefit-first.
-- Every list item must earn its place. No filler, no marketing fluff.
+- Every list item must earn its place. No filler, no marketing fluff.${biz.faqs?.length ? `\n- For faqItems, prefer paraphrasing the REAL Google Q&A pairs above before inventing new questions. Keep the original intent and customer-facing tone, but rewrite for clarity and brand voice.` : ''}${typeof biz.rating === 'number' && typeof biz.reviewCount === 'number' && biz.reviewCount > 0 ? `\n- For heroProofPoints and trustStripItems, include the verified rating "${biz.rating.toFixed(1)}★ (${biz.reviewCount} reviews)" exactly once. Never round up, never invent a higher count.` : ''}
 
 Generate JSON with these EXACT fields (omit any field you genuinely cannot write well — DO NOT pad with placeholders):
 {

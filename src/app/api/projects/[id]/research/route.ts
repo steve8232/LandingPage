@@ -76,10 +76,14 @@ export async function GET(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+  // Scope to the primary My Business Info row. Reviews / Q&A rows live
+  // alongside it (see migration 0018) but are consumed downstream by the
+  // generation step, not the review screen.
   const { data, error } = await supabase
     .from('dataforseo_research')
     .select(RESEARCH_COLS)
     .eq('project_id', id)
+    .eq('task_kind', 'my_business_info')
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -117,6 +121,7 @@ export async function PUT(
     .from('dataforseo_research')
     .select('id')
     .eq('project_id', id)
+    .eq('task_kind', 'my_business_info')
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle<{ id: string }>();

@@ -47,15 +47,80 @@ export async function POST(
     return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
   }
 
-  // 2) Parse the envelope.
+  // 2) Parse the envelope. DataForSEO postbacks arrive with
+  // `Content-Encoding: gzip` by default and NextRequest.json() does not
+  // transparently decompress them — so we read the raw bytes, inflate when
+  // necessary, and only then parse JSON. Failures here log enough metadata
+  // (encoding, byte length, leading snippet) to diagnose future shape drift
+  // without dumping the whole payload to Vercel logs.
+  const encoding = (request.headers.get('content-encoding') || '').toLowerCase();
+  const contentType = request.headers.get('content-type') || '';
+  let raw: ArrayBuffer;
+  try {
+    raw = await request.arrayBuffer();
+  } catch (err) {
+    console.error('[webhooks/dataforseo.POST] body read failed:', err);
+    return NextResponse.json({ error: 'Body read failed' }, { status: 400 });
+  }
+
+  let bytes = new Uint8Array(raw);
+  // Some clients send Content-Encoding: gzip; others omit the header but still
+  // send a gzip stream. Detect the magic number (1F 8B) as a safety net.
+  const looksGzipped =
+    encoding.includes('gzip') ||
+    (bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b);
+  if (looksGzipped) {
+    try {
+      const ds = new DecompressionStream('gzip');
+      const stream = new Response(bytes).body!.pipeThrough(ds);
+      const inflated = await new Response(stream).arrayBuffer();
+      bytes = new Uint8Array(inflated);
+    } catch (err) {
+      console.error(
+        '[webhooks/dataforseo.POST] gzip decompress failed',
+        JSON.stringify({
+          encoding,
+          contentType,
+          byteLength: bytes.length,
+          err: err instanceof Error ? err.message : String(err),
+        }),
+      );
+      return NextResponse.json({ error: 'Gzip decompress failed' }, { status: 400 });
+    }
+  }
+
   let body: unknown;
   try {
-    body = await request.json();
-  } catch {
+    const text = new TextDecoder().decode(bytes);
+    body = JSON.parse(text);
+  } catch (err) {
+    const snippet = new TextDecoder().decode(bytes.slice(0, 200));
+    console.error(
+      '[webhooks/dataforseo.POST] JSON parse failed',
+      JSON.stringify({
+        encoding,
+        contentType,
+        byteLength: bytes.length,
+        snippet,
+        err: err instanceof Error ? err.message : String(err),
+      }),
+    );
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
   const parsed = parsePostback(body);
   if (!parsed) {
+    console.error(
+      '[webhooks/dataforseo.POST] malformed envelope',
+      JSON.stringify({
+        encoding,
+        contentType,
+        byteLength: bytes.length,
+        topLevelKeys:
+          body && typeof body === 'object'
+            ? Object.keys(body as Record<string, unknown>).slice(0, 10)
+            : null,
+      }),
+    );
     return NextResponse.json({ error: 'Malformed postback envelope' }, { status: 400 });
   }
 
