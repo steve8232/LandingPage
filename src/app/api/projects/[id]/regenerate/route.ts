@@ -18,6 +18,7 @@ import type { V1ContentOverrides } from '../../../../../../v1/composer/composeV1
 import { generateV1Content, type V1FormInput } from '../../../../../../v1/composer/generateV1Content';
 import { enhanceV1Content } from '../../../../../../v1/composer/enhanceV1Content';
 import { researchCompetitors } from '../../../../../../v1/composer/researchCompetitors';
+import { enrichNicheFromResearch } from '../../../../../../v1/composer/enrichNicheFromResearch';
 
 /**
  * POST /api/projects/[id]/regenerate
@@ -131,33 +132,109 @@ export async function POST(
     ? normalizeQuestionsPayload(questionsRow.raw_payload).slice(0, 6)
     : [];
 
-  // 4) Build V1FormInput. The research keyword is the niche signal —
-  //    productService must be non-empty for the AI passes to fire, otherwise
-  //    the route in generate-landing-page bails to spec defaults verbatim.
+  // 4) Build V1FormInput. Prefer the DataForSEO `category` label over the raw
+  //    search keyword for the niche signal — the keyword often contains brand
+  //    name ("Allied Roofing Inc") which makes terrible niche grounding,
+  //    whereas `category` ("Roofing contractor") is clean and consistent.
   const currentOverrides: V1ContentOverrides = project.overrides || {};
   const currentMeta = currentOverrides.meta || {};
-  const niche = (primary.keyword || '').trim();
+  const rawKeyword = (primary.keyword || '').trim();
+  const niche = (draft.category || rawKeyword).trim();
   const brandName = currentMeta.businessName || draft.businessName || undefined;
   const address = currentMeta.businessAddress || draft.address || undefined;
   const phone = project.business_phone || draft.phone || '';
   const hoursLine = draft.hours.length ? draft.hours.join('; ') : undefined;
 
+  // place_topics → backstop "customer love" line when the reviews task failed.
+  // Top 3 themes by mention count, joined into a single phrase. Same shape the
+  // AI would otherwise hallucinate from review quotes.
+  const topThemes = (draft.placeTopics || []).slice(0, 3).map((t) => t.topic);
+  const placeTopicsLove = topThemes.length
+    ? `Customers consistently mention ${topThemes.join(', ')}.`
+    : '';
+
+  // 5) Enrichment + grounded competitor research in parallel. Both are
+  //    best-effort: either failing returns null and we degrade to whatever
+  //    grounding we already have. Same 60s budget as before because both
+  //    helpers cap at ~12s and the two downstream generation passes need ~30s.
+  const locationSignal = address || primary.location_name || undefined;
+  const competitorEnabled = process.env.OPENAI_WEB_SEARCH_ENABLED !== 'false' && Boolean(process.env.OPENAI_API_KEY);
+  const knownCompetitors = (draft.relatedBusinesses || [])
+    .map((b) => b.name)
+    .filter(Boolean)
+    .slice(0, 5);
+
+  const [enrichmentRes, competitorRes] = await Promise.allSettled([
+    (draft.category || draft.description) && (draft.addressCity || draft.addressRegion)
+      ? enrichNicheFromResearch({
+          category: draft.category,
+          description: draft.description,
+          ...(brandName && { brandName }),
+          city: draft.addressCity,
+          region: draft.addressRegion,
+          ...(draft.addressBorough && { borough: draft.addressBorough }),
+          ...(draft.addressZip && { zip: draft.addressZip }),
+          ...(draft.placeTopics.length && { placeTopics: draft.placeTopics }),
+        })
+      : Promise.resolve(null),
+    competitorEnabled && niche
+      ? researchCompetitors({
+          niche,
+          location: locationSignal,
+          excludeBrand: brandName,
+          ...(knownCompetitors.length && { knownCompetitors }),
+        })
+      : Promise.resolve(null),
+  ]);
+
+  const enrichment = enrichmentRes.status === 'fulfilled' ? enrichmentRes.value : null;
+  const competitor = competitorRes.status === 'fulfilled' ? competitorRes.value : null;
+  if (enrichmentRes.status === 'rejected') console.warn('[regenerate] Enrichment failed:', enrichmentRes.reason);
+  if (competitorRes.status === 'rejected') console.warn('[regenerate] Competitor research failed:', competitorRes.reason);
+
+  // 6) Resolve service areas with a three-step fallback chain:
+  //      reviewer-supplied  >  enrichment pre-pass  >  competitor-derived
+  //    Only the first non-empty source wins so we never blend hallucinated
+  //    areas with operator-vetted ones.
+  let serviceAreas: string[] = [];
+  let serviceAreasSource: 'reviewer' | 'enrichment' | 'competitors' | 'none' = 'none';
+  if (draft.serviceAreas && draft.serviceAreas.length) {
+    serviceAreas = draft.serviceAreas.slice(0, 16);
+    serviceAreasSource = 'reviewer';
+  } else if (enrichment && enrichment.serviceAreas.length) {
+    serviceAreas = enrichment.serviceAreas.slice(0, 16);
+    serviceAreasSource = 'enrichment';
+  } else if (competitor && competitor.serviceAreas.length) {
+    serviceAreas = competitor.serviceAreas.slice(0, 16);
+    serviceAreasSource = 'competitors';
+  }
+
+  // Soft-grounding fields: only fall back to enrichment when the primary
+  // source is blank — never clobber actual reviews/description content.
+  const uniqueValue = draft.description || enrichment?.uniqueValue || '';
+  const customerLove = placeTopicsLove
+    || (reviewQuotes.length ? '' : enrichment?.customerLove || '')
+    || '';
+  const productService = niche || enrichment?.productService || '';
+
   const v1Input: V1FormInput = {
     business: {
-      productService: niche,
+      productService,
       offer: '',
       pricing: '',
       cta: '',
-      uniqueValue: draft.description || '',
-      customerLove: '',
+      uniqueValue,
+      customerLove,
       images: draft.photos || [],
       ...(brandName && { brandName }),
       ...(address && { address }),
       ...(hoursLine && { hours: hoursLine }),
+      ...(serviceAreas.length && { serviceAreas }),
       ...(draft.rating != null && { rating: draft.rating }),
       ...(draft.reviewCount != null && { reviewCount: draft.reviewCount }),
       ...(reviewQuotes.length && { reviewQuotes }),
       ...(faqs.length && { faqs }),
+      ...(competitor?.brief && { competitorContext: competitor.brief }),
     },
     contact: {
       email: '',
@@ -165,25 +242,11 @@ export async function POST(
     },
   };
 
-  // 5) Optional competitor research, gated by env var (same gate as the
-  //    legacy wizard route). The marketing prompt degrades gracefully when
-  //    competitorContext is absent.
-  if (niche && process.env.OPENAI_WEB_SEARCH_ENABLED === 'true') {
-    try {
-      const locationSignal = address || primary.location_name || undefined;
-      const research = await researchCompetitors({
-        niche,
-        location: locationSignal,
-        excludeBrand: brandName,
-      });
-      if (research && research.brief) {
-        v1Input.business.competitorContext = research.brief;
-        console.log(`[regenerate] Competitor research: ${research.competitors.length} entries`);
-      }
-    } catch (err) {
-      console.warn('[regenerate] Competitor research failed (continuing):', err);
-    }
-  }
+  console.log(
+    `[regenerate] grounding: niche="${productService}" serviceAreas=${serviceAreas.length}(${serviceAreasSource})`
+    + ` enrichment=${enrichment ? 'ok' : 'none'} competitors=${competitor?.competitors.length ?? 0}`
+    + ` reviews=${reviewQuotes.length} faqs=${faqs.length} topics=${draft.placeTopics.length}`,
+  );
 
   // 6) Run the two AI passes. Failures bubble as 500 — unlike the legacy
   //    route, there's no fallback content path here; the project already has
@@ -234,6 +297,11 @@ export async function POST(
       reviews: reviewQuotes.length,
       questions: faqs.length,
       competitorContext: Boolean(v1Input.business.competitorContext),
+      competitors: competitor?.competitors.length ?? 0,
+      enrichment: Boolean(enrichment),
+      serviceAreas: serviceAreas.length,
+      serviceAreasSource,
+      placeTopics: draft.placeTopics.length,
     },
   });
 }

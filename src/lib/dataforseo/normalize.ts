@@ -17,6 +17,17 @@
 
 import type { V1ContentOverrides } from '../../../v1/composer/composeV1Template';
 
+export interface PlaceTopic {
+  topic: string;
+  count: number;
+}
+
+export interface RelatedBusiness {
+  name: string;
+  rating: number | null;
+  reviewCount: number | null;
+}
+
 export interface ResearchDraft {
   businessName: string;
   phone: string;
@@ -27,6 +38,24 @@ export interface ResearchDraft {
   reviewCount: number | null;
   hours: string[];
   photos: string[];
+  /** Primary Google category label, e.g. "Roofing contractor". */
+  category: string;
+  /** Google category slug ids, e.g. ["roofing_contractor"]. */
+  categoryIds: string[];
+  /** Structured location parts pulled from `address_info`. Often more reliable
+   *  than the flat `address` string when feeding downstream copy. */
+  addressCity: string;
+  addressRegion: string;
+  addressBorough: string;
+  addressZip: string;
+  /** Review-derived themes from `place_topics`, sorted by mention count desc. */
+  placeTopics: PlaceTopic[];
+  /** "People also search" entries — Google-curated local competitors. */
+  relatedBusinesses: RelatedBusiness[];
+  /** Reviewer-supplied service-area names (neighborhoods, ZIPs, towns).
+   *  Empty by default; populated by the operator on the review screen and/or
+   *  by the niche-enrichment pre-pass before regenerate fires. */
+  serviceAreas: string[];
 }
 
 const EMPTY: ResearchDraft = {
@@ -39,6 +68,15 @@ const EMPTY: ResearchDraft = {
   reviewCount: null,
   hours: [],
   photos: [],
+  category: '',
+  categoryIds: [],
+  addressCity: '',
+  addressRegion: '',
+  addressBorough: '',
+  addressZip: '',
+  placeTopics: [],
+  relatedBusinesses: [],
+  serviceAreas: [],
 };
 
 /** Best-effort dotted-path read. Returns undefined when any hop is missing. */
@@ -144,6 +182,46 @@ export function normalizeResearchPayload(payload: unknown): ResearchDraft {
     }
   }
 
+  // category_ids arrives as ["roofing_contractor"]; coerce defensively.
+  const categoryIds: string[] = [];
+  const rawCategoryIds = get(item, ['category_ids']);
+  if (Array.isArray(rawCategoryIds)) {
+    for (const c of rawCategoryIds) {
+      const s = pickString(c);
+      if (s) categoryIds.push(s);
+    }
+  }
+
+  // place_topics is `{ "leak repair": 2, "quick response": 7, ... }` — flatten
+  // to a sorted array so consumers can take the top N by mention count.
+  const placeTopics: PlaceTopic[] = [];
+  const rawTopics = get(item, ['place_topics']);
+  if (rawTopics && typeof rawTopics === 'object') {
+    for (const [topic, count] of Object.entries(rawTopics as Record<string, unknown>)) {
+      const n = pickNumber(count);
+      const t = pickString(topic);
+      if (!t || n == null) continue;
+      placeTopics.push({ topic: t, count: n });
+    }
+    placeTopics.sort((a, b) => b.count - a.count);
+  }
+
+  // people_also_search → Google-curated nearby competitors. Each entry has the
+  // same rating shape as the primary item (`rating: { value, votes_count }`).
+  const relatedBusinesses: RelatedBusiness[] = [];
+  const rawRelated = get(item, ['people_also_search']);
+  if (Array.isArray(rawRelated)) {
+    for (const r of rawRelated) {
+      const name = pickString(get(r, ['title'])) || pickString(get(r, ['name']));
+      if (!name) continue;
+      relatedBusinesses.push({
+        name,
+        rating: pickNumber(get(r, ['rating', 'value'])),
+        reviewCount: pickNumber(get(r, ['rating', 'votes_count'])),
+      });
+    }
+  }
+
   return {
     businessName: pickString(item.title) || pickString(item.name),
     phone: pickString(item.phone),
@@ -157,6 +235,15 @@ export function normalizeResearchPayload(payload: unknown): ResearchDraft {
     reviewCount: pickNumber(get(item, ['rating', 'votes_count'])) ?? pickNumber(item.reviews_count),
     hours,
     photos: photoUrls,
+    category: pickString(item.category),
+    categoryIds,
+    addressCity: pickString(get(item, ['address_info', 'city'])),
+    addressRegion: pickString(get(item, ['address_info', 'region'])),
+    addressBorough: pickString(get(item, ['address_info', 'borough'])),
+    addressZip: pickString(get(item, ['address_info', 'zip'])),
+    placeTopics,
+    relatedBusinesses,
+    serviceAreas: [],
   };
 }
 

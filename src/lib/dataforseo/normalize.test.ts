@@ -7,7 +7,32 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { draftToOverrides, normalizeResearchPayload } from './normalize.ts';
+import { draftToOverrides, normalizeResearchPayload, type ResearchDraft } from './normalize.ts';
+
+/** Build a ResearchDraft with sensible empty defaults; overrides win. */
+function mkDraft(overrides: Partial<ResearchDraft> = {}): ResearchDraft {
+  return {
+    businessName: '',
+    phone: '',
+    website: '',
+    address: '',
+    description: '',
+    rating: null,
+    reviewCount: null,
+    hours: [],
+    photos: [],
+    category: '',
+    categoryIds: [],
+    addressCity: '',
+    addressRegion: '',
+    addressBorough: '',
+    addressZip: '',
+    placeTopics: [],
+    relatedBusinesses: [],
+    serviceAreas: [],
+    ...overrides,
+  };
+}
 
 // A representative-but-trimmed DataForSEO "my_business_info" response, modelled
 // on the docs' example envelope (https://docs.dataforseo.com/.../task_get/).
@@ -158,20 +183,87 @@ test('normalize: real google_business_info postback shape', () => {
   ]);
 });
 
+// Regression: extended fields lifted from the Allied Roofing production
+// payload — category, structured address, review-derived topics, and
+// "people also search" entries. These feed the niche-enrichment pre-pass
+// and grounded competitor research downstream.
+test('normalize: extracts category, address_info, place_topics, people_also_search', () => {
+  const draft = normalizeResearchPayload({
+    tasks: [{
+      result: [{
+        items: [{
+          type: 'google_business_info',
+          title: 'Allied Roofing Inc',
+          category: 'Roofing contractor',
+          category_ids: ['roofing_contractor'],
+          address_info: {
+            zip: '43209',
+            city: 'Columbus',
+            region: 'Ohio',
+            address: '1960 Integrity Dr S',
+            borough: 'South Side',
+            country_code: 'US',
+          },
+          place_topics: {
+            shingles: 2,
+            'leak repair': 2,
+            'fair pricing': 3,
+            'quick response': 7,
+            'timely manner': 4,
+          },
+          people_also_search: [
+            { title: 'Supreme Roofing & Exterior', rating: { value: 4.9, votes_count: 142 } },
+            { title: 'Innovative Roofing Systems', rating: { value: 4.9, votes_count: 75 } },
+            { title: 'Ace Roofing', rating: { value: 5, votes_count: 13 } },
+            { title: 'Nail It Roofing and Contracting', rating: { value: null, votes_count: null } },
+            { title: 'Legacy Roofing', rating: { value: 4.6, votes_count: 44 } },
+          ],
+        }],
+      }],
+    }],
+  });
+  assert.equal(draft.category, 'Roofing contractor');
+  assert.deepEqual(draft.categoryIds, ['roofing_contractor']);
+  assert.equal(draft.addressCity, 'Columbus');
+  assert.equal(draft.addressRegion, 'Ohio');
+  assert.equal(draft.addressBorough, 'South Side');
+  assert.equal(draft.addressZip, '43209');
+  // Topics sort by count desc.
+  assert.equal(draft.placeTopics[0].topic, 'quick response');
+  assert.equal(draft.placeTopics[0].count, 7);
+  assert.equal(draft.placeTopics[1].topic, 'timely manner');
+  assert.equal(draft.placeTopics.length, 5);
+  assert.equal(draft.relatedBusinesses.length, 5);
+  assert.equal(draft.relatedBusinesses[0].name, 'Supreme Roofing & Exterior');
+  assert.equal(draft.relatedBusinesses[0].rating, 4.9);
+  assert.equal(draft.relatedBusinesses[0].reviewCount, 142);
+  assert.equal(draft.relatedBusinesses[3].rating, null);
+  assert.deepEqual(draft.serviceAreas, []);
+});
+
+test('normalize: empty / missing extended fields → empty arrays + blank strings', () => {
+  const draft = normalizeResearchPayload({
+    tasks: [{ result: [{ items: [{ title: 'X' }] }] }],
+  });
+  assert.equal(draft.category, '');
+  assert.deepEqual(draft.categoryIds, []);
+  assert.equal(draft.addressCity, '');
+  assert.deepEqual(draft.placeTopics, []);
+  assert.deepEqual(draft.relatedBusinesses, []);
+  assert.deepEqual(draft.serviceAreas, []);
+});
+
 // ── draftToOverrides ───────────────────────────────────────────────────────
 
 test('draftToOverrides: maps populated fields to meta-only overrides', () => {
-  const out = draftToOverrides({
+  const out = draftToOverrides(mkDraft({
     businessName: 'Aqua Pro',
     phone: '312-555-1234',
     website: 'https://x.example',
-    address: '',
     description: 'desc',
     rating: 4.8,
     reviewCount: 10,
-    hours: [],
-    photos: [],
-  });
+  }));
   assert.deepEqual(out, {
     meta: {
       businessName: 'Aqua Pro',
@@ -182,42 +274,23 @@ test('draftToOverrides: maps populated fields to meta-only overrides', () => {
 });
 
 test('draftToOverrides: empty / blank fields → empty object (no meta key)', () => {
-  const out = draftToOverrides({
-    businessName: '',
-    phone: '',
-    website: '',
-    address: '',
-    description: '',
-    rating: null,
-    reviewCount: null,
-    hours: [],
-    photos: [],
-  });
+  const out = draftToOverrides(mkDraft());
   assert.deepEqual(out, {});
 });
 
 test('draftToOverrides: maps address → meta.businessAddress', () => {
-  const out = draftToOverrides({
-    businessName: '',
-    phone: '',
-    website: '',
-    address: '123 Main St, Chicago, IL',
-    description: '',
-    rating: null, reviewCount: null, hours: [], photos: [],
-  });
+  const out = draftToOverrides(mkDraft({ address: '123 Main St, Chicago, IL' }));
   assert.deepEqual(out, { meta: { businessAddress: '123 Main St, Chicago, IL' } });
 });
 
 test('draftToOverrides: existing user values are not clobbered', () => {
   const out = draftToOverrides(
-    {
+    mkDraft({
       businessName: 'DataForSEO Name',
       phone: '3125550199',
-      website: '',
       address: 'DataForSEO address',
       description: 'DataForSEO description',
-      rating: null, reviewCount: null, hours: [], photos: [],
-    },
+    }),
     {
       businessName: 'User Typed Name',
       businessPhone: '3125550100',
@@ -231,14 +304,11 @@ test('draftToOverrides: existing user values are not clobbered', () => {
 
 test('draftToOverrides: existing fills only the blanks', () => {
   const out = draftToOverrides(
-    {
+    mkDraft({
       businessName: 'DataForSEO Name',
       phone: '3125550199',
-      website: '',
       address: 'DataForSEO address',
-      description: '',
-      rating: null, reviewCount: null, hours: [], photos: [],
-    },
+    }),
     { businessName: 'User Typed Name' }, // phone + address blank → DataForSEO fills
   );
   assert.deepEqual(out, {

@@ -28,6 +28,13 @@ export interface CompetitorResearchInput {
   location?: string;
   /** Optional brand name to *exclude* from the competitor set. */
   excludeBrand?: string;
+  /**
+   * Pre-known competitors to research instead of discovering blind. When
+   * non-empty, the prompt swaps from "find 3 competitors" to "look up each of
+   * these specific named businesses". Sourced from Google's
+   * `people_also_search` on the primary listing.
+   */
+  knownCompetitors?: string[];
   /** Hard wall-clock timeout (ms). Defaults to 12s. */
   timeoutMs?: number;
 }
@@ -36,6 +43,8 @@ interface CompetitorEntry {
   name: string;
   offer: string;
   primaryUsp: string;
+  /** Optional service areas the competitor publicly lists on their site/listing. */
+  serviceAreas?: string[];
 }
 
 export interface CompetitorResearchResult {
@@ -43,6 +52,8 @@ export interface CompetitorResearchResult {
   competitors: CompetitorEntry[];
   /** Compact bulleted brief suitable for inlining into the marketing prompt. */
   brief: string;
+  /** Aggregated service areas observed across competitors (deduped). */
+  serviceAreas: string[];
 }
 
 function buildPrompt(input: CompetitorResearchInput): string {
@@ -50,29 +61,39 @@ function buildPrompt(input: CompetitorResearchInput): string {
   const excludeLine = input.excludeBrand
     ? `Exclude the brand named "${input.excludeBrand}" from your competitor set.`
     : '';
+  const known = (input.knownCompetitors || []).filter((s) => s && s.trim()).slice(0, 5);
+
+  // Grounded mode: when Google's `people_also_search` gives us real local
+  // competitor names, skip discovery and ask the model to look up each one
+  // by name. Higher accuracy, fewer hallucinations.
+  const targetLine = known.length
+    ? `Use web search to look up each of these SPECIFIC named businesses (do not substitute or invent others):\n${known.map((n) => `  - ${n}`).join('\n')}`
+    : 'Use web search to identify up to 3 distinct, currently-operating local competitors for this niche near the location above.';
+
   return `You are a market-research analyst helping a small-business landing page.
 
 Niche: ${input.niche}
 ${locationLine}
 ${excludeLine}
 
-Use web search to identify up to 3 distinct, currently-operating local competitors for this niche near the location above. For each, extract:
+${targetLine} For each, extract:
   - "name": company name as it appears publicly
   - "offer": one concrete promotion, package, or signature service they advertise (e.g. "$49 drain cleaning", "free in-home estimates")
   - "primaryUsp": one short clause describing what they emphasize (e.g. "24/7 emergency response", "family-owned since 1998")
+  - "serviceAreas": up to 8 neighborhoods, suburbs, or nearby towns this competitor publicly lists as their coverage area. Use REAL place names you find on their site or Google listing — never invent. Empty array if not publicly listed.
 
 Respond with VALID JSON ONLY in this exact shape (no markdown, no code fences):
 {
   "competitors": [
-    { "name": "...", "offer": "...", "primaryUsp": "..." }
+    { "name": "...", "offer": "...", "primaryUsp": "...", "serviceAreas": ["..."] }
   ]
 }
 
 Rules:
-  - Never invent details you cannot confirm via search. If a field is unknown, use an empty string.
+  - Never invent details you cannot confirm via search. If a field is unknown, use an empty string (or empty array for serviceAreas).
   - If you cannot find any credible local competitors, return { "competitors": [] }.
   - Do not include URLs, addresses, or phone numbers in any field.
-  - Keep each field under 140 characters.`;
+  - Keep "offer" and "primaryUsp" under 140 characters; each service-area entry under 30 characters.`;
 }
 
 interface ResponsesEnvelope {
@@ -113,14 +134,24 @@ function parseCompetitorsJSON(text: string): CompetitorEntry[] {
   const arr = (parsed as { competitors?: unknown }).competitors;
   if (!Array.isArray(arr)) return [];
   const out: CompetitorEntry[] = [];
-  for (const raw of arr.slice(0, 3)) {
+  // Allow up to 5 entries when callers pass a `knownCompetitors` seed list of
+  // that size; cap stays at 5 either way to keep the brief short.
+  for (const raw of arr.slice(0, 5)) {
     if (!raw || typeof raw !== 'object') continue;
     const r = raw as Record<string, unknown>;
     const name = typeof r.name === 'string' ? r.name.trim() : '';
     const offer = typeof r.offer === 'string' ? r.offer.trim() : '';
     const primaryUsp = typeof r.primaryUsp === 'string' ? r.primaryUsp.trim() : '';
     if (!name) continue;
-    out.push({ name, offer, primaryUsp });
+    const areas: string[] = [];
+    const rawAreas = Array.isArray(r.serviceAreas) ? r.serviceAreas : [];
+    for (const a of rawAreas) {
+      const s = typeof a === 'string' ? a.trim() : '';
+      if (!s) continue;
+      areas.push(s.length > 30 ? s.slice(0, 30) : s);
+      if (areas.length >= 8) break;
+    }
+    out.push({ name, offer, primaryUsp, ...(areas.length && { serviceAreas: areas }) });
   }
   return out;
 }
@@ -134,6 +165,22 @@ function competitorsToBrief(competitors: CompetitorEntry[]): string {
     lines.push(`- ${c.name}${offerPart}${uspPart}`);
   }
   return lines.join('\n');
+}
+
+/** Deduped, case-insensitive aggregate of competitor service areas. */
+function aggregateServiceAreas(competitors: CompetitorEntry[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const c of competitors) {
+    for (const a of c.serviceAreas || []) {
+      const key = a.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(a);
+      if (out.length >= 12) return out;
+    }
+  }
+  return out;
 }
 
 /**
@@ -173,7 +220,11 @@ export async function researchCompetitors(
     const text = extractText(env);
     if (!text) return null;
     const competitors = parseCompetitorsJSON(text);
-    return { competitors, brief: competitorsToBrief(competitors) };
+    return {
+      competitors,
+      brief: competitorsToBrief(competitors),
+      serviceAreas: aggregateServiceAreas(competitors),
+    };
   } catch (err) {
     if ((err as { name?: string })?.name === 'AbortError') {
       console.error('[researchCompetitors] timed out after', input.timeoutMs ?? DEFAULT_TIMEOUT_MS, 'ms');

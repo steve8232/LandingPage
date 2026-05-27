@@ -28,6 +28,19 @@ interface ResearchDraft {
   reviewCount: number | null;
   hours: string[];
   photos: string[];
+  // Extended fields surfaced from the DataForSEO `google_business_info`
+  // payload (see src/lib/dataforseo/normalize.ts). The client treats them as
+  // read-only with one exception — `serviceAreas`, which the operator edits
+  // via a comma-separated textarea on this screen.
+  category: string;
+  categoryIds: string[];
+  addressCity: string;
+  addressRegion: string;
+  addressBorough: string;
+  addressZip: string;
+  placeTopics: Array<{ topic: string; count: number }>;
+  relatedBusinesses: Array<{ name: string; rating: number | null; reviewCount: number | null }>;
+  serviceAreas: string[];
 }
 
 interface ResearchResponse {
@@ -433,6 +446,17 @@ function DraftForm({
           onChange={(v) => field('description', v)}
           multiline
         />
+        <ServiceAreasField
+          value={draft.serviceAreas}
+          onChange={(v) => field('serviceAreas', v)}
+          city={draft.addressCity}
+          region={draft.addressRegion}
+        />
+        {draft.category && (
+          <p className="text-xs text-gray-500">
+            Category: <span className="font-medium text-gray-900">{draft.category}</span>
+          </p>
+        )}
         {(draft.rating != null || draft.reviewCount != null) && (
           <p className="text-xs text-gray-500">
             Rating: <span className="font-medium text-gray-900">{draft.rating ?? '—'}</span>
@@ -493,6 +517,61 @@ function DraftForm({
         </button>
       </div>
     </>
+  );
+}
+
+// Comma-separated editor for the service-area chips that render on the page.
+// Stored as `string[]` on the draft; the textarea uses a local string buffer
+// so the user can type commas and trailing spaces without the value getting
+// re-serialized mid-keystroke. The buffer is only re-synced from the prop
+// when the parent passes a value that doesn't match the buffer's parsed form
+// (e.g. after a server refresh or sibling reset).
+function ServiceAreasField({
+  value, onChange, city, region,
+}: {
+  value: string[];
+  onChange: (v: string[]) => void;
+  city: string;
+  region: string;
+}) {
+  const [text, setText] = useState(value.join(', '));
+  const lastParsed = useRef(value.join(', '));
+  useEffect(() => {
+    const incoming = value.join(', ');
+    if (incoming !== lastParsed.current) {
+      setText(incoming);
+      lastParsed.current = incoming;
+    }
+  }, [value]);
+
+  function handleChange(next: string) {
+    setText(next);
+    const parsed = next
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, 16);
+    lastParsed.current = parsed.join(', ');
+    onChange(parsed);
+  }
+
+  const locationHint = [city, region].filter(Boolean).join(', ');
+  return (
+    <label className="block">
+      <span className="block text-sm font-medium text-gray-900 mb-1">
+        Service areas <span className="text-gray-500 font-normal">(comma-separated)</span>
+      </span>
+      <textarea
+        value={text}
+        onChange={(e) => handleChange(e.target.value)}
+        rows={2}
+        placeholder={locationHint ? `e.g. neighborhoods in ${locationHint}` : 'e.g. Clintonville, Bexley, Dublin, Westerville'}
+        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+      />
+      <p className="mt-1 text-xs text-gray-500">
+        Leave blank to let the AI generate areas from {locationHint || 'the listing location'}. Up to 16 entries.
+      </p>
+    </label>
   );
 }
 
