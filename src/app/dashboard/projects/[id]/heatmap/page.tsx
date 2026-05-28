@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import type { CreationMethod } from '@/lib/projects/types';
 import HeatmapClient, { type DeploymentLite, type ProjectLite } from './HeatmapClient';
 
 export const dynamic = 'force-dynamic';
@@ -21,7 +22,7 @@ interface ProjectRow {
   title: string;
   subdomain: string | null;
   custom_domain: string | null;
-  creation_method: 'manual' | 'research' | 'chat';
+  creation_method: CreationMethod;
 }
 
 interface DeploymentRow {

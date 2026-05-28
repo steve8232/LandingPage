@@ -19,6 +19,7 @@ import type {
   CollaboratorDTO,
   CollaboratorOwnerDTO,
 } from '@/lib/projects/collaborators';
+import type { BuildStatus, CreationMethod } from '@/lib/projects/types';
 import ProjectDashboardClient, {
   type ProjectLite,
 } from './ProjectDashboardClient';
@@ -48,7 +49,8 @@ interface ProjectMetaRow {
   audiencelab_pixel_id: string | null;
   callrail_company_id: string | null;
   callrail_company_name: string | null;
-  creation_method: 'manual' | 'research' | 'chat';
+  creation_method: CreationMethod;
+  build_status: BuildStatus | null;
 }
 
 export default async function ProjectDashboardPage({
@@ -65,13 +67,23 @@ export default async function ProjectDashboardPage({
     supabase
       .from('projects')
       .select(
-        'id, title, slug, user_id, subdomain, custom_domain, audiencelab_pixel_id, callrail_company_id, callrail_company_name, creation_method'
+        'id, title, slug, user_id, subdomain, custom_domain, audiencelab_pixel_id, callrail_company_id, callrail_company_name, creation_method, build_status'
       )
       .eq('id', id)
       .maybeSingle<ProjectMetaRow>(),
     getCurrentRole(),
   ]);
   if (!projectRow) redirect('/dashboard');
+  // URL onboarding inserts a placeholder shell and runs scrape/extract/etc.
+  // in an after() continuation. The /building page is the only correct
+  // surface for the user until the row settles — otherwise they'd see a
+  // half-built plumber template or a failed page with no error context.
+  if (
+    projectRow.build_status === 'building' ||
+    projectRow.build_status === 'failed'
+  ) {
+    redirect(`/dashboard/projects/${id}/building`);
+  }
   const viewerRole: 'admin' | 'user' = role === 'admin' ? 'admin' : 'user';
 
   const [leadsRes, callsRes] = await Promise.all([

@@ -308,6 +308,18 @@ export interface V1MetaOverrides {
    * undefined so newly created projects ship with tracking on.
    */
   heatmapEnabled?: boolean;
+  /**
+   * Original URL that seeded this project (URL onboarding lane). Used as
+   * a "view source site" reference for the operator; never rendered to
+   * visitors.
+   */
+  sourceUrl?: string;
+  /**
+   * Full-page Firecrawl screenshot of `sourceUrl`, captured during URL
+   * onboarding. Stored for reference only — the hero is filled by the
+   * standard Unsplash auto-picker, same as every other onboarding lane.
+   */
+  sourceScreenshotUrl?: string;
 }
 
 export interface V1ImageAttribution {

@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentRole } from '@/lib/auth/role';
+import type { CreationMethod } from '@/lib/projects/types';
 import ResearchReviewClient, { type ProjectLite } from './ResearchReviewClient';
 
 export const dynamic = 'force-dynamic';
@@ -40,7 +41,7 @@ export default async function ResearchReviewPage({
       slug: string;
       subdomain: string | null;
       custom_domain: string | null;
-      creation_method: 'manual' | 'research' | 'chat';
+      creation_method: CreationMethod;
     }>();
   if (!project) redirect('/dashboard');
 

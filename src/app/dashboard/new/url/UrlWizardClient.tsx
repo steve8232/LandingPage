@@ -14,10 +14,11 @@ import {
 /**
  * URL-method wizard.
  *
- * Single-step: user pastes a URL → POST /api/url-onboard. Firecrawl scrape
- * + OpenAI extraction + template pick + generate+enhance + image auto-pick
- * all run server-side; this client just shows a progress hint and routes
- * into the project on success.
+ * Single-step: user pastes a URL → POST /api/url-onboard. The route now
+ * returns a `building` project shell in ~1s and runs the heavy work
+ * (scrape, extract, generate, enhance, autoPick) in a Next.js `after()`
+ * continuation. We redirect into /dashboard/projects/{id}/building which
+ * polls the build status until the row settles.
  */
 
 interface UrlOnboardResponse {
@@ -67,7 +68,7 @@ export default function UrlWizardClient() {
         setSubmitting(false);
         return;
       }
-      router.push(`/dashboard/projects/${data.project.id}`);
+      router.replace(`/dashboard/projects/${data.project.id}/building`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Network error');
       setSubmitting(false);
@@ -133,12 +134,10 @@ export default function UrlWizardClient() {
           )}
 
           {submitting && (
-            <ul className="mt-4 text-xs text-gray-600 space-y-1">
-              <li>· Scanning your site with Firecrawl</li>
-              <li>· Extracting business facts</li>
-              <li>· Picking the best-fitting template</li>
-              <li>· Drafting AI copy + sourcing images</li>
-            </ul>
+            <p className="mt-4 text-xs text-gray-600">
+              Queuing your site for scanning — you&apos;ll be redirected to the build
+              progress screen in a moment.
+            </p>
           )}
 
           <div className="mt-5 flex items-center justify-end">
@@ -150,7 +149,7 @@ export default function UrlWizardClient() {
               {submitting ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Building your page…
+                  Starting…
                 </>
               ) : (
                 <>

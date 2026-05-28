@@ -8,6 +8,7 @@ import {
   Plug, RotateCw, Search, Sparkle, Sparkles, Star,
 } from 'lucide-react';
 import ProjectTabs from '../ProjectTabs';
+import type { CreationMethod } from '@/lib/projects/types';
 
 export interface ProjectLite {
   id: string;
@@ -15,7 +16,7 @@ export interface ProjectLite {
   slug: string;
   subdomain: string | null;
   customDomain: string | null;
-  creationMethod: 'manual' | 'research' | 'chat';
+  creationMethod: CreationMethod;
 }
 
 interface ResearchDraft {

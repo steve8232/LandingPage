@@ -21,6 +21,7 @@ import type {
   CollaboratorDTO,
   CollaboratorOwnerDTO,
 } from '@/lib/projects/collaborators';
+import type { CreationMethod } from '@/lib/projects/types';
 import ProjectTabs from './ProjectTabs';
 import ShareAccessCard from './ShareAccessCard';
 import { buildTimeline } from './timeline';
@@ -32,7 +33,7 @@ export interface ProjectLite {
   slug: string;
   subdomain: string | null;
   customDomain: string | null;
-  creationMethod?: 'manual' | 'research' | 'chat';
+  creationMethod?: CreationMethod;
 }
 
 interface Props {

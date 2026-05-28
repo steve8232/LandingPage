@@ -19,6 +19,15 @@ export type CustomDomainStatus =
  */
 export type CreationMethod = 'manual' | 'research' | 'chat' | 'url';
 
+/**
+ * Async-pipeline state — see supabase/migrations/0020_project_build_status.sql.
+ *  - 'ready'     : project is fully built and usable (all sync-built lanes).
+ *  - 'building'  : URL lane is still running scrape/extract/generate after
+ *                  the POST returned; the /building page polls until done.
+ *  - 'failed'    : background pipeline threw; build_error holds the message.
+ */
+export type BuildStatus = 'building' | 'ready' | 'failed';
+
 export interface ProjectRow {
   id: string;
   user_id: string;
@@ -44,6 +53,9 @@ export interface ProjectRow {
   callrail_tracking_phone: string | null;
   callrail_script_url: string | null;
   creation_method: CreationMethod;
+  build_status: BuildStatus;
+  build_stage: string | null;
+  build_error: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -72,6 +84,9 @@ export interface ProjectDTO {
   callrailTrackingPhone: string | null;
   callrailScriptUrl: string | null;
   creationMethod: CreationMethod;
+  buildStatus: BuildStatus;
+  buildStage: string | null;
+  buildError: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -100,6 +115,9 @@ export function rowToDTO(row: ProjectRow): ProjectDTO {
     callrailTrackingPhone: row.callrail_tracking_phone ?? null,
     callrailScriptUrl: row.callrail_script_url ?? null,
     creationMethod: (row.creation_method ?? 'manual') as CreationMethod,
+    buildStatus: (row.build_status ?? 'ready') as BuildStatus,
+    buildStage: row.build_stage ?? null,
+    buildError: row.build_error ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -111,7 +129,7 @@ export function rowToDTO(row: ProjectRow): ProjectDTO {
  * lives only in server-side reads (see remoteStorage helpers).
  */
 export const PROJECT_COLS =
-  'id, user_id, template_id, title, slug, overrides, subdomain, subdomain_status, subdomain_error, custom_domain, custom_domain_status, custom_domain_error, custom_domain_error_code, custom_domain_apex, audiencelab_pixel_id, audiencelab_install_url, callrail_company_id, callrail_company_name, business_phone, callrail_tracker_id, callrail_tracking_phone, callrail_script_url, creation_method, created_at, updated_at';
+  'id, user_id, template_id, title, slug, overrides, subdomain, subdomain_status, subdomain_error, custom_domain, custom_domain_status, custom_domain_error, custom_domain_error_code, custom_domain_apex, audiencelab_pixel_id, audiencelab_install_url, callrail_company_id, callrail_company_name, business_phone, callrail_tracker_id, callrail_tracking_phone, callrail_script_url, creation_method, build_status, build_stage, build_error, created_at, updated_at';
 
 /**
  * Slug from a free-form title plus a short random suffix so two projects with
