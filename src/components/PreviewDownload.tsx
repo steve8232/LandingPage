@@ -1039,15 +1039,63 @@ export default function PreviewDownload({
     }
   }, [v1Spec, v1ImageSlots, v1SelectedAssetKey]);
 
-  // Pre-fill the stock-image search query with a niche-relevant seed whenever
-  // the selected image slot changes. Honours per-asset seeds first, then the
-  // spec-level niche, so the user gets useful results on the first search.
+  // Pre-fill the stock-image search query with the spec's niche keyword
+  // whenever the selected image slot changes. Unsplash relevance ranks best
+  // on a single focused token (e.g. "plumber"), so we deliberately ignore the
+  // per-slot long-tail seeds here.
   useEffect(() => {
     if (!v1Spec || !v1SelectedAssetKey) return;
-    const seeds = v1Spec.assetSearchSeeds || {};
-    const seed = seeds[v1SelectedAssetKey] || v1Spec.niche || '';
+    const seed = (v1Spec.niche || '').replace(/-/g, ' ').trim();
     if (seed) setStockQuery(seed);
   }, [v1Spec, v1SelectedAssetKey]);
+
+  // First-open hook: when the user opens the Images tab on a saved project
+  // whose image slots are still showing demo placeholders, auto-pick
+  // niche-relevant Unsplash photos once and refresh local overrides. Older
+  // projects (created before generate-time auto-pick) self-heal on first edit.
+  const autoPickAttemptedRef = useRef(false);
+  useEffect(() => {
+    if (v1PanelTab !== 'images') return;
+    if (!v1ProjectId) return;
+    if (!v1Spec) return;
+    if (v1ImageSlots.length === 0) return;
+    if (autoPickAttemptedRef.current) return;
+
+    const assets = v1Overrides?.assets || {};
+    const specAssets = v1Spec.assets || {};
+    const needsFill = v1ImageSlots.some((s) => {
+      const cur = (assets as Record<string, string>)[s.assetKey] || specAssets[s.assetKey];
+      return typeof cur === 'string' && cur.startsWith('demo-');
+    });
+    if (!needsFill) return;
+
+    autoPickAttemptedRef.current = true;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/projects/${encodeURIComponent(v1ProjectId)}/auto-images`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({}),
+          }
+        );
+        if (!res.ok) return;
+        const data = (await res.json()) as { project?: ProjectDTO };
+        if (cancelled) return;
+        const updated = data.project;
+        if (updated && updated.overrides) {
+          setV1Overrides(updated.overrides as V1ContentOverrides);
+        }
+      } catch {
+        // best-effort — leave demo placeholders in place on failure
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [v1PanelTab, v1ProjectId, v1Spec, v1ImageSlots, v1Overrides]);
 
 
   // v1 click-to-edit (images + sections): when in Edit mode, clicking elements

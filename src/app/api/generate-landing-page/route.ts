@@ -9,11 +9,19 @@ import { requireAdmin } from '@/lib/auth/role';
 // legacy pipeline.  The legacy code below remains completely untouched.
 import { isV1Template, getV1Spec } from '../../../../v1/specs/index';
 import { composeV1Template } from '../../../../v1/composer/composeV1Template';
-import type { V1ContentOverrides } from '../../../../v1/composer/composeV1Template';
+import type {
+  V1ContentOverrides,
+  V1ImageAttribution,
+  V1MetaOverrides,
+} from '../../../../v1/composer/composeV1Template';
 import { generateV1Content, V1FormInput } from '../../../../v1/composer/generateV1Content';
 import { enhanceV1Content } from '../../../../v1/composer/enhanceV1Content';
 import { researchCompetitors } from '../../../../v1/composer/researchCompetitors';
 import type { TemplateSpec } from '../../../../v1/specs/schema';
+import {
+  autoPickForSlots,
+  trackAutoPickDownloads,
+} from '@/lib/unsplash/autoPickForSlots';
 
 // The v1 generation pipeline runs three OpenAI calls in sequence (optional
 // competitor research → marketing spine + supporting in parallel → polish).
@@ -275,6 +283,43 @@ export async function POST(request: NextRequest) {
           ...(overrides || {}),
           meta: { ...((overrides && overrides.meta) || {}), businessName: wizardBusinessName },
         };
+      }
+
+      // Auto-pick niche-relevant Unsplash photos for every demo image slot so
+      // first-load pages are fully illustrated without per-spec long-tail
+      // search seeds. Best-effort: failures here fall back to demo images.
+      if (spec && spec.niche) {
+        try {
+          const slotKeys = Object.entries(spec.assets || {})
+            .filter(([, v]) => typeof v === 'string' && v.startsWith('demo-'))
+            .map(([k]) => k);
+          if (slotKeys.length > 0) {
+            const picked = await autoPickForSlots(spec.niche, slotKeys);
+            if (Object.keys(picked.picks).length > 0) {
+              await trackAutoPickDownloads(picked.picks);
+              const prevAssets = (overrides && overrides.assets) || {};
+              const nextAssets: Record<string, string> = { ...prevAssets };
+              const prevMeta: V1MetaOverrides = (overrides && overrides.meta) || {};
+              const nextAttrs: Record<string, V1ImageAttribution> = {
+                ...((prevMeta.imageAttributions || {}) as Record<string, V1ImageAttribution>),
+              };
+              for (const [key, pick] of Object.entries(picked.picks)) {
+                nextAssets[key] = pick.src;
+                nextAttrs[key] = pick.attribution;
+              }
+              overrides = {
+                ...(overrides || {}),
+                assets: nextAssets,
+                meta: { ...prevMeta, imageAttributions: nextAttrs },
+              };
+              console.log(
+                `[v1 adapter] Auto-picked ${Object.keys(picked.picks).length}/${slotKeys.length} Unsplash images for niche "${spec.niche}"`
+              );
+            }
+          }
+        } catch (err) {
+          console.warn('[v1 adapter] Auto-pick failed (using demo images):', err);
+        }
       }
 
 	      // For the interactive app output we allow remote demo images (when used)
