@@ -72,6 +72,13 @@ export default function NonAdminMarketing({ email }: { email: string | null }) {
           </p>
         </div>
       </div>
+      <footer className="w-full max-w-2xl mx-auto flex items-center justify-center gap-4 pt-6 pb-2 text-xs text-gray-500">
+        <Link href="/privacy" className="hover:text-orange-600">Privacy</Link>
+        <span aria-hidden className="text-gray-300">·</span>
+        <Link href="/terms" className="hover:text-orange-600">Terms</Link>
+        <span aria-hidden className="text-gray-300">·</span>
+        <span>© {new Date().getFullYear()} Online Marketing Group, LLC</span>
+      </footer>
     </div>
   );
 }
