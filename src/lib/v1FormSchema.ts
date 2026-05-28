@@ -66,9 +66,10 @@ export function getOptionalFields(archetype: V1FormArchetype): WizardFieldDef[] 
       ];
 
     case 'local-service':
+      // `businessName` (brandName), `streetAddress`/`city`/`state`/`zip`, and
+      // `serviceAreaText` are now first-class required fields collected at
+      // the top of Step 2 \u2014 don't duplicate them in the optional section.
       return [
-        { key: 'businessName', label: 'Business name', type: 'text', placeholder: 'e.g., Greenleaf Cleaning Co.' },
-        { key: 'serviceArea', label: 'Service area', type: 'text', placeholder: 'e.g., Austin + 25 miles' },
         { key: 'hours', label: 'Business hours', type: 'text', placeholder: 'e.g., Mon–Fri 8am–6pm, Sat 9am–1pm' },
         { key: 'licensedInsured', label: 'Licensed & insured?', type: 'checkbox' },
         { key: 'emergencyService', label: 'Emergency / same-day available?', type: 'checkbox' },

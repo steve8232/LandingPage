@@ -51,7 +51,7 @@ export interface EnrichNicheInput {
 export interface EnrichNicheResult {
   /** Clean niche label, e.g. "roofing contractor" — lowercased phrase form. */
   productService: string;
-  /** 8–12 real local areas (neighborhoods, suburbs, ZIPs). */
+  /** 10–15 real local areas (neighborhoods, suburbs, ZIPs). */
   serviceAreas: string[];
   /** Single sentence distilling the business's unique value, ≤ 35 words. */
   uniqueValue: string;
@@ -85,7 +85,7 @@ ${topicsLine}
 Produce a JSON object with these EXACT fields:
 {
   "productService": "Short lowercased noun phrase for what this business sells, 2–5 words, no brand names (e.g. \\"roofing contractor\\", \\"mobile car detailing\\"). If the category is reasonable, paraphrase it; otherwise infer from the description.",
-  "serviceAreas": ["8 to 12 REAL neighborhoods, suburbs, or nearby towns that a business located in the city/borough above would plausibly serve. Use actual local place names you know — never invent. Bias toward areas within ~15 miles. Do NOT include the brand name, do NOT include the state name, do NOT include generic words like 'downtown' alone."],
+  "serviceAreas": ["10 to 15 REAL neighborhoods, suburbs, or nearby towns that a business located in the city/borough above would plausibly serve. Use actual local place names you know — never invent. Bias toward areas within ~15 miles. Do NOT include the brand name, do NOT include the state name, do NOT include generic words like 'downtown' alone."],
   "uniqueValue": "One sentence (max 35 words) describing what makes this business stand out, grounded in the description and category. No superlatives like 'best' or 'top'. Avoid first person.",
   "customerLove": "One sentence (max 30 words) paraphrasing what customers praise, grounded in the review themes if present. If no themes are available, base it on the category alone. Avoid quoting verbatim."
 }
@@ -115,7 +115,7 @@ function parseResult(text: string): EnrichNicheResult | null {
     const s = pickString(a);
     if (!s) continue;
     serviceAreas.push(s.length > 30 ? s.slice(0, 30) : s);
-    if (serviceAreas.length >= 12) break;
+    if (serviceAreas.length >= 15) break;
   }
   return {
     productService: pickString(r.productService),

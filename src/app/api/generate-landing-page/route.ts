@@ -17,6 +17,8 @@ import type {
 import { generateV1Content, V1FormInput } from '../../../../v1/composer/generateV1Content';
 import { enhanceV1Content } from '../../../../v1/composer/enhanceV1Content';
 import { researchCompetitors } from '../../../../v1/composer/researchCompetitors';
+import { expandNeighborhoods } from '../../../../v1/composer/expandNeighborhoods';
+import { parseAreaChips } from '@/lib/chat/normalize';
 import type { TemplateSpec } from '../../../../v1/specs/schema';
 import {
   autoPickForSlots,
@@ -166,13 +168,28 @@ export async function POST(request: NextRequest) {
         const v = ta[k];
         return typeof v === 'string' && v.trim() ? v.trim() : undefined;
       };
-      const brandName = taStr('businessName') || taStr('brandName') || taStr('companyName');
+      // First-class fields promoted onto BusinessInfo (Step 2) take precedence
+      // over the legacy templateAnswers map. The map is still read so older
+      // saved drafts keep working.
+      const biz = formData.business;
+      const brandName =
+        (biz.brandName && biz.brandName.trim()) ||
+        taStr('businessName') ||
+        taStr('brandName') ||
+        taStr('companyName');
       const hours = taStr('hours');
-      const address = taStr('address');
-      const serviceAreaRaw = taStr('serviceArea') || taStr('serviceAreas');
-      const serviceAreas = serviceAreaRaw
-        ? serviceAreaRaw.split(/[,\n]/).map((s) => s.trim()).filter(Boolean)
-        : undefined;
+      const street = (biz.streetAddress || '').trim();
+      const city = (biz.city || '').trim();
+      const state = (biz.state || '').trim();
+      const zip = (biz.zip || '').trim();
+      const cityStateZip = [city, state].filter(Boolean).join(', ')
+        + (zip ? ` ${zip}` : '');
+      const composedAddress = [street, cityStateZip].filter((s) => s.trim()).join(', ');
+      const address = composedAddress || taStr('address');
+      const displayAddress = biz.displayAddress !== false; // default true
+      const serviceAreaText = (biz.serviceAreaText || '').trim() || taStr('serviceArea') || taStr('serviceAreas') || '';
+      const seedAreas = parseAreaChips(serviceAreaText);
+      const serviceAreas = seedAreas.length ? seedAreas : undefined;
       const licensedInsured = ta['licensedInsured'] === true;
       const yearsInBusiness = taStr('yearsInBusiness');
       const licenseLineParts: string[] = [];
@@ -260,6 +277,42 @@ export async function POST(request: NextRequest) {
         overrides = applyV1SectionOmissions(spec, overrides, v1Input.business.templateAnswers);
       }
 
+      // Best-effort AI neighborhood expansion. Runs whenever we have a city
+      // and the spec includes a ServiceAreas section, even if the user typed
+      // only a single blurb or a few seed chips. Failure → keep whatever
+      // chips the user typed (or none) and let the composer's placeholder
+      // filter strip any spec demo data.
+      if (spec && city) {
+        const hasServiceAreasSection = spec.sections.some((s) => s.type === 'ServiceAreas');
+        if (hasServiceAreasSection) {
+          try {
+            const expanded = await expandNeighborhoods({
+              niche: v1Input.business.productService || undefined,
+              city,
+              state,
+              zip: zip || undefined,
+              serviceAreaText: serviceAreaText || undefined,
+              excludeBrand: brandName,
+            });
+            const finalAreas = expanded && expanded.length ? expanded : seedAreas;
+            if (finalAreas.length) {
+              const idx = spec.sections.findIndex((s) => s.type === 'ServiceAreas');
+              const nextSections: (Record<string, unknown> | null)[] = overrides?.sections
+                ? [...overrides.sections]
+                : Array.from({ length: spec.sections.length }, () => null);
+              while (nextSections.length < spec.sections.length) nextSections.push(null);
+              const cur = nextSections[idx];
+              const base = cur && typeof cur === 'object' ? (cur as Record<string, unknown>) : {};
+              nextSections[idx] = { ...base, areas: finalAreas };
+              overrides = { ...(overrides || {}), sections: nextSections };
+              console.log(`[v1 adapter] Service areas resolved: ${finalAreas.length} chips (${expanded ? 'expanded' : 'seed'})`);
+            }
+          } catch (err) {
+            console.warn('[v1 adapter] expandNeighborhoods failed:', err);
+          }
+        }
+      }
+
       // Persist the wizard's destination phone in overrides.meta.businessPhone
       // so it's available to CallRail provisioning + swap.js without a separate
       // round-trip through the form data. Source of truth for both the
@@ -272,16 +325,52 @@ export async function POST(request: NextRequest) {
         };
       }
 
-      // Persist the wizard's optional business name (Step 2 template-specific
-      // field) in overrides.meta.businessName. The CallRail provision route
-      // uses this as the Company name so the account shows the user's actual
-      // business instead of "<template> – <date>".
-      const rawBusinessName = v1Input.business.templateAnswers?.businessName;
-      const wizardBusinessName = typeof rawBusinessName === 'string' ? rawBusinessName.trim() : '';
+      // Persist the wizard's business name in overrides.meta.businessName.
+      // CallRail provision reads this as the Company name. Prefers the new
+      // first-class `brandName` field, falling back to legacy templateAnswers
+      // for projects whose draft was saved before the Step 2 promotion.
+      const rawTaBusinessName = v1Input.business.templateAnswers?.businessName;
+      const taBusinessName = typeof rawTaBusinessName === 'string' ? rawTaBusinessName.trim() : '';
+      const wizardBusinessName = (brandName || taBusinessName || '').trim();
       if (wizardBusinessName) {
         overrides = {
           ...(overrides || {}),
           meta: { ...((overrides && overrides.meta) || {}), businessName: wizardBusinessName },
+        };
+      }
+
+      // Persist the wizard's mailing address, raw service-area text, and
+      // display-address toggle on meta so the regenerate route, CallRail
+      // provisioning, and the composer's address-stripping pass all have a
+      // single source of truth.
+      if (address) {
+        overrides = {
+          ...(overrides || {}),
+          meta: { ...((overrides && overrides.meta) || {}), businessAddress: address },
+        };
+      }
+      if (city) {
+        overrides = {
+          ...(overrides || {}),
+          meta: { ...((overrides && overrides.meta) || {}), city },
+        };
+      }
+      if (state) {
+        overrides = {
+          ...(overrides || {}),
+          meta: { ...((overrides && overrides.meta) || {}), state },
+        };
+      }
+      if (serviceAreaText) {
+        overrides = {
+          ...(overrides || {}),
+          meta: { ...((overrides && overrides.meta) || {}), serviceAreaText },
+        };
+      }
+      if (!displayAddress) {
+        overrides = {
+          ...(overrides || {}),
+          meta: { ...((overrides && overrides.meta) || {}), displayAddress: false },
         };
       }
 

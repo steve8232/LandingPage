@@ -41,6 +41,8 @@ export default function ChatWizardClient() {
   const [selected, setSelected] = useState<V1TemplateEntry | null>(null);
   const [businessName, setBusinessName] = useState('');
   const [location, setLocation] = useState('');
+  const [streetAddress, setStreetAddress] = useState('');
+  const [displayAddress, setDisplayAddress] = useState(true);
   const [phone, setPhone] = useState('');
   const [services, setServices] = useState('');
   const [serviceArea, setServiceArea] = useState('');
@@ -60,8 +62,11 @@ export default function ChatWizardClient() {
   const goBack = () => setStep(STEPS[Math.max(0, stepIndex - 1)]);
 
   const canAdvanceFromTemplate = !!selected;
-  const canAdvanceFromWho = businessName.trim().length > 0 && location.trim().length > 0;
-  const canSubmit = !submitting && selected && businessName.trim() && location.trim()
+  const canAdvanceFromWho =
+    businessName.trim().length > 0 &&
+    location.trim().length > 0 &&
+    streetAddress.trim().length > 0;
+  const canSubmit = !submitting && selected && businessName.trim() && location.trim() && streetAddress.trim()
     && (hoursPreset !== 'custom' || customHours.trim().length > 0);
 
   async function handleSubmit() {
@@ -76,6 +81,8 @@ export default function ChatWizardClient() {
           templateId: selected.id,
           businessName: businessName.trim(),
           location: location.trim(),
+          streetAddress: streetAddress.trim(),
+          displayAddress,
           phone: phone.trim(),
           services: services.trim(),
           serviceArea: serviceArea.trim(),
@@ -133,6 +140,8 @@ export default function ChatWizardClient() {
             selected={selected}
             businessName={businessName} setBusinessName={setBusinessName}
             location={location} setLocation={setLocation}
+            streetAddress={streetAddress} setStreetAddress={setStreetAddress}
+            displayAddress={displayAddress} setDisplayAddress={setDisplayAddress}
             phone={phone} setPhone={setPhone}
             onBack={goBack}
             onNext={goNext}
@@ -260,9 +269,11 @@ function TemplateStep(p: TemplateStepProps) {
 
 interface WhoStepProps {
   selected: V1TemplateEntry | null;
-  businessName: string; setBusinessName: (v: string) => void;
-  location: string;     setLocation: (v: string) => void;
-  phone: string;        setPhone: (v: string) => void;
+  businessName: string;   setBusinessName: (v: string) => void;
+  location: string;       setLocation: (v: string) => void;
+  streetAddress: string;  setStreetAddress: (v: string) => void;
+  displayAddress: boolean; setDisplayAddress: (v: boolean) => void;
+  phone: string;          setPhone: (v: string) => void;
   onBack: () => void;
   onNext: () => void;
   canAdvance: boolean;
@@ -289,6 +300,15 @@ function WhoStep(p: WhoStepProps) {
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
           />
         </Field>
+        <Field icon={<MapPin className="w-4 h-4 text-gray-400" />} label="Street address">
+          <input
+            type="text" required autoComplete="street-address"
+            value={p.streetAddress}
+            onChange={(e) => p.setStreetAddress(e.target.value)}
+            placeholder="e.g. 1200 Main St, Suite 4"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+          />
+        </Field>
         <Field icon={<MapPin className="w-4 h-4 text-gray-400" />} label="City &amp; state">
           <input
             type="text" required
@@ -298,6 +318,24 @@ function WhoStep(p: WhoStepProps) {
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
           />
         </Field>
+        <div className="flex items-start gap-3 pl-1">
+          <input
+            id="chat-display-address"
+            type="checkbox"
+            checked={p.displayAddress}
+            onChange={(e) => p.setDisplayAddress(e.target.checked)}
+            className="mt-1 h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+          />
+          <div>
+            <label htmlFor="chat-display-address" className="text-sm font-medium text-gray-800">
+              Show my street address on the page
+            </label>
+            <p className="text-xs text-gray-500">
+              Off-by-choice: we still keep it on file for research, CallRail, and billing —
+              it just won&apos;t appear in the footer.
+            </p>
+          </div>
+        </div>
         <Field icon={<Phone className="w-4 h-4 text-gray-400" />} label="Phone number" optional>
           <input
             type="tel"

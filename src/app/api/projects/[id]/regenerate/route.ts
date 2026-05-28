@@ -19,6 +19,7 @@ import { generateV1Content, type V1FormInput } from '../../../../../../v1/compos
 import { enhanceV1Content } from '../../../../../../v1/composer/enhanceV1Content';
 import { researchCompetitors } from '../../../../../../v1/composer/researchCompetitors';
 import { enrichNicheFromResearch } from '../../../../../../v1/composer/enrichNicheFromResearch';
+import { expandNeighborhoods } from '../../../../../../v1/composer/expandNeighborhoods';
 import { parseAreaChips } from '@/lib/chat/normalize';
 
 /**
@@ -193,13 +194,14 @@ export async function POST(
   if (enrichmentRes.status === 'rejected') console.warn('[regenerate] Enrichment failed:', enrichmentRes.reason);
   if (competitorRes.status === 'rejected') console.warn('[regenerate] Competitor research failed:', competitorRes.reason);
 
-  // 6) Resolve service areas with a four-step fallback chain:
+  // 6) Resolve service areas with a five-step fallback chain:
   //      reviewer-supplied  >  enrichment pre-pass  >  competitor-derived
   //      >  chat-wizard freeform text (parsed for chip-able items)
+  //      >  on-demand AI expansion seeded by city/region + freeform text
   //    Only the first non-empty source wins so we never blend hallucinated
   //    areas with operator-vetted ones.
   let serviceAreas: string[] = [];
-  let serviceAreasSource: 'reviewer' | 'enrichment' | 'competitors' | 'meta' | 'none' = 'none';
+  let serviceAreasSource: 'reviewer' | 'enrichment' | 'competitors' | 'meta' | 'expand' | 'none' = 'none';
   if (draft.serviceAreas && draft.serviceAreas.length) {
     serviceAreas = draft.serviceAreas.slice(0, 16);
     serviceAreasSource = 'reviewer';
@@ -214,6 +216,24 @@ export async function POST(
     if (metaChips.length) {
       serviceAreas = metaChips;
       serviceAreasSource = 'meta';
+    }
+  }
+  if (!serviceAreas.length && draft.addressCity) {
+    try {
+      const expanded = await expandNeighborhoods({
+        niche: niche || undefined,
+        city: draft.addressCity,
+        state: draft.addressRegion || undefined,
+        zip: draft.addressZip || undefined,
+        serviceAreaText: currentMeta.serviceAreaText || undefined,
+        excludeBrand: brandName,
+      });
+      if (expanded && expanded.length) {
+        serviceAreas = expanded.slice(0, 16);
+        serviceAreasSource = 'expand';
+      }
+    } catch (err) {
+      console.warn('[regenerate] expandNeighborhoods failed:', err);
     }
   }
 
@@ -269,11 +289,20 @@ export async function POST(
     // 7) Merge: AI-generated sections/formOverrides win, but the meta block
     //    we already applied at /research/apply time wins over the AI's meta
     //    (it carries phone, verified business name, etc.). Same shape rule
-    //    as /research/apply's nextOverrides.
+    //    as /research/apply's nextOverrides. City/state from the research
+    //    draft are backfilled when the meta hasn't been seeded with them
+    //    yet so the composer's token-interpolation pass can resolve [City].
+    const cityFallback = draft.addressCity || undefined;
+    const stateFallback = draft.addressRegion || undefined;
     nextOverrides = {
       ...currentOverrides,
       ...overrides,
-      meta: { ...(overrides.meta || {}), ...currentMeta },
+      meta: {
+        ...(overrides.meta || {}),
+        ...(cityFallback && { city: cityFallback }),
+        ...(stateFallback && { state: stateFallback }),
+        ...currentMeta,
+      },
     };
   } catch (err) {
     return NextResponse.json(

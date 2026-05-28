@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  buildBusinessAddress,
   buildChatDescription,
   buildServiceAreasSectionsOverride,
   chatAnswersToKeyword,
@@ -29,6 +30,8 @@ function base(overrides: Partial<ChatAnswers> = {}): ChatAnswers {
     templateId: 'v1-plumber',
     businessName: 'Aqua Pro Plumbing',
     location: 'Chicago, Illinois',
+    streetAddress: '',
+    displayAddress: true,
     phone: '(312) 555-0100',
     services: 'Drain cleaning, water heaters, leak detection',
     serviceArea: 'Within 30 miles of Chicago',
@@ -110,7 +113,7 @@ test('chatAnswersToOverrides — populates meta correctly', () => {
 
 test('chatAnswersToOverrides — empty name yields empty overrides', () => {
   const out = chatAnswersToOverrides(base({
-    businessName: '', phone: '', services: '', serviceArea: '',
+    businessName: '', location: '', phone: '', services: '', serviceArea: '',
     yearsInBusiness: null, hoursPreset: 'custom', customHours: '',
   }));
   assert.deepEqual(out, {});
@@ -199,4 +202,57 @@ test('chatAnswersToOverrides without spec — does not write sections', () => {
   const out = chatAnswersToOverrides(base());
   assert.equal(out.sections, undefined);
   assert.equal(out.meta?.serviceAreaText, 'Within 30 miles of Chicago');
+});
+
+test('buildBusinessAddress — joins street + location with a comma', () => {
+  assert.equal(
+    buildBusinessAddress('123 Main St', 'Chicago, Illinois'),
+    '123 Main St, Chicago, Illinois',
+  );
+});
+
+test('buildBusinessAddress — street only', () => {
+  assert.equal(buildBusinessAddress('123 Main St', ''), '123 Main St');
+});
+
+test('buildBusinessAddress — location only', () => {
+  assert.equal(buildBusinessAddress('', 'Chicago, IL'), 'Chicago, IL');
+});
+
+test('buildBusinessAddress — both empty yields empty', () => {
+  assert.equal(buildBusinessAddress('', ''), '');
+  assert.equal(buildBusinessAddress('   ', '   '), '');
+});
+
+test('chatAnswersToOverrides — persists street + location as businessAddress', () => {
+  const out = chatAnswersToOverrides(base({ streetAddress: '123 Main St' }));
+  assert.equal(out.meta?.businessAddress, '123 Main St, Chicago, Illinois');
+});
+
+test('chatAnswersToOverrides — displayAddress=false is persisted', () => {
+  const out = chatAnswersToOverrides(base({ streetAddress: '123 Main St', displayAddress: false }));
+  assert.equal(out.meta?.displayAddress, false);
+});
+
+test('chatAnswersToOverrides — displayAddress=true is implicit (not persisted)', () => {
+  const out = chatAnswersToOverrides(base({ streetAddress: '123 Main St', displayAddress: true }));
+  assert.equal(out.meta?.displayAddress, undefined);
+});
+
+test('chatAnswersToOverrides — persists city + state split from location', () => {
+  const out = chatAnswersToOverrides(base({ location: 'Austin, TX' }));
+  assert.equal(out.meta?.city, 'Austin');
+  assert.equal(out.meta?.state, 'TX');
+});
+
+test('chatAnswersToOverrides — single-token location persists city only', () => {
+  const out = chatAnswersToOverrides(base({ location: 'Austin' }));
+  assert.equal(out.meta?.city, 'Austin');
+  assert.equal(out.meta?.state, undefined);
+});
+
+test('chatAnswersToOverrides — empty location persists neither city nor state', () => {
+  const out = chatAnswersToOverrides(base({ location: '' }));
+  assert.equal(out.meta?.city, undefined);
+  assert.equal(out.meta?.state, undefined);
 });

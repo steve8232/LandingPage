@@ -100,6 +100,20 @@ export default function Step2BusinessInfo({ data, templateId, onUpdate, onNext, 
       setError('Please fill in the required fields');
       return;
     }
+    // Local-service archetypes need a real business name, mailing address, and
+    // a service-area description so CallRail provisioning, local SEO, and the
+    // ServiceAreas section all have something concrete to work from.
+    if (archetype === 'local-service') {
+      const brand = (data.brandName || '').trim();
+      const street = (data.streetAddress || '').trim();
+      const city = (data.city || '').trim();
+      const state = (data.state || '').trim();
+      const areas = (data.serviceAreaText || '').trim();
+      if (!brand || !street || !city || !state || !areas) {
+        setError('Business name, street address, city, state, and service area are required for local services.');
+        return;
+      }
+    }
     setError('');
     onNext();
   };
@@ -115,6 +129,103 @@ export default function Step2BusinessInfo({ data, templateId, onUpdate, onNext, 
       </div>
 
       <div className="space-y-5">
+        {archetype === 'local-service' && (
+          <div className="space-y-4 rounded-lg border border-orange-200 bg-orange-50/50 p-4">
+            <div>
+              <label className={labelClass}>Business name *</label>
+              <input
+                type="text"
+                value={data.brandName || ''}
+                onChange={(e) => onUpdate({ ...data, brandName: e.target.value })}
+                placeholder="e.g., Greenleaf Cleaning Co."
+                className={inputClass}
+              />
+            </div>
+
+            <div>
+              <label className={labelClass}>Street address *</label>
+              <input
+                type="text"
+                value={data.streetAddress || ''}
+                onChange={(e) => onUpdate({ ...data, streetAddress: e.target.value })}
+                placeholder="e.g., 1200 Main St, Suite 4"
+                className={inputClass}
+                autoComplete="street-address"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-6 gap-3">
+              <div className="sm:col-span-3">
+                <label className={labelClass}>City *</label>
+                <input
+                  type="text"
+                  value={data.city || ''}
+                  onChange={(e) => onUpdate({ ...data, city: e.target.value })}
+                  placeholder="e.g., Austin"
+                  className={inputClass}
+                  autoComplete="address-level2"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className={labelClass}>State *</label>
+                <input
+                  type="text"
+                  value={data.state || ''}
+                  onChange={(e) => onUpdate({ ...data, state: e.target.value })}
+                  placeholder="e.g., TX"
+                  className={inputClass}
+                  autoComplete="address-level1"
+                />
+              </div>
+              <div className="sm:col-span-1">
+                <label className={labelClass}>ZIP</label>
+                <input
+                  type="text"
+                  value={data.zip || ''}
+                  onChange={(e) => onUpdate({ ...data, zip: e.target.value })}
+                  placeholder="78701"
+                  className={inputClass}
+                  autoComplete="postal-code"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className={labelClass}>Service area *</label>
+              <textarea
+                value={data.serviceAreaText || ''}
+                onChange={(e) => onUpdate({ ...data, serviceAreaText: e.target.value })}
+                placeholder="e.g., Downtown Austin, Round Rock, Cedar Park, Pflugerville, Leander, Georgetown"
+                rows={3}
+                className={inputClass + ' resize-none'}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                List neighborhoods or nearby towns (comma-separated), or describe your coverage area —
+                we&apos;ll expand short answers into a longer list of real local areas for the page.
+              </p>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <input
+                id="display-address"
+                type="checkbox"
+                checked={data.displayAddress !== false}
+                onChange={(e) => onUpdate({ ...data, displayAddress: e.target.checked })}
+                className="mt-1 h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+              />
+              <div>
+                <label htmlFor="display-address" className="text-sm font-medium text-gray-800">
+                  Show my street address on the page
+                </label>
+                <p className="text-xs text-gray-500">
+                  Off-by-choice: we still keep the address on file for research, CallRail, and billing —
+                  it just won&apos;t appear in the footer.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div>
           <label className={labelClass}>
             {archetype === 'event'

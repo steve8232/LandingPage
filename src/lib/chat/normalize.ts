@@ -31,6 +31,18 @@ export interface ChatAnswers {
   businessName: string;
   /** Combined "City, State" the user typed — e.g. "Chicago, Illinois". */
   location: string;
+  /**
+   * Optional physical street address. Persisted on meta.businessAddress
+   * (joined with location) so CallRail / research / billing have a real
+   * mailing address. Visibility on the rendered page is gated by
+   * `displayAddress`.
+   */
+  streetAddress: string;
+  /**
+   * When false, the address is stored on meta but omitted from the
+   * rendered Footer. Defaults to true (i.e. show the address).
+   */
+  displayAddress: boolean;
   phone: string;
   /** Free-form list of services — comma- or newline-separated. */
   services: string;
@@ -149,11 +161,28 @@ export function buildServiceAreasSectionsOverride(
 }
 
 /**
+ * Joins street + "City, State" into a single mailing-address string the
+ * Footer can render verbatim. Returns `''` when both parts are empty.
+ */
+export function buildBusinessAddress(
+  streetAddress: string,
+  location: string,
+): string {
+  const street = streetAddress.trim();
+  const loc = location.trim();
+  if (street && loc) return `${street}, ${loc}`;
+  return street || loc;
+}
+
+/**
  * Maps chat answers into the V1ContentOverrides slice that gets persisted
  * to projects.overrides on creation. Writes:
  *   - `meta` — businessName/businessPhone/metaDescription/pageTitle as
  *     before, plus the raw `serviceAreaText` so /regenerate can fall back
- *     to it when DataForSEO finds no service-area data.
+ *     to it when DataForSEO finds no service-area data. `businessAddress`
+ *     is assembled from street + location, and `displayAddress` is only
+ *     persisted when the user explicitly opted out (default `true` is
+ *     left implicit so legacy reads keep working).
  *   - `sections` — a ServiceAreas slot that either renders the user's
  *     chips (if the typed answer is chip-able) or hides the section
  *     entirely (`_omit: true`) so the spec's demo neighborhoods never
@@ -169,12 +198,18 @@ export function chatAnswersToOverrides(
   const phone = answers.phone.trim();
   const description = buildChatDescription(answers);
   const serviceAreaText = answers.serviceArea.trim();
+  const businessAddress = buildBusinessAddress(answers.streetAddress, answers.location);
+  const { city, state } = splitLocation(answers.location);
 
   if (name) meta.businessName = name;
   if (phone) meta.businessPhone = phone;
   if (description) meta.metaDescription = description;
   if (name) meta.pageTitle = name;
   if (serviceAreaText) meta.serviceAreaText = serviceAreaText;
+  if (businessAddress) meta.businessAddress = businessAddress;
+  if (city) meta.city = city;
+  if (state) meta.state = state;
+  if (answers.displayAddress === false) meta.displayAddress = false;
 
   const sections = spec
     ? buildServiceAreasSectionsOverride(spec, serviceAreaText)

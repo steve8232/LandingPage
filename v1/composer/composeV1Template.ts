@@ -108,6 +108,68 @@ function formatBusinessPhone(input: string): string {
   return input;
 }
 
+// Spec demo data uses bracketed placeholders ([Your Neighborhood], [Your Zip])
+// as the last two chips in every ServiceAreas array so reviewers can see what
+// a hand-completed chip set looks like. Strip them before render so the live
+// page never ships those literal strings.
+export function isPlaceholderChip(s: unknown): boolean {
+  if (typeof s !== 'string') return false;
+  return /^\[your\b[^\]]*\]$/i.test(s.trim());
+}
+
+// Token interpolation. Spec copy uses [City], [Neighborhood], and [County]
+// tokens in section footnotes, guarantee descriptions, and footer addresses.
+// We replace them with the wizard's city/state values + the first chip in
+// the resolved areas array. When a token can't be resolved we collapse the
+// surrounding punctuation so the rendered copy doesn't leak dangling commas
+// or "  Metro," fragments.
+export function interpolateTokens(
+  value: string,
+  tokens: { city?: string; neighborhood?: string; county?: string }
+): string {
+  let out = value;
+  out = out.replace(/\[City\]/g, tokens.city || '');
+  out = out.replace(/\[Neighborhood\]/g, tokens.neighborhood || '');
+  out = out.replace(/\[County\]/g, tokens.county || '');
+  // Clean up dangling punctuation left behind by empty token replacements.
+  // Examples: "358 Oakridge Ln,  Metro, 90521" → "358 Oakridge Ln, Metro, 90521"
+  //           "We cover  and surrounding  — just ask." → "We cover and surrounding — just ask."
+  out = out.replace(/[ \t]{2,}/g, ' ');
+  out = out.replace(/,\s*,/g, ',');
+  out = out.replace(/\(\s*\)/g, '');
+  out = out.replace(/\s+([,.;:!?])/g, '$1');
+  return out.trim();
+}
+
+// Walk a section's props (one level deep, plus arrays of strings/objects)
+// and interpolate every string field. Skips internal `_resolved*` keys and
+// numeric/boolean props so we never accidentally corrupt asset URLs or
+// section toggles.
+function interpolateProps(
+  props: Record<string, unknown>,
+  tokens: { city?: string; neighborhood?: string; county?: string }
+): void {
+  for (const key of Object.keys(props)) {
+    if (key.startsWith('_')) continue;
+    const v = props[key];
+    if (typeof v === 'string') {
+      props[key] = interpolateTokens(v, tokens);
+    } else if (Array.isArray(v)) {
+      props[key] = v.map((item) => {
+        if (typeof item === 'string') return interpolateTokens(item, tokens);
+        if (item && typeof item === 'object') {
+          const obj = { ...(item as Record<string, unknown>) };
+          for (const k of Object.keys(obj)) {
+            if (typeof obj[k] === 'string') obj[k] = interpolateTokens(obj[k] as string, tokens);
+          }
+          return obj;
+        }
+        return item;
+      });
+    }
+  }
+}
+
 export function loadThemeCss(themeName: string): string {
   return readCssFile(`v1/themes/${themeName}.css`);
 }
@@ -200,6 +262,15 @@ export interface V1MetaOverrides {
    */
   businessAddress?: string;
   /**
+   * City portion of the business address, persisted alongside
+   * `businessAddress` so the composer's token-interpolation pass can
+   * resolve `[City]` placeholders in spec copy without re-parsing the
+   * full address string.
+   */
+  city?: string;
+  /** State portion of the business address. Persisted for completeness. */
+  state?: string;
+  /**
    * Raw free-form service-area text as the user typed it in the chat
    * wizard ("Within 30 miles of Chicago", or a chip-able list like
    * "Lakemont, Aspen Bluff, …"). Not rendered directly — used as a
@@ -207,6 +278,14 @@ export interface V1MetaOverrides {
    * enrichment, and competitor research all return zero chips.
    */
   serviceAreaText?: string;
+  /**
+   * Visibility flag for the rendered street address. Treated as `true`
+   * when undefined so legacy projects keep showing the spec/wizard
+   * address. When explicitly `false`, the composer strips `props.address`
+   * from every section before render — meta.businessAddress is still
+   * persisted for research/CallRail/billing.
+   */
+  displayAddress?: boolean;
   /**
    * Microsoft Clarity project ID. When set, the standard Clarity tracking
    * snippet is injected into the document `<head>` so visits to the
@@ -457,6 +536,48 @@ export function composeV1Template(
       ) {
         (props as Record<string, unknown>).phone = formatBusinessPhone(overrides.meta.businessPhone);
       }
+
+      // Address resolution — same shape as phone. The wizard's full assembled
+      // address (street, city, state, zip) lives on meta.businessAddress and
+      // takes priority over the spec's demo placeholder. When the project's
+      // displayAddress toggle is false we omit the field entirely so the
+      // Footer's `${address ? <li>… : ''}` branch renders nothing.
+      const propsRec = props as Record<string, unknown>;
+      if (typeof (entry.props as Record<string, unknown>).address === 'string') {
+        const realAddr = typeof overrides?.meta?.businessAddress === 'string'
+          ? overrides.meta.businessAddress.trim()
+          : '';
+        if (overrides?.meta?.displayAddress === false) {
+          propsRec.address = '';
+        } else if (realAddr) {
+          propsRec.address = realAddr;
+        }
+      }
+
+      // Strip demo "[Your Neighborhood]" / "[Your Zip]" chips from any
+      // ServiceAreas-style array so the live page never ships spec
+      // placeholders even when the AI/research/expand chain returned zero
+      // chips and we fell back to spec defaults.
+      if (Array.isArray(propsRec.areas)) {
+        const filtered = (propsRec.areas as unknown[]).filter((a) => !isPlaceholderChip(a));
+        if (filtered.length !== (propsRec.areas as unknown[]).length) {
+          propsRec.areas = filtered;
+        }
+      }
+
+      // Token interpolation — replace [City]/[Neighborhood]/[County] across
+      // every string prop and array-of-string prop. `neighborhood` is seeded
+      // from the first resolved area chip so footnotes like
+      // "Don't see your [Neighborhood]?" pick up a real local name.
+      const metaCity = typeof overrides?.meta?.city === 'string' ? overrides.meta.city.trim() : '';
+      const firstArea = Array.isArray(propsRec.areas) && (propsRec.areas as unknown[]).length
+        ? String((propsRec.areas as unknown[])[0])
+        : '';
+      interpolateProps(propsRec, {
+        city: metaCity,
+        neighborhood: firstArea,
+        county: '',
+      });
 
       // Resolve image asset references in props (using resolved URLs)
       // HeroSplit

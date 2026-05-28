@@ -21,6 +21,38 @@ export interface BusinessInfo {
   customerLove: string;
   images: string[]; // base64 encoded images
   logo?: string; // base64 encoded logo image
+  /**
+   * Promoted from `templateAnswers.businessName`. The legal/display business
+   * name that appears in the wordmark, page title, and CallRail Company
+   * field. Required by Step 2 for the local-service archetype.
+   */
+  brandName?: string;
+  /**
+   * Physical street address. Required by Step 2 for the local-service
+   * archetype. Stored in meta.businessAddress (assembled with city/state/zip)
+   * for research, CallRail, and billing regardless of `displayAddress`.
+   */
+  streetAddress?: string;
+  /** City portion of the business address. Required for local-service. */
+  city?: string;
+  /** State portion of the business address (two-letter or full). */
+  state?: string;
+  /** ZIP / postal code of the business address. Optional. */
+  zip?: string;
+  /**
+   * Free-form service-area text the user typed in Step 2 — comma-separated
+   * neighborhoods/cities or a single blurb like "Within 30 miles of Austin".
+   * Used as the seed for AI neighborhood expansion and as a chip fallback
+   * when expansion fails. Required for local-service.
+   */
+  serviceAreaText?: string;
+  /**
+   * When false, the street address is omitted from the rendered Footer (and
+   * any other section whose props declare an `address` field) on the live
+   * page. The address is still persisted in meta.businessAddress for
+   * research/billing. Defaults to true.
+   */
+  displayAddress?: boolean;
   /** Optional template/category-specific answers (kept flexible on purpose). */
   templateAnswers?: TemplateAnswers;
 }

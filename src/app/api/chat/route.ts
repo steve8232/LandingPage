@@ -18,9 +18,11 @@ import {
 import {
   chatAnswersToKeyword,
   chatAnswersToOverrides,
+  splitLocation,
   type ChatAnswers,
   type ChatHoursPreset,
 } from '@/lib/chat/normalize';
+import { expandNeighborhoods } from '../../../../v1/composer/expandNeighborhoods';
 
 /**
  * POST /api/chat — Lane C "describe my business" submission.
@@ -40,6 +42,8 @@ interface RequestBody {
   templateId?: string;
   businessName?: string;
   location?: string;
+  streetAddress?: string;
+  displayAddress?: boolean;
   phone?: string;
   services?: string;
   serviceArea?: string;
@@ -66,13 +70,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  const templateId   = typeof body.templateId === 'string' ? body.templateId : '';
-  const businessName = typeof body.businessName === 'string' ? body.businessName.trim() : '';
-  const location     = typeof body.location === 'string' ? body.location.trim() : '';
-  const phone        = typeof body.phone === 'string' ? body.phone.trim() : '';
-  const services     = typeof body.services === 'string' ? body.services.trim() : '';
-  const serviceArea  = typeof body.serviceArea === 'string' ? body.serviceArea.trim() : '';
-  const customHours  = typeof body.customHours === 'string' ? body.customHours.trim() : '';
+  const templateId     = typeof body.templateId === 'string' ? body.templateId : '';
+  const businessName   = typeof body.businessName === 'string' ? body.businessName.trim() : '';
+  const location       = typeof body.location === 'string' ? body.location.trim() : '';
+  const streetAddress  = typeof body.streetAddress === 'string' ? body.streetAddress.trim() : '';
+  const displayAddress = body.displayAddress !== false; // default true
+  const phone          = typeof body.phone === 'string' ? body.phone.trim() : '';
+  const services       = typeof body.services === 'string' ? body.services.trim() : '';
+  const serviceArea    = typeof body.serviceArea === 'string' ? body.serviceArea.trim() : '';
+  const customHours    = typeof body.customHours === 'string' ? body.customHours.trim() : '';
   const yearsRaw     = body.yearsInBusiness;
   const yearsInBusiness =
     typeof yearsRaw === 'number' && Number.isFinite(yearsRaw) && yearsRaw > 0
@@ -94,12 +100,45 @@ export async function POST(request: NextRequest) {
   }
 
   const answers: ChatAnswers = {
-    templateId, businessName, location, phone, services, serviceArea,
+    templateId, businessName, location, streetAddress, displayAddress,
+    phone, services, serviceArea,
     yearsInBusiness, hoursPreset, customHours,
   };
   const spec = getV1Spec(templateId);
-  const overrides = chatAnswersToOverrides(answers, spec);
+  let overrides = chatAnswersToOverrides(answers, spec);
   const slug = makeSlug(businessName);
+
+  // Best-effort AI neighborhood expansion. When the user's typed service-area
+  // is freeform (chatAnswersToOverrides has already emitted `_omit:true` for
+  // the ServiceAreas slot), this is the chance to replace that with grounded
+  // chips. Failure → leave the seed overrides alone.
+  if (spec) {
+    const hasServiceAreasSection = spec.sections.some((s) => s.type === 'ServiceAreas');
+    const { city, state } = splitLocation(location);
+    if (hasServiceAreasSection && city) {
+      try {
+        const expanded = await expandNeighborhoods({
+          niche: services || undefined,
+          city,
+          state: state || undefined,
+          serviceAreaText: serviceArea || undefined,
+          excludeBrand: businessName,
+        });
+        if (expanded && expanded.length) {
+          const idx = spec.sections.findIndex((s) => s.type === 'ServiceAreas');
+          const nextSections: (Record<string, unknown> | null)[] = overrides.sections
+            ? [...overrides.sections]
+            : Array.from({ length: spec.sections.length }, () => null);
+          while (nextSections.length < spec.sections.length) nextSections.push(null);
+          nextSections[idx] = { areas: expanded };
+          overrides = { ...overrides, sections: nextSections };
+          console.log(`[api/chat.POST] expanded ${expanded.length} service areas`);
+        }
+      } catch (err) {
+        console.warn('[api/chat.POST] expandNeighborhoods failed (non-fatal):', err);
+      }
+    }
+  }
 
   // 1) Create the project. RLS-respecting client; admin gate above grants
   //    projects_admin_insert.
