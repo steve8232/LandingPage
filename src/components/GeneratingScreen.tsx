@@ -4,17 +4,26 @@ import { Sparkles } from 'lucide-react';
 
 interface GeneratingScreenProps {
   stage: string;
+  /**
+   * Optional ordered list of stage labels driving the dot-checklist. When
+   * omitted, the generic manual-lane labels are used. The URL-onboarding
+   * lane passes its own list so the dots tick through correctly against
+   * the pipeline-specific labels written to projects.build_stage.
+   */
+  stages?: readonly string[];
 }
 
-export default function GeneratingScreen({ stage }: GeneratingScreenProps) {
-  const stages = [
-    'Analyzing your inputs...',
-    'Crafting compelling headlines...',
-    'Generating testimonials...',
-    'Building your landing page...',
-    'Applying styles and polish...',
-    'Almost done...'
-  ];
+const DEFAULT_STAGES = [
+  'Analyzing your inputs...',
+  'Crafting compelling headlines...',
+  'Generating testimonials...',
+  'Building your landing page...',
+  'Applying styles and polish...',
+  'Almost done...',
+];
+
+export default function GeneratingScreen({ stage, stages: stagesProp }: GeneratingScreenProps) {
+  const stages = stagesProp ?? DEFAULT_STAGES;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">

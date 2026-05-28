@@ -23,7 +23,6 @@ interface StatusRow {
   build_status: BuildStatus | null;
   build_stage: string | null;
   build_error: string | null;
-  title: string;
 }
 
 export default async function BuildingPage({
@@ -39,15 +38,16 @@ export default async function BuildingPage({
 
   const { data: row } = await supabase
     .from('projects')
-    .select('id, build_status, build_stage, build_error, title')
+    .select('id, build_status, build_stage, build_error')
     .eq('id', id)
     .maybeSingle<StatusRow>();
   if (!row) redirect('/dashboard');
 
-  // Already finished — bounce straight to the project so the user never
-  // sees the spinner on a refresh.
+  // Already finished — bounce straight into the editor so the user never
+  // sees the spinner on a refresh. The home page handles the project=<id>
+  // query param by loading the project and dropping into PreviewDownload.
   if ((row.build_status ?? 'ready') === 'ready') {
-    redirect(`/dashboard/projects/${id}`);
+    redirect(`/?project=${id}`);
   }
 
   return (
@@ -56,7 +56,6 @@ export default async function BuildingPage({
       initialStatus={(row.build_status ?? 'building') as BuildStatus}
       initialStage={row.build_stage}
       initialError={row.build_error}
-      initialTitle={row.title}
     />
   );
 }

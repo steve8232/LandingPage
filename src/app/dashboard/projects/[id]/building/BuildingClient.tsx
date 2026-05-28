@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { AlertCircle, ArrowLeft, Sparkles } from 'lucide-react';
+import { AlertCircle, ArrowLeft } from 'lucide-react';
+import GeneratingScreen from '@/components/GeneratingScreen';
 import type { BuildStatus } from '@/lib/projects/types';
 
 /**
@@ -15,9 +16,9 @@ const POLL_INTERVAL_MS = 2000;
 
 /**
  * Ordered list of stage labels the runUrlOnboardPipeline helper writes
- * to projects.build_stage. The UI uses this to render a checklist with
- * "done / current / queued" treatments instead of just a single line.
- * Keep in sync with STAGE in runUrlOnboardPipeline.ts.
+ * to projects.build_stage. Passed to GeneratingScreen so the dot
+ * checklist ticks through correctly. Keep in sync with STAGE in
+ * runUrlOnboardPipeline.ts.
  */
 const STAGES = [
   'Scanning your site',
@@ -34,7 +35,6 @@ interface BuildingClientProps {
   initialStatus: BuildStatus;
   initialStage: string | null;
   initialError: string | null;
-  initialTitle: string;
 }
 
 interface StatusResponse {
@@ -50,13 +50,11 @@ export default function BuildingClient({
   initialStatus,
   initialStage,
   initialError,
-  initialTitle,
 }: BuildingClientProps) {
   const router = useRouter();
   const [status, setStatus] = useState<BuildStatus>(initialStatus);
   const [stage, setStage] = useState<string | null>(initialStage);
   const [errorMsg, setErrorMsg] = useState<string | null>(initialError);
-  const [title, setTitle] = useState<string>(initialTitle);
   const pollHandle = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchOnce = useCallback(async (): Promise<StatusResponse | null> => {
@@ -80,9 +78,8 @@ export default function BuildingClient({
         setStatus(json.status);
         setStage(json.stage);
         setErrorMsg(json.error);
-        setTitle(json.title);
         if (json.status === 'ready') {
-          router.replace(`/dashboard/projects/${projectId}`);
+          router.replace(`/?project=${projectId}`);
           return;
         }
         if (json.status === 'failed') {
@@ -94,7 +91,7 @@ export default function BuildingClient({
     if (status === 'building') {
       tick();
     } else if (status === 'ready') {
-      router.replace(`/dashboard/projects/${projectId}`);
+      router.replace(`/?project=${projectId}`);
     }
     return () => {
       cancelled = true;
@@ -140,55 +137,5 @@ export default function BuildingClient({
     );
   }
 
-  const currentIdx = stage ? STAGES.indexOf(stage as (typeof STAGES)[number]) : -1;
-  const visualStage = stage || STAGES[0];
-
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center">
-        <div className="relative inline-flex items-center justify-center w-20 h-20 mb-6">
-          <div className="absolute inset-0 bg-blue-600 rounded-full animate-ping opacity-25" />
-          <div className="relative w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center">
-            <Sparkles className="w-8 h-8 text-white animate-pulse" />
-          </div>
-        </div>
-
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">
-          Building your landing page
-        </h2>
-        <p className="text-sm text-gray-500 mb-6 truncate">{title}</p>
-        <p className="text-gray-600 mb-8">{visualStage}…</p>
-
-        <div className="space-y-3 text-left">
-          {STAGES.map((s, i) => {
-            const done = currentIdx > i;
-            const current = currentIdx === i || (currentIdx < 0 && i === 0);
-            return (
-              <div
-                key={s}
-                className={`flex items-center gap-3 text-sm ${
-                  done || current ? 'text-gray-900' : 'text-gray-400'
-                }`}
-              >
-                <div
-                  className={`w-2 h-2 rounded-full ${
-                    done
-                      ? 'bg-green-500'
-                      : current
-                      ? 'bg-blue-500 animate-pulse'
-                      : 'bg-gray-300'
-                  }`}
-                />
-                {s}
-              </div>
-            );
-          })}
-        </div>
-
-        <p className="text-xs text-gray-500 mt-8">
-          This typically takes 30–60 seconds. Feel free to keep this tab open.
-        </p>
-      </div>
-    </div>
-  );
+  return <GeneratingScreen stage={stage || STAGES[0]} stages={STAGES} />;
 }
