@@ -200,6 +200,14 @@ export interface V1MetaOverrides {
    */
   businessAddress?: string;
   /**
+   * Raw free-form service-area text as the user typed it in the chat
+   * wizard ("Within 30 miles of Chicago", or a chip-able list like
+   * "Lakemont, Aspen Bluff, …"). Not rendered directly — used as a
+   * fallback source by /api/projects/[id]/regenerate when DataForSEO,
+   * enrichment, and competitor research all return zero chips.
+   */
+  serviceAreaText?: string;
+  /**
    * Microsoft Clarity project ID. When set, the standard Clarity tracking
    * snippet is injected into the document `<head>` so visits to the
    * rendered page are recorded for session replay and heatmaps. See

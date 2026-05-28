@@ -19,6 +19,7 @@ import { generateV1Content, type V1FormInput } from '../../../../../../v1/compos
 import { enhanceV1Content } from '../../../../../../v1/composer/enhanceV1Content';
 import { researchCompetitors } from '../../../../../../v1/composer/researchCompetitors';
 import { enrichNicheFromResearch } from '../../../../../../v1/composer/enrichNicheFromResearch';
+import { parseAreaChips } from '@/lib/chat/normalize';
 
 /**
  * POST /api/projects/[id]/regenerate
@@ -192,12 +193,13 @@ export async function POST(
   if (enrichmentRes.status === 'rejected') console.warn('[regenerate] Enrichment failed:', enrichmentRes.reason);
   if (competitorRes.status === 'rejected') console.warn('[regenerate] Competitor research failed:', competitorRes.reason);
 
-  // 6) Resolve service areas with a three-step fallback chain:
+  // 6) Resolve service areas with a four-step fallback chain:
   //      reviewer-supplied  >  enrichment pre-pass  >  competitor-derived
+  //      >  chat-wizard freeform text (parsed for chip-able items)
   //    Only the first non-empty source wins so we never blend hallucinated
   //    areas with operator-vetted ones.
   let serviceAreas: string[] = [];
-  let serviceAreasSource: 'reviewer' | 'enrichment' | 'competitors' | 'none' = 'none';
+  let serviceAreasSource: 'reviewer' | 'enrichment' | 'competitors' | 'meta' | 'none' = 'none';
   if (draft.serviceAreas && draft.serviceAreas.length) {
     serviceAreas = draft.serviceAreas.slice(0, 16);
     serviceAreasSource = 'reviewer';
@@ -207,6 +209,12 @@ export async function POST(
   } else if (competitor && competitor.serviceAreas.length) {
     serviceAreas = competitor.serviceAreas.slice(0, 16);
     serviceAreasSource = 'competitors';
+  } else if (currentMeta.serviceAreaText) {
+    const metaChips = parseAreaChips(currentMeta.serviceAreaText);
+    if (metaChips.length) {
+      serviceAreas = metaChips;
+      serviceAreasSource = 'meta';
+    }
   }
 
   // Soft-grounding fields: only fall back to enrichment when the primary

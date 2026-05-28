@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { isV1Template } from '../../../../v1/specs';
+import { isV1Template, getV1Spec } from '../../../../v1/specs';
+import { buildServiceAreasSectionsOverride } from '@/lib/chat/normalize';
 import {
   makeSlug,
   rowToDTO,
@@ -141,7 +142,14 @@ export async function POST(request: NextRequest) {
     .filter(Boolean)
     .join(', ');
   if (addressLine) meta.businessAddress = addressLine;
-  const overrides = Object.keys(meta).length ? { meta } : {};
+  // Hide the spec's demo neighborhood chips at creation time. The research
+  // wizard doesn't collect service-area chips from the user, so we always
+  // omit until /regenerate populates real chips from DataForSEO + enrichment.
+  const spec = getV1Spec(templateId);
+  const sections = spec ? buildServiceAreasSectionsOverride(spec, '') : undefined;
+  const overrides: { meta?: Record<string, string>; sections?: (Record<string, unknown> | null)[] } = {};
+  if (Object.keys(meta).length) overrides.meta = meta;
+  if (sections) overrides.sections = sections;
   const { data: project, error: projectErr } = await supabase
     .from('projects')
     .insert({

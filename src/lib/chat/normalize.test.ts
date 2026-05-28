@@ -3,12 +3,26 @@ import assert from 'node:assert/strict';
 
 import {
   buildChatDescription,
+  buildServiceAreasSectionsOverride,
   chatAnswersToKeyword,
   chatAnswersToOverrides,
   formatChatHours,
+  parseAreaChips,
   splitLocation,
   type ChatAnswers,
 } from './normalize';
+import type { TemplateSpec } from '../../../v1/specs/schema';
+
+function fakeSpec(types: string[]): TemplateSpec {
+  return {
+    templateId: 'v1-fake',
+    name: 'Fake',
+    niche: 'fake',
+    sections: types.map((type) => ({ type, props: {} })),
+    form: [],
+    assets: {},
+  } as unknown as TemplateSpec;
+}
 
 function base(overrides: Partial<ChatAnswers> = {}): ChatAnswers {
   return {
@@ -109,4 +123,80 @@ test('chatAnswersToOverrides — phone only', () => {
   }));
   assert.equal(out.meta?.businessPhone, '(312) 555-0100');
   assert.equal(out.meta?.businessName, undefined);
+});
+
+test('parseAreaChips — comma-separated list', () => {
+  assert.deepEqual(
+    parseAreaChips('Lakemont, Aspen Bluff, Brookhaven'),
+    ['Lakemont', 'Aspen Bluff', 'Brookhaven'],
+  );
+});
+
+test('parseAreaChips — newline-separated list', () => {
+  assert.deepEqual(parseAreaChips('Lakemont\nAspen Bluff'), ['Lakemont', 'Aspen Bluff']);
+});
+
+test('parseAreaChips — single blurb returns empty', () => {
+  assert.deepEqual(parseAreaChips('Within 30 miles of Chicago'), []);
+});
+
+test('parseAreaChips — empty / whitespace returns empty', () => {
+  assert.deepEqual(parseAreaChips(''), []);
+  assert.deepEqual(parseAreaChips('   '), []);
+});
+
+test('parseAreaChips — caps at 16 chips', () => {
+  const input = Array.from({ length: 25 }, (_, i) => `Area${i}`).join(', ');
+  assert.equal(parseAreaChips(input).length, 16);
+});
+
+test('buildServiceAreasSectionsOverride — emits _omit when input is freeform', () => {
+  const spec = fakeSpec(['HeroLeadForm', 'ServiceAreas', 'Footer']);
+  const sections = buildServiceAreasSectionsOverride(spec, 'Within 30 miles of Chicago');
+  assert.ok(sections);
+  assert.equal(sections!.length, 3);
+  assert.equal(sections![0], null);
+  assert.deepEqual(sections![1], { _omit: true });
+  assert.equal(sections![2], null);
+});
+
+test('buildServiceAreasSectionsOverride — emits areas when input is chip-able', () => {
+  const spec = fakeSpec(['HeroLeadForm', 'ServiceAreas']);
+  const sections = buildServiceAreasSectionsOverride(spec, 'Lakemont, Aspen Bluff, Brookhaven');
+  assert.deepEqual(sections![1], { areas: ['Lakemont', 'Aspen Bluff', 'Brookhaven'] });
+});
+
+test('buildServiceAreasSectionsOverride — returns undefined when spec lacks ServiceAreas', () => {
+  const spec = fakeSpec(['HeroLeadForm', 'Footer']);
+  const sections = buildServiceAreasSectionsOverride(spec, 'Lakemont, Aspen Bluff');
+  assert.equal(sections, undefined);
+});
+
+test('chatAnswersToOverrides with spec — hides ServiceAreas on freeform input', () => {
+  const spec = fakeSpec(['HeroLeadForm', 'ServiceAreas', 'Footer']);
+  const out = chatAnswersToOverrides(base(), spec);
+  assert.ok(out.sections);
+  assert.equal(out.sections!.length, 3);
+  assert.deepEqual(out.sections![1], { _omit: true });
+  assert.equal(out.meta?.serviceAreaText, 'Within 30 miles of Chicago');
+});
+
+test('chatAnswersToOverrides with spec — chip-able input renders areas', () => {
+  const spec = fakeSpec(['ServiceAreas']);
+  const out = chatAnswersToOverrides(base({ serviceArea: 'Lakemont, Aspen Bluff, Brookhaven' }), spec);
+  assert.deepEqual(out.sections![0], { areas: ['Lakemont', 'Aspen Bluff', 'Brookhaven'] });
+  assert.equal(out.meta?.serviceAreaText, 'Lakemont, Aspen Bluff, Brookhaven');
+});
+
+test('chatAnswersToOverrides with spec — empty serviceArea still omits the section', () => {
+  const spec = fakeSpec(['HeroLeadForm', 'ServiceAreas']);
+  const out = chatAnswersToOverrides(base({ serviceArea: '' }), spec);
+  assert.deepEqual(out.sections![1], { _omit: true });
+  assert.equal(out.meta?.serviceAreaText, undefined);
+});
+
+test('chatAnswersToOverrides without spec — does not write sections', () => {
+  const out = chatAnswersToOverrides(base());
+  assert.equal(out.sections, undefined);
+  assert.equal(out.meta?.serviceAreaText, 'Within 30 miles of Chicago');
 });

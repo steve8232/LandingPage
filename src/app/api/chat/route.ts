@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { isV1Template } from '../../../../v1/specs';
+import { isV1Template, getV1Spec } from '../../../../v1/specs';
 import {
   makeSlug,
   rowToDTO,
@@ -97,7 +97,8 @@ export async function POST(request: NextRequest) {
     templateId, businessName, location, phone, services, serviceArea,
     yearsInBusiness, hoursPreset, customHours,
   };
-  const overrides = chatAnswersToOverrides(answers);
+  const spec = getV1Spec(templateId);
+  const overrides = chatAnswersToOverrides(answers, spec);
   const slug = makeSlug(businessName);
 
   // 1) Create the project. RLS-respecting client; admin gate above grants

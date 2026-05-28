@@ -21,6 +21,7 @@
  */
 
 import type { V1ContentOverrides } from '../../../v1/composer/composeV1Template';
+import type { TemplateSpec } from '../../../v1/specs/schema';
 
 /** Preset keys for the chat wizard's "hours" question. */
 export type ChatHoursPreset = 'standard' | 'twentyfour-seven' | 'weekends' | 'custom';
@@ -108,23 +109,79 @@ export function buildChatDescription(answers: ChatAnswers): string {
 }
 
 /**
- * Maps chat answers into the V1ContentOverrides slice that gets persisted
- * to projects.overrides on creation. Only fields with a confirmed
- * V1MetaOverrides home are written — the rest of the chat data (services,
- * serviceArea, hours, years) is condensed into metaDescription so it's
- * not lost, and the editor can pull it apart into section-level fields
- * once a future enhancement pass lands.
+ * Splits a free-form service-area string into chip-ready entries. Returns
+ * `[]` when the input doesn't yield at least two clean items — single
+ * blurbs like "Within 30 miles of Chicago" aren't worth rendering as a
+ * one-chip section.
  */
-export function chatAnswersToOverrides(answers: ChatAnswers): V1ContentOverrides {
+export function parseAreaChips(text: string): string[] {
+  if (!text || !text.trim()) return [];
+  const parts = text
+    .split(/[,\n;]/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return parts.length >= 2 ? parts.slice(0, 16) : [];
+}
+
+/**
+ * Builds the `sections` override slice that hides or populates the
+ * ServiceAreas section based on the user's typed `serviceArea` answer.
+ * Returns `undefined` when the spec doesn't include a ServiceAreas section
+ * (so the caller can skip writing `sections` entirely).
+ *
+ * Behavior:
+ *   - ≥ 2 chip-able items → `{ areas: chips }` so the section renders
+ *     with real data from the first revision.
+ *   - Otherwise → `{ _omit: true }` so the composer drops the section
+ *     instead of leaking the spec's demo neighborhoods + literal
+ *     "[Your Neighborhood]" / "[Your Zip]" placeholders.
+ */
+export function buildServiceAreasSectionsOverride(
+  spec: TemplateSpec,
+  serviceAreaText: string,
+): (Record<string, unknown> | null)[] | undefined {
+  const index = spec.sections.findIndex((s) => s.type === 'ServiceAreas');
+  if (index < 0) return undefined;
+  const chips = parseAreaChips(serviceAreaText);
+  const sections: (Record<string, unknown> | null)[] = spec.sections.map(() => null);
+  sections[index] = chips.length ? { areas: chips } : { _omit: true };
+  return sections;
+}
+
+/**
+ * Maps chat answers into the V1ContentOverrides slice that gets persisted
+ * to projects.overrides on creation. Writes:
+ *   - `meta` — businessName/businessPhone/metaDescription/pageTitle as
+ *     before, plus the raw `serviceAreaText` so /regenerate can fall back
+ *     to it when DataForSEO finds no service-area data.
+ *   - `sections` — a ServiceAreas slot that either renders the user's
+ *     chips (if the typed answer is chip-able) or hides the section
+ *     entirely (`_omit: true`) so the spec's demo neighborhoods never
+ *     leak through. Skipped when `spec` is omitted (legacy callers /
+ *     unit tests).
+ */
+export function chatAnswersToOverrides(
+  answers: ChatAnswers,
+  spec?: TemplateSpec,
+): V1ContentOverrides {
   const meta: NonNullable<V1ContentOverrides['meta']> = {};
   const name = answers.businessName.trim();
   const phone = answers.phone.trim();
   const description = buildChatDescription(answers);
+  const serviceAreaText = answers.serviceArea.trim();
 
   if (name) meta.businessName = name;
   if (phone) meta.businessPhone = phone;
   if (description) meta.metaDescription = description;
   if (name) meta.pageTitle = name;
+  if (serviceAreaText) meta.serviceAreaText = serviceAreaText;
 
-  return Object.keys(meta).length ? { meta } : {};
+  const sections = spec
+    ? buildServiceAreasSectionsOverride(spec, serviceAreaText)
+    : undefined;
+
+  const out: V1ContentOverrides = {};
+  if (Object.keys(meta).length) out.meta = meta;
+  if (sections) out.sections = sections;
+  return out;
 }
