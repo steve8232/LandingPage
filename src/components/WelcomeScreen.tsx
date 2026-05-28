@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Sparkles, Zap, Download, LayoutGrid, LogIn, Search, MessageCircle, ArrowRight } from 'lucide-react';
+import { Sparkles, Zap, Download, LayoutGrid, LogIn, Search, MessageCircle, Globe, ArrowRight } from 'lucide-react';
 import { useSession } from '@/lib/useSession';
 import { useRole } from '@/lib/useRole';
 
@@ -122,11 +122,18 @@ interface ChooserCardSpec {
   icon: typeof Search;
   title: string;
   body: string;
-  accent: 'orange' | 'amber' | 'slate';
+  accent: 'orange' | 'amber' | 'slate' | 'sky';
 }
 
 function StartChooser({ onStartTemplate }: { onStartTemplate: () => void }) {
   const cards: ChooserCardSpec[] = [
+    {
+      href: '/dashboard/new/url',
+      icon: Globe,
+      title: 'Already have a site?',
+      body: "Drop your URL and we'll scan it, pick a template, and draft your page.",
+      accent: 'sky',
+    },
     {
       href: '/dashboard/new/research',
       icon: Search,
@@ -151,7 +158,7 @@ function StartChooser({ onStartTemplate }: { onStartTemplate: () => void }) {
   ];
 
   return (
-    <div className="grid md:grid-cols-3 gap-3 text-left">
+    <div className="grid md:grid-cols-2 gap-3 text-left">
       {cards.map((c) => (
         <ChooserCard key={c.title} {...c} />
       ))}
@@ -163,6 +170,7 @@ const ACCENTS: Record<ChooserCardSpec['accent'], { iconWrap: string; iconText: s
   orange: { iconWrap: 'bg-orange-100', iconText: 'text-orange-600', ring: 'hover:border-orange-300' },
   amber:  { iconWrap: 'bg-amber-100',  iconText: 'text-amber-700',  ring: 'hover:border-amber-300' },
   slate:  { iconWrap: 'bg-gray-100',   iconText: 'text-gray-700',   ring: 'hover:border-gray-300' },
+  sky:    { iconWrap: 'bg-sky-100',    iconText: 'text-sky-700',    ring: 'hover:border-sky-300' },
 };
 
 function ChooserCard({ href, onClick, icon: Icon, title, body, accent }: ChooserCardSpec) {

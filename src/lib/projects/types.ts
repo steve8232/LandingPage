@@ -13,8 +13,11 @@ export type CustomDomainStatus =
   | 'ready'
   | 'error';
 
-/** How the project was created — see supabase/migrations/0016_creation_method.sql. */
-export type CreationMethod = 'manual' | 'research' | 'chat';
+/**
+ * How the project was created — see supabase/migrations/0016_creation_method.sql
+ * (manual/research/chat) and 0019_creation_method_url.sql (url).
+ */
+export type CreationMethod = 'manual' | 'research' | 'chat' | 'url';
 
 export interface ProjectRow {
   id: string;
