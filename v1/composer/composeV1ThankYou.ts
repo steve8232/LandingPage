@@ -43,6 +43,14 @@ export interface ComposeV1ThankYouOptions {
    * on /thank-you (e.g. shared URLs).
    */
   callrailScriptUrl?: string;
+  /**
+   * When true, the consent banner is rendered and tracking scripts are
+   * emitted in deferred (`<script type="text/plain">`) form. Mirrors
+   * ComposeV1Options.isPublished — set only by the deploy route. The
+   * banner shares the same `sp_consent_v1` localStorage key as the
+   * landing page so a visitor who accepted there isn't re-prompted here.
+   */
+  isPublished?: boolean;
 }
 
 export function composeV1ThankYou(
@@ -94,6 +102,7 @@ export function composeV1ThankYou(
 
   const pixelUrl = typeof options?.pixelUrl === 'string' ? options.pixelUrl : '';
   const callrailScriptUrl = typeof options?.callrailScriptUrl === 'string' ? options.callrailScriptUrl : '';
+  const isPublished = options?.isPublished === true;
 
   const html = buildV1Document(
     spec,
@@ -104,7 +113,9 @@ export function composeV1ThankYou(
     thankYouMeta,
     undefined,
     pixelUrl || undefined,
-    callrailScriptUrl || undefined
+    callrailScriptUrl || undefined,
+    undefined, // no heatmap on thank-you
+    isPublished
   );
 
   return { html, templateId };

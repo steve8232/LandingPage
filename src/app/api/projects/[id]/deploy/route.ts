@@ -161,6 +161,7 @@ export async function POST(
       pixelUrl: pixelInstallUrl || undefined,
       callrailScriptUrl,
       heatmapTrackerUrl,
+      isPublished: true,
     });
     indexHtml = composed.html;
     // Thank-you page is always shipped; copy falls back to niche defaults
@@ -168,6 +169,7 @@ export async function POST(
     thankYouHtml = composeV1ThankYou(project.template_id, project.overrides, {
       pixelUrl: pixelInstallUrl || undefined,
       callrailScriptUrl,
+      isPublished: true,
     }).html;
   } catch (err) {
     return NextResponse.json(

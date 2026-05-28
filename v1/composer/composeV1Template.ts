@@ -312,6 +312,17 @@ export interface ComposeV1Options {
    * preview/editor mode.
    */
   heatmapTrackerUrl?: string;
+  /**
+   * When true, render the visitor-facing cookie consent banner and emit
+   * every tracking script (AudienceLab, CallRail, heatmap, Clarity, gtag)
+   * as inert `<script type="text/plain" data-consent-category="…">` blocks
+   * that the banner promotes to live scripts based on the visitor's
+   * per-category selections. Set only by the deploy route — the editor
+   * iframe, template gallery, and /api/v1/compose leave this unset so no
+   * banner appears and the existing (pre-consent) script behavior is
+   * preserved for those non-visitor surfaces.
+   */
+  isPublished?: boolean;
 }
 
 export function composeV1Template(
@@ -328,6 +339,7 @@ export function composeV1Template(
   const pixelUrl = typeof options?.pixelUrl === 'string' ? options.pixelUrl : '';
   const callrailScriptUrl = typeof options?.callrailScriptUrl === 'string' ? options.callrailScriptUrl : '';
   const heatmapTrackerUrl = typeof options?.heatmapTrackerUrl === 'string' ? options.heatmapTrackerUrl : '';
+  const isPublished = options?.isPublished === true;
 
   // 1. Load spec
   const spec = getV1Spec(templateId);
@@ -567,7 +579,8 @@ export function composeV1Template(
     submitUrl ? { submitUrl, redirectTo } : undefined,
     pixelUrl || undefined,
     callrailScriptUrl || undefined,
-    heatmapTrackerUrl || undefined
+    heatmapTrackerUrl || undefined,
+    isPublished
   );
 
   return { html, templateId };
@@ -612,7 +625,8 @@ export function buildV1Document(
   formConfig?: BuildV1DocumentFormConfig,
   pixelUrl?: string,
   callrailScriptUrl?: string,
-  heatmapTrackerUrl?: string
+  heatmapTrackerUrl?: string,
+  isPublished?: boolean
 ): string {
   const pageTitle = meta?.pageTitle || spec.metadata.name;
   const metaDesc = meta?.metaDescription || spec.metadata.description;
@@ -624,17 +638,38 @@ export function buildV1Document(
     ? renderLeadFormScript(formConfig.redirectTo)
     : '';
 
+  // ── Tracking scripts ──────────────────────────────────────────────────
+  // When `isPublished === true`, every tracking script is emitted as an
+  // inert `<script type="text/plain" data-consent-category="…">` block so
+  // it does NOT execute until the cookie consent banner promotes it via
+  // the visitor's per-category selection. The banner's runtime walks
+  // `[data-consent-category]` and rewrites matching blocks to live
+  // `<script>` nodes on accept.
+  //
+  // When `isPublished` is undefined (preview iframe, template gallery,
+  // /api/v1/compose), the existing pre-consent behavior is preserved so
+  // operators can still verify wiring in the editor without a banner.
+  //
+  // Category mapping (see renderCookieConsentBanner):
+  //   identity  — AudienceLab (third-party data matching pixel)
+  //   analytics — CallRail, Clarity, SparkPage heatmap (measurement)
+  //   marketing — gtag.js (Google Ads / GA4 retargeting & conversions)
+
   // AudienceLab pixel tag — single `<script async>` in <head> per AudienceLab
   // guidance. Only emitted on published deploys (deploy route opts in).
   const pixelTag = pixelUrl
-    ? `\n  <script async src="${escapeAttr(pixelUrl)}"></script>`
+    ? (isPublished
+        ? `\n  <script type="text/plain" data-consent-category="identity" data-src="${escapeAttr(pixelUrl)}" data-async></script>`
+        : `\n  <script async src="${escapeAttr(pixelUrl)}"></script>`)
     : '';
 
   // CallRail swap.js — same shape as the pixel tag. The script reads its
   // company config from the URL itself and replaces matching swap_targets
   // on the page with the project's tracking number.
   const callrailTag = callrailScriptUrl
-    ? `\n  <script async src="${escapeAttr(callrailScriptUrl)}"></script>`
+    ? (isPublished
+        ? `\n  <script type="text/plain" data-consent-category="analytics" data-src="${escapeAttr(callrailScriptUrl)}" data-async></script>`
+        : `\n  <script async src="${escapeAttr(callrailScriptUrl)}"></script>`)
     : '';
 
   // Microsoft Clarity tracking snippet — emitted when meta.clarityProjectId
@@ -645,8 +680,11 @@ export function buildV1Document(
   const clarityId = typeof meta?.clarityProjectId === 'string'
     ? meta.clarityProjectId.trim()
     : '';
+  const clarityBody = `(function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);})(window,document,"clarity","script",${JSON.stringify(clarityId).replace(/</g, '\\u003c')});`;
   const clarityTag = clarityId
-    ? `\n  <script>\n  (function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);})(window,document,"clarity","script",${JSON.stringify(clarityId).replace(/</g, '\\u003c')});\n  </script>`
+    ? (isPublished
+        ? `\n  <script type="text/plain" data-consent-category="analytics">${clarityBody}</script>`
+        : `\n  <script>\n  ${clarityBody}\n  </script>`)
     : '';
 
   // Google tag (gtag.js) — emitted when meta.googleTagId is set. Loads
@@ -656,8 +694,12 @@ export function buildV1Document(
   const googleTagId = typeof meta?.googleTagId === 'string'
     ? meta.googleTagId.trim()
     : '';
+  const googleTagLoaderSrc = `https://www.googletagmanager.com/gtag/js?id=${escapeAttr(googleTagId)}`;
+  const googleTagBody = `window.dataLayer = window.dataLayer || []; function gtag(){dataLayer.push(arguments);} gtag('js', new Date()); gtag('config', ${JSON.stringify(googleTagId).replace(/</g, '\\u003c')});`;
   const googleTag = googleTagId
-    ? `\n  <!-- Google tag (gtag.js) -->\n  <script async src="https://www.googletagmanager.com/gtag/js?id=${escapeAttr(googleTagId)}"></script>\n  <script>\n    window.dataLayer = window.dataLayer || [];\n    function gtag(){dataLayer.push(arguments);}\n    gtag('js', new Date());\n    gtag('config', ${JSON.stringify(googleTagId).replace(/</g, '\\u003c')});\n  </script>`
+    ? (isPublished
+        ? `\n  <!-- Google tag (gtag.js) -->\n  <script type="text/plain" data-consent-category="marketing" data-src="${googleTagLoaderSrc}" data-async></script>\n  <script type="text/plain" data-consent-category="marketing">${googleTagBody}</script>`
+        : `\n  <!-- Google tag (gtag.js) -->\n  <script async src="${googleTagLoaderSrc}"></script>\n  <script>\n    ${googleTagBody}\n  </script>`)
     : '';
 
   // SparkPage first-party heatmap tracker — emitted when the deploy route
@@ -666,8 +708,15 @@ export function buildV1Document(
   // `?p=<projectId>` query string baked into the src URL.
   const heatmapOptOut = meta?.heatmapEnabled === false;
   const heatmapTag = heatmapTrackerUrl && !heatmapOptOut
-    ? `\n  <script async src="${escapeAttr(heatmapTrackerUrl)}"></script>`
+    ? (isPublished
+        ? `\n  <script type="text/plain" data-consent-category="analytics" data-src="${escapeAttr(heatmapTrackerUrl)}" data-async></script>`
+        : `\n  <script async src="${escapeAttr(heatmapTrackerUrl)}"></script>`)
     : '';
+
+  // Cookie consent banner — visitor-facing UI + runtime that promotes
+  // deferred tracking scripts based on per-category consent. Injected just
+  // before </body> only on published pages.
+  const consentBanner = isPublished ? renderCookieConsentBanner() : '';
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -699,7 +748,7 @@ body.v1-edit-mode [data-v1-field-key][contenteditable="true"] { outline: 2px sol
   <div class="v1-page">
 ${sectionsHtml}
 ${attributionHtml}
-  </div>${submitScript}
+  </div>${submitScript}${consentBanner}
 </body>
 </html>`;
 }
@@ -763,6 +812,353 @@ function renderLeadFormScript(redirectTo: string): string {
     for (var i = 0; i < forms.length; i++) handle(forms[i]);
   })();
   </script>`;
+}
+
+// ── Cookie consent banner ───────────────────────────────────────────────────
+
+/** Static markup for the consent banner card + privacy policy modal. */
+function renderCookieConsentMarkup(): string {
+  return `
+<div id="ck-wrap" role="dialog" aria-live="polite" aria-label="Cookie consent">
+  <div class="ck-card">
+    <div class="ck-top">
+      <div class="ck-icon">
+        <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="32" cy="32" r="28" stroke="currentColor" stroke-width="3.5"/>
+          <circle cx="22" cy="26" r="3.5" fill="currentColor"/>
+          <circle cx="38" cy="20" r="2.5" fill="currentColor"/>
+          <circle cx="42" cy="36" r="3.5" fill="currentColor"/>
+          <circle cx="26" cy="42" r="2.5" fill="currentColor"/>
+          <circle cx="34" cy="48" r="2" fill="currentColor"/>
+          <circle cx="20" cy="38" r="2" fill="currentColor"/>
+        </svg>
+      </div>
+      <p class="ck-text">This site uses cookies to improve your experience. See our <button class="ck-link" id="btn-open-policy" type="button">Privacy Policy</button>.</p>
+      <button class="ck-close" id="btn-close" type="button" aria-label="Close">&#x2715;</button>
+    </div>
+    <div id="ck-customize">
+      <div class="ck-cust-header">
+        <span class="ck-cust-label">Preferences</span>
+        <button id="btn-sel-all" type="button">Deselect All</button>
+      </div>
+      <div class="ck-option active" data-id="marketing">
+        <div class="ck-option-text">
+          <div class="ck-option-label">Marketing</div>
+          <div class="ck-option-desc">Ads &amp; third-party data matching.</div>
+        </div>
+        <button class="ck-toggle on" data-id="marketing" type="button" aria-label="Toggle Marketing"></button>
+      </div>
+      <div class="ck-option active" data-id="analytics">
+        <div class="ck-option-text">
+          <div class="ck-option-label">Analytics</div>
+          <div class="ck-option-desc">Site usage &amp; performance tracking.</div>
+        </div>
+        <button class="ck-toggle on" data-id="analytics" type="button" aria-label="Toggle Analytics"></button>
+      </div>
+      <div class="ck-option active" data-id="identity">
+        <div class="ck-option-text">
+          <div class="ck-option-label">Identifiable</div>
+          <div class="ck-option-desc">Cross-session &amp; device identification.</div>
+        </div>
+        <button class="ck-toggle on" data-id="identity" type="button" aria-label="Toggle Identifiable"></button>
+      </div>
+      <div class="ck-save-row">
+        <button id="btn-decline-all" type="button">Decline All</button>
+        <button id="btn-save" type="button">Save Preferences</button>
+      </div>
+    </div>
+    <div class="ck-actions">
+      <button class="btn-ck" id="btn-customize" type="button">Customize Cookies</button>
+      <div class="btn-ck-divider"></div>
+      <button class="btn-ck" id="btn-ok" type="button">Ok</button>
+    </div>
+  </div>
+</div>
+<div id="policy-overlay">
+  <div class="policy-modal">
+    <div class="policy-header">
+      <div class="policy-header-title">Privacy Policy</div>
+      <button id="policy-close" type="button" aria-label="Close">&#x2715;</button>
+    </div>
+    <div class="policy-body">
+      <p class="policy-lede">When you visit this site, we collect data about your visit and use it — along with information matched from third-party and publicly available sources — to understand your interests and deliver relevant marketing. You control what we collect and can opt out at any time.</p>
+      <div class="policy-section"><div class="policy-section-title">What We Collect</div><div class="policy-section-text">Pages viewed, time on site, traffic source, and device/browser signals. All tied to a session cookie ID.</div></div>
+      <div class="policy-section"><div class="policy-section-title">How We Use It</div><div class="policy-section-text">To measure performance, build audience segments, and power retargeting across platforms and ad channels.</div></div>
+      <div class="policy-section"><div class="policy-section-title">Third-Party Data Matching</div><div class="policy-section-text">Your visit data may be matched against third-party records — including public databases and cross-site profiles — to build a fuller picture for targeted advertising. Partners are contractually bound to applicable privacy laws.</div></div>
+      <div class="policy-section"><div class="policy-section-title">Marketing Cookies</div><div class="policy-section-text">Enable retargeted advertising by tracking activity across our site and other platforms.</div></div>
+      <div class="policy-section"><div class="policy-section-title">Analytics Cookies</div><div class="policy-section-text">Measure how visitors use our site in aggregate to improve content and performance.</div></div>
+      <div class="policy-section"><div class="policy-section-title">Identifiable Cookies</div><div class="policy-section-text">With consent, may link your visit data to contact information or profiles held by our data partners.</div></div>
+      <div class="policy-section"><div class="policy-section-title">Your Right to Opt Out</div><div class="policy-section-text">Decline all cookies or pick only the categories you're comfortable with using the Customize Cookies option. Withdrawing consent stops new collection but doesn't affect data already collected.</div></div>
+      <div class="policy-section"><div class="policy-section-title">Retention</div><div class="policy-section-text">Cookie data is kept for up to 90 days. Third-party partner retention is governed by their own policies.</div></div>
+    </div>
+    <div class="policy-footer"><button id="btn-policy-close" type="button">Got It</button></div>
+  </div>
+</div>`;
+}
+
+/**
+ * Visitor-facing cookie consent banner injected into published pages only
+ * (gated by ComposeV1Options.isPublished). Categorized per-tracker consent:
+ *
+ *   marketing — gtag.js (Google Ads / GA4 retargeting + conversions)
+ *   analytics — CallRail swap.js, Microsoft Clarity, SparkPage heatmap
+ *   identity  — AudienceLab pixel
+ *
+ * Runtime contract:
+ *   - On load, read `localStorage['sp_consent_v1']`. If present, immediately
+ *     promote every `<script type="text/plain" data-consent-category="X">`
+ *     whose category was accepted, and do NOT show the banner.
+ *   - If no prior record, reveal the banner and listen for the visitor's
+ *     choice (Ok / Customize / Decline All / Close).
+ *   - "Close" (X) and scroll BOTH dismiss the banner without recording a
+ *     choice — trackers stay inert and the banner returns next visit.
+ *     This is the conservative GDPR-safe interpretation; no implicit accept.
+ *   - On accept (full or partial), persist the per-category selections and
+ *     promote matching deferred scripts in place.
+ *
+ * CSS scoping: the original snippet's global `*` reset and `body` rule
+ * would bleed into the published page. Both are replaced with selectors
+ * scoped to `#ck-wrap` and `#policy-overlay` only.
+ */
+function renderCookieConsentBanner(): string {
+  return `
+<!-- SparkPage cookie consent banner -->
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap');
+#ck-wrap, #ck-wrap *, #ck-wrap *::before, #ck-wrap *::after,
+#policy-overlay, #policy-overlay *, #policy-overlay *::before, #policy-overlay *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+#ck-wrap {
+  position: fixed;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2147483000;
+  width: calc(100% - 24px);
+  max-width: 380px;
+  display: none;
+  font-family: 'DM Sans', sans-serif;
+}
+#ck-wrap.is-visible { display: block; animation: ckUp 0.32s cubic-bezier(0.16,1,0.3,1) forwards; }
+#ck-wrap.closing { animation: ckDown 0.28s cubic-bezier(0.7,0,0.84,0) forwards; }
+@keyframes ckUp { from { opacity:0; transform:translateX(-50%) translateY(14px); } to { opacity:1; transform:translateX(-50%) translateY(0); } }
+@keyframes ckDown { from { opacity:1; transform:translateX(-50%) translateY(0); } to { opacity:0; transform:translateX(-50%) translateY(10px); } }
+
+#ck-wrap .ck-card { background: #1a1a1a; border-radius: 10px; box-shadow: 0 6px 28px rgba(0,0,0,0.5); overflow: hidden; }
+#ck-wrap .ck-top { display: flex; align-items: flex-start; gap: 10px; padding: 12px 12px 0; }
+#ck-wrap .ck-icon svg { width: 28px; height: 28px; color: rgba(255,255,255,0.45); display: block; flex-shrink: 0; }
+#ck-wrap .ck-text { flex: 1; font-size: 11.5px; color: rgba(255,255,255,0.8); line-height: 1.55; }
+#ck-wrap .ck-link { background: none; border: none; padding: 0; color: #F26722; font-size: 11.5px; font-family: 'DM Sans', sans-serif; cursor: pointer; }
+#ck-wrap .ck-link:hover { text-decoration: underline; }
+#ck-wrap .ck-close { background: none; border: none; color: rgba(255,255,255,0.4); font-size: 14px; cursor: pointer; padding: 0 0 0 4px; line-height: 1; flex-shrink: 0; transition: color 0.15s; font-family: 'DM Sans', sans-serif; }
+#ck-wrap .ck-close:hover { color: #fff; }
+
+#ck-customize { display: none; padding: 10px 12px 0; border-top: 1px solid rgba(255,255,255,0.07); margin-top: 10px; }
+#ck-customize.open { display: block; }
+#ck-wrap .ck-cust-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+#ck-wrap .ck-cust-label { font-size: 9.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: rgba(255,255,255,0.25); }
+#btn-sel-all { background: none; border: none; color: #F26722; font-size: 10.5px; font-family: 'DM Sans', sans-serif; font-weight: 500; cursor: pointer; padding: 0; }
+#btn-sel-all:hover { opacity: 0.8; }
+
+#ck-wrap .ck-option { display: flex; align-items: center; gap: 10px; padding: 7px 9px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 7px; margin-bottom: 5px; transition: border-color 0.2s, background 0.2s; }
+#ck-wrap .ck-option.active { border-color: rgba(242,103,34,0.28); background: rgba(242,103,34,0.05); }
+#ck-wrap .ck-option-text { flex: 1; min-width: 0; }
+#ck-wrap .ck-option-label { font-size: 11.5px; font-weight: 600; color: #fff; }
+#ck-wrap .ck-option-desc { font-size: 10px; color: rgba(255,255,255,0.32); line-height: 1.4; }
+#ck-wrap .ck-toggle { width: 28px; height: 16px; border-radius: 100px; border: none; background: rgba(255,255,255,0.1); position: relative; cursor: pointer; flex-shrink: 0; padding: 0; transition: background 0.2s; }
+#ck-wrap .ck-toggle.on { background: #F26722; }
+#ck-wrap .ck-toggle::after { content: ''; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.3); transition: transform 0.18s cubic-bezier(0.34,1.56,0.64,1); }
+#ck-wrap .ck-toggle.on::after { transform: translateX(12px); }
+
+#ck-wrap .ck-save-row { display: flex; justify-content: flex-end; gap: 8px; padding: 8px 0 10px; align-items: center; }
+#btn-decline-all { background: none; border: none; color: rgba(255,255,255,0.25); font-family: 'DM Sans', sans-serif; font-size: 10.5px; cursor: pointer; padding: 0; transition: color 0.15s; }
+#btn-decline-all:hover { color: rgba(255,255,255,0.55); }
+#btn-save { padding: 5px 14px; background: #F26722; color: #fff; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 700; border: none; border-radius: 6px; cursor: pointer; transition: opacity 0.15s; }
+#btn-save:hover { opacity: 0.85; }
+
+#ck-wrap .ck-actions { display: flex; border-top: 1px solid rgba(255,255,255,0.08); margin-top: 10px; }
+#ck-wrap .btn-ck { flex: 1; padding: 11px 8px; background: transparent; color: #fff; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 700; border: none; cursor: pointer; transition: background 0.15s; letter-spacing: 0.01em; }
+#ck-wrap .btn-ck:hover { background: rgba(255,255,255,0.05); }
+#ck-wrap .btn-ck-divider { width: 1px; background: rgba(255,255,255,0.08); flex-shrink: 0; }
+
+#policy-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); z-index: 2147483001; align-items: center; justify-content: center; padding: 16px; font-family: 'DM Sans', sans-serif; }
+#policy-overlay.open { display: flex; animation: ckFadeIn 0.2s ease forwards; }
+@keyframes ckFadeIn { from{opacity:0} to{opacity:1} }
+#policy-overlay .policy-modal { background: #fff; border-radius: 12px; width: 100%; max-width: 420px; max-height: 85vh; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,0.4); animation: ckPopIn 0.28s cubic-bezier(0.16,1,0.3,1) forwards; }
+@keyframes ckPopIn { from { opacity:0; transform:scale(0.96) translateY(10px); } to { opacity:1; transform:scale(1) translateY(0); } }
+#policy-overlay .policy-header { background: #1a1a1a; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+#policy-overlay .policy-header-title { font-size: 13px; font-weight: 700; color: #fff; font-family: 'DM Sans', sans-serif; }
+#policy-close { background: rgba(255,255,255,0.1); border: none; width: 24px; height: 24px; border-radius: 5px; cursor: pointer; color: rgba(255,255,255,0.5); display: flex; align-items: center; justify-content: center; font-size: 12px; font-family: 'DM Sans', sans-serif; transition: background 0.15s; }
+#policy-close:hover { background: rgba(255,255,255,0.2); color:#fff; }
+#policy-overlay .policy-body { overflow-y: auto; padding: 16px 18px 6px; flex: 1; }
+#policy-overlay .policy-lede { font-size: 12px; color: #374151; line-height: 1.65; margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid #f0f0f0; font-family: 'DM Sans', sans-serif; }
+#policy-overlay .policy-section { margin-bottom: 13px; }
+#policy-overlay .policy-section-title { font-size: 11.5px; font-weight: 700; color: #111; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; font-family: 'DM Sans', sans-serif; }
+#policy-overlay .policy-section-title::before { content: ''; display: inline-block; width: 3px; height: 11px; background: #F26722; border-radius: 2px; flex-shrink: 0; }
+#policy-overlay .policy-section-text { font-size: 11.5px; color: #6b7280; line-height: 1.65; font-family: 'DM Sans', sans-serif; }
+#policy-overlay .policy-footer { padding: 12px 18px; border-top: 1px solid #f0f0f0; flex-shrink: 0; display: flex; justify-content: flex-end; }
+#btn-policy-close { padding: 7px 16px; background: #1a1a1a; color: #fff; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 700; border: none; border-radius: 7px; cursor: pointer; transition: opacity 0.15s; }
+#btn-policy-close:hover { opacity: 0.78; }
+</style>` + renderCookieConsentMarkup() + renderCookieConsentScript();
+}
+
+/**
+ * Inlined runtime for the consent banner. Vanilla JS, no dependencies.
+ *
+ * On page load:
+ *   1. Read prior selection from localStorage['sp_consent_v1'].
+ *   2. If present, promote every deferred `<script type="text/plain"
+ *      data-consent-category="X">` whose category was accepted. Banner
+ *      stays hidden.
+ *   3. If absent, reveal the banner and wire button + scroll handlers.
+ *      Scroll dismisses without recording — banner returns next visit.
+ */
+function renderCookieConsentScript(): string {
+  return `
+<script>
+(function(){
+  var STORAGE_KEY = 'sp_consent_v1';
+  var CATEGORIES = ['marketing','analytics','identity'];
+
+  function readPrior() {
+    try {
+      var raw = window.localStorage.getItem(STORAGE_KEY);
+      if (!raw) return null;
+      var parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object') return null;
+      return parsed;
+    } catch (e) { return null; }
+  }
+
+  function writeChoice(sel) {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        marketing: !!sel.marketing,
+        analytics: !!sel.analytics,
+        identity: !!sel.identity,
+        recordedAt: Date.now()
+      }));
+    } catch (e) {}
+  }
+
+  function promote(sel) {
+    var nodes = document.querySelectorAll('script[type="text/plain"][data-consent-category]');
+    for (var i = 0; i < nodes.length; i++) {
+      var node = nodes[i];
+      var cat = node.getAttribute('data-consent-category');
+      if (!sel[cat]) continue;
+      var live = document.createElement('script');
+      var src = node.getAttribute('data-src');
+      if (src) {
+        live.src = src;
+        if (node.hasAttribute('data-async')) live.async = true;
+      } else {
+        live.text = node.textContent || '';
+      }
+      if (node.parentNode) node.parentNode.replaceChild(live, node);
+    }
+  }
+
+  var prior = readPrior();
+  if (prior) {
+    // Returning visitor — apply prior choices, don't show banner.
+    promote(prior);
+    return;
+  }
+
+  // First visit — wire up the banner.
+  var selected = { marketing: true, analytics: true, identity: true };
+  var wrap = document.getElementById('ck-wrap');
+  if (!wrap) return;
+
+  function dismiss(closeOnly) {
+    wrap.classList.add('closing');
+    setTimeout(function(){ wrap.style.display = 'none'; }, 320);
+    window.removeEventListener('scroll', onScrollDismiss);
+    if (!closeOnly) writeChoice(selected);
+  }
+
+  function commit() {
+    promote(selected);
+    dismiss(false);
+  }
+
+  function onScrollDismiss() {
+    // Scroll = banner closes WITHOUT recording consent. Trackers stay
+    // inert; banner returns next visit. Conservative, GDPR-safe default.
+    dismiss(true);
+  }
+
+  function updateToggles() {
+    for (var i = 0; i < CATEGORIES.length; i++) {
+      var id = CATEGORIES[i];
+      var btn = document.querySelector('.ck-toggle[data-id="' + id + '"]');
+      var row = document.querySelector('.ck-option[data-id="' + id + '"]');
+      if (!btn || !row) continue;
+      if (selected[id]) { btn.classList.add('on'); row.classList.add('active'); }
+      else { btn.classList.remove('on'); row.classList.remove('active'); }
+    }
+    var allOn = CATEGORIES.every(function(k){ return selected[k]; });
+    var selAll = document.getElementById('btn-sel-all');
+    if (selAll) selAll.textContent = allOn ? 'Deselect All' : 'Select All';
+  }
+
+  var toggles = document.querySelectorAll('.ck-toggle');
+  for (var t = 0; t < toggles.length; t++) {
+    (function(btn){
+      btn.addEventListener('click', function(){
+        var id = btn.dataset.id;
+        selected[id] = !selected[id];
+        updateToggles();
+      });
+    })(toggles[t]);
+  }
+
+  var selAllBtn = document.getElementById('btn-sel-all');
+  if (selAllBtn) selAllBtn.addEventListener('click', function(){
+    var allOn = CATEGORIES.every(function(k){ return selected[k]; });
+    for (var i = 0; i < CATEGORIES.length; i++) selected[CATEGORIES[i]] = !allOn;
+    updateToggles();
+  });
+
+  var customizeBtn = document.getElementById('btn-customize');
+  if (customizeBtn) customizeBtn.addEventListener('click', function(){
+    var panel = document.getElementById('ck-customize');
+    if (panel) panel.classList.toggle('open');
+  });
+
+  var okBtn = document.getElementById('btn-ok');
+  if (okBtn) okBtn.addEventListener('click', commit);
+
+  var saveBtn = document.getElementById('btn-save');
+  if (saveBtn) saveBtn.addEventListener('click', commit);
+
+  var declineBtn = document.getElementById('btn-decline-all');
+  if (declineBtn) declineBtn.addEventListener('click', function(){
+    for (var i = 0; i < CATEGORIES.length; i++) selected[CATEGORIES[i]] = false;
+    updateToggles();
+    setTimeout(commit, 100);
+  });
+
+  var closeBtn = document.getElementById('btn-close');
+  if (closeBtn) closeBtn.addEventListener('click', function(){ dismiss(true); });
+
+  // Privacy policy modal wiring.
+  var openPolicy = document.getElementById('btn-open-policy');
+  var overlay = document.getElementById('policy-overlay');
+  var closePolicy1 = document.getElementById('policy-close');
+  var closePolicy2 = document.getElementById('btn-policy-close');
+  if (openPolicy && overlay) openPolicy.addEventListener('click', function(){ overlay.classList.add('open'); });
+  if (closePolicy1 && overlay) closePolicy1.addEventListener('click', function(){ overlay.classList.remove('open'); });
+  if (closePolicy2 && overlay) closePolicy2.addEventListener('click', function(){ overlay.classList.remove('open'); });
+  if (overlay) overlay.addEventListener('click', function(e){ if (e.target === overlay) overlay.classList.remove('open'); });
+
+  // Reveal banner + register scroll dismiss.
+  wrap.classList.add('is-visible');
+  window.addEventListener('scroll', onScrollDismiss, { passive: true, once: true });
+})();
+</script>
+<!-- /SparkPage cookie consent banner -->`;
 }
 
 // ── Attribution footer ──────────────────────────────────────────────────────
