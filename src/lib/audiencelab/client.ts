@@ -13,6 +13,31 @@
 
 const AUDIENCELAB_API = 'https://api.audiencelab.io';
 
+/**
+ * Thrown when AudienceLab returns a 5xx. Separated from generic `Error` so
+ * dashboard logs make it obvious the failure is upstream and not a bug on
+ * our side — the same call can be safely retried by the user.
+ */
+export class AudienceLabUpstreamError extends Error {
+  readonly status: number;
+  constructor(status: number, message: string) {
+    super(`AudienceLab upstream ${status}: ${message}`);
+    this.name = 'AudienceLabUpstreamError';
+    this.status = status;
+  }
+}
+
+/**
+ * Test seam: lets the test runner shorten backoff sleeps so the retry path
+ * can be exercised without burning real wall time. Production code never
+ * touches this.
+ */
+let sleepImpl: (ms: number) => Promise<void> = (ms) =>
+  new Promise((r) => setTimeout(r, ms));
+export function __setSleepForTests(fn: (ms: number) => Promise<void>): void {
+  sleepImpl = fn;
+}
+
 export interface CreatePixelInput {
   /** Display name for the pixel inside AudienceLab. */
   websiteName: string;
@@ -138,9 +163,37 @@ export interface LookupPixelV4Input {
 }
 
 /**
+ * GET with retry-on-5xx. AudienceLab's V4 endpoint occasionally returns a
+ * transient `500 Internal server error` that clears within a couple of
+ * seconds; we'd rather absorb the blip than show an empty dashboard. 4xx
+ * responses are returned immediately so callers can surface vendor errors
+ * (auth, not-found) without delay.
+ *
+ * Backoff: 500ms, then 1000ms — at most 3 total attempts, ~1.5s added
+ * latency in the worst case.
+ */
+async function fetchWithRetry(url: string, init: RequestInit): Promise<Response> {
+  const maxAttempts = 3;
+  let lastRes: Response | null = null;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const res = await fetch(url, init);
+    if (res.ok || res.status < 500) return res;
+    lastRes = res;
+    if (attempt < maxAttempts - 1) {
+      await sleepImpl(500 * 2 ** attempt);
+    }
+  }
+  return lastRes as Response;
+}
+
+/**
  * GET /pixels/{id}/v4 — paginated list of resolved pixel events with full
  * V4 resolution payload (name, email, address, demographics, employer, etc).
  * Returns at most `pageSize` events per call (max 1000, default 100).
+ *
+ * 5xx responses are retried with backoff; if all attempts fail, throws an
+ * `AudienceLabUpstreamError` so callers can distinguish vendor outages from
+ * client-side bugs in logs.
  */
 export async function lookupPixelV4(
   input: LookupPixelV4Input
@@ -152,7 +205,7 @@ export async function lookupPixelV4(
   const qs = params.toString();
   const url = `${AUDIENCELAB_API}/pixels/${encodeURIComponent(input.pixelId)}/v4${qs ? `?${qs}` : ''}`;
 
-  const res = await fetch(url, {
+  const res = await fetchWithRetry(url, {
     method: 'GET',
     headers: {
       'X-Api-Key': apiKey,
@@ -164,7 +217,11 @@ export async function lookupPixelV4(
   });
 
   if (!res.ok) {
-    throw new Error(`lookupPixelV4 failed: ${await parseError(res)}`);
+    const msg = await parseError(res);
+    if (res.status >= 500) {
+      throw new AudienceLabUpstreamError(res.status, msg);
+    }
+    throw new Error(`lookupPixelV4 failed: ${msg}`);
   }
   const data = (await res.json()) as V4LookupResponse;
   return {

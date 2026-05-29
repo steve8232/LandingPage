@@ -106,13 +106,16 @@ export default async function ProjectDashboardPage({
   const leads = ((leadsRes.data ?? []) as LeadRow[]).map(leadRowToDTO);
 
   // Identified visitors — only fetched when the project has a pixel id and the
-  // AudienceLab env is wired. Errors are logged and swallowed.
+  // AudienceLab env is wired. Errors are logged and swallowed. pageSize is
+  // capped at 100 to keep retries cheap and avoid tripping vendor-side
+  // payload-size flakes; we dedupe by edid downstream so coverage on the
+  // typical dashboard render is unchanged.
   let identifiedVisitors: IdentifiedVisitorDTO[] = [];
   if (projectRow.audiencelab_pixel_id && process.env.AUDIENCELAB_API_KEY) {
     try {
       const data = await lookupPixelV4({
         pixelId: projectRow.audiencelab_pixel_id,
-        pageSize: 500,
+        pageSize: 100,
       });
       identifiedVisitors = normalizeIdentifiedVisitors({
         projectId: projectRow.id,
