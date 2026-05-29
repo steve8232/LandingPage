@@ -70,6 +70,48 @@ function initialTitle(url: string): string {
   }
 }
 
+/**
+ * Preflight reachability check. Spawning the heavy after() pipeline only
+ * to find the URL is dead lands the user on the /building screen with a
+ * `failed` status — fine, but a slow, frustrating way to discover a typo.
+ * A 5s HEAD up front lets us return 400 immediately so the wizard's
+ * inline error renders, and the user can edit the URL without losing the
+ * form.
+ *
+ * Many sites legitimately reject HEAD (405) or block obvious bot UAs;
+ * we treat anything that gets a status line at all (incl. 4xx) as
+ * "reachable enough" — Firecrawl will deal with 404s. Only a network
+ * error, abort, or 5xx response trips the gate.
+ */
+async function preflightUrl(
+  url: string,
+): Promise<{ ok: true } | { ok: false, reason: string }> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
+  try {
+    const res = await fetch(url, {
+      method: 'HEAD',
+      redirect: 'follow',
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'SparkPage-Preflight/1.0 (+https://sparkpage.us)',
+        Accept: '*/*',
+      },
+    });
+    if (res.status >= 500) {
+      return { ok: false, reason: `Site returned ${res.status} — try again in a minute, or pick a different URL.` };
+    }
+    return { ok: true };
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      return { ok: false, reason: "The site didn't respond within 5 seconds. Double-check the URL or try again later." };
+    }
+    return { ok: false, reason: "We couldn't reach that URL. Double-check the spelling and that the site is online." };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export async function POST(request: NextRequest) {
   const gate = await requireAdmin();
   if (!gate.ok) {
@@ -88,6 +130,12 @@ export async function POST(request: NextRequest) {
   const url = normalizeUrl(typeof body.url === 'string' ? body.url : '');
   if (!url) {
     return NextResponse.json({ error: 'A valid URL is required' }, { status: 400 });
+  }
+
+  // Preflight before spending the after() budget on a dead URL.
+  const preflight = await preflightUrl(url);
+  if (!preflight.ok) {
+    return NextResponse.json({ error: preflight.reason }, { status: 400 });
   }
 
   // Insert the project shell. The placeholder template_id is rewritten

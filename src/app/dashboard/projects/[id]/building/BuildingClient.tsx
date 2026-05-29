@@ -3,7 +3,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { AlertCircle, ArrowLeft } from 'lucide-react';
+import {
+  AlertCircle,
+  ArrowLeft,
+  Globe,
+  LayoutGrid,
+  MessageCircle,
+} from 'lucide-react';
 import GeneratingScreen from '@/components/GeneratingScreen';
 import type { BuildStatus } from '@/lib/projects/types';
 
@@ -102,35 +108,69 @@ export default function BuildingClient({
   if (status === 'failed') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-100 mb-6">
-            <AlertCircle className="w-8 h-8 text-red-600" />
-          </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            Couldn&apos;t build your page
-          </h2>
-          <p className="text-sm text-gray-600 mb-4">
-            Something went wrong while scanning the site you submitted.
-          </p>
-          {errorMsg && (
-            <div className="text-left text-xs bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 mb-6 break-words">
-              {errorMsg}
+        <div className="max-w-lg w-full bg-white rounded-2xl shadow-xl p-8">
+          <div className="text-center">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-100 mb-6">
+              <AlertCircle className="w-8 h-8 text-red-600" />
             </div>
-          )}
-          <div className="flex items-center justify-center gap-3">
-            <Link
-              href="/dashboard"
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-white text-gray-700 font-medium rounded-lg border border-gray-300 hover:bg-gray-50"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Back to dashboard
-            </Link>
-            <Link
-              href="/dashboard/new/url"
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-orange-500 text-white font-medium rounded-lg hover:bg-orange-600 shadow-md shadow-orange-200"
-            >
-              Try another URL
-            </Link>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+              Couldn&apos;t build your page
+            </h2>
+            <p className="text-sm text-gray-600 mb-4">
+              Something went wrong while scanning the site you submitted.
+            </p>
+            {errorMsg && (
+              <div className="text-left text-xs bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 mb-6 break-words">
+                {errorMsg}
+              </div>
+            )}
+          </div>
+
+          <div className="border-t border-gray-100 pt-5">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide text-center mb-3">
+              Try another way
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <Link
+                href="/dashboard/new/url"
+                className="flex flex-col items-center gap-1.5 px-3 py-3 rounded-lg border border-gray-200 hover:border-orange-300 hover:bg-orange-50 transition-colors"
+              >
+                <Globe className="w-5 h-5 text-orange-600" />
+                <span className="text-sm font-medium text-gray-900">Another URL</span>
+                <span className="text-[11px] text-gray-500 leading-tight text-center">
+                  Same scan, different site
+                </span>
+              </Link>
+              <Link
+                href="/dashboard/new/chat"
+                className="flex flex-col items-center gap-1.5 px-3 py-3 rounded-lg border border-gray-200 hover:border-amber-300 hover:bg-amber-50 transition-colors"
+              >
+                <MessageCircle className="w-5 h-5 text-amber-600" />
+                <span className="text-sm font-medium text-gray-900">Chat wizard</span>
+                <span className="text-[11px] text-gray-500 leading-tight text-center">
+                  Answer four quick questions
+                </span>
+              </Link>
+              <Link
+                href="/"
+                className="flex flex-col items-center gap-1.5 px-3 py-3 rounded-lg border border-gray-200 hover:border-slate-300 hover:bg-slate-50 transition-colors"
+              >
+                <LayoutGrid className="w-5 h-5 text-slate-600" />
+                <span className="text-sm font-medium text-gray-900">From template</span>
+                <span className="text-[11px] text-gray-500 leading-tight text-center">
+                  Build it yourself
+                </span>
+              </Link>
+            </div>
+            <div className="mt-5 flex items-center justify-center">
+              <Link
+                href="/dashboard"
+                className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Back to dashboard
+              </Link>
+            </div>
           </div>
         </div>
       </div>
