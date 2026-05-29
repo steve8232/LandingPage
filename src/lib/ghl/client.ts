@@ -19,7 +19,14 @@
 const GHL_API = 'https://services.leadconnectorhq.com';
 const GHL_VERSION = '2021-07-28';
 
-export const DEFAULT_SNAPSHOT_ID = 'Wg20QE6Si4arae9NqGLS';
+/**
+ * Snapshot id loaded on every newly-provisioned sub-account. Read from
+ * GHL_SNAPSHOT_ID; returns null when unset so callers skip the snapshot
+ * argument and GHL creates a bare sub-account.
+ */
+export function readSnapshotId(): string | null {
+  return process.env.GHL_SNAPSHOT_ID || null;
+}
 
 export function readAgencyToken(): string {
   const token = process.env.GHL_AGENCY_PIT;

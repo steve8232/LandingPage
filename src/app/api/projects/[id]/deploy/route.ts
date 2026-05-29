@@ -19,7 +19,7 @@ import {
   createLocation,
   inviteLocationAdmin,
   isGhlConfigured,
-  DEFAULT_SNAPSHOT_ID,
+  readSnapshotId,
 } from '@/lib/ghl/client';
 
 /**
@@ -166,7 +166,7 @@ export async function POST(
       const loc = await createLocation({
         name: project.title || projectName,
         email: ownerEmail,
-        snapshotId: DEFAULT_SNAPSHOT_ID,
+        snapshotId: readSnapshotId() ?? undefined,
         phone: project.business_phone || undefined,
       });
 
