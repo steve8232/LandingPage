@@ -1690,8 +1690,6 @@ export default function PreviewDownload({
 						overridesBusinessPhone={(v1Overrides?.meta as { businessPhone?: string } | undefined)?.businessPhone ?? null}
 						onCallrailChange={handleCallrailChange}
 						onBusinessPhoneChange={(phone) => updateV1Meta({ businessPhone: phone })}
-						clarityProjectId={String(v1Overrides?.meta?.clarityProjectId ?? '')}
-						onClarityProjectIdChange={(id) => updateV1Meta({ clarityProjectId: id })}
 						googleTagId={String(v1Overrides?.meta?.googleTagId ?? '')}
 						onGoogleTagIdChange={(id) => updateV1Meta({ googleTagId: id })}
 						heatmapEnabled={v1Overrides?.meta?.heatmapEnabled !== false}
