@@ -97,6 +97,18 @@ export async function POST(
     );
   }
 
+  // Heatmap session correlation. The published page's renderLeadFormScript
+  // reads __sp_hm_sid from sessionStorage and merges it onto the JSON body
+  // as `__sp_session_id`. Strip it off the payload before persistence so it
+  // doesn't pollute the form-field listing in the dashboard, and only keep
+  // the value when it parses as a uuid (defence against tampered tracker).
+  let sessionId: string | null = null;
+  const rawSid = payload['__sp_session_id'];
+  if (typeof rawSid === 'string' && UUID_RE.test(rawSid)) {
+    sessionId = rawSid;
+  }
+  delete payload['__sp_session_id'];
+
   // Service-role insert: RLS denies anon writes, and the visitor submitting
   // the form is not the project owner.
   const admin = createAdminClient();
@@ -126,6 +138,7 @@ export async function POST(
     user_agent: userAgent,
     referer,
     ip,
+    session_id: sessionId,
   });
 
   if (insertErr) {

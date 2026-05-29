@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+import { Activity } from 'lucide-react';
 import type { LeadDTO } from '@/lib/leads/types';
 import type { IdentifiedVisitorDTO } from '@/lib/audiencelab/identified';
 import { type CallDTO, formatDuration } from '@/lib/callrail/calls';
@@ -59,6 +61,20 @@ function LeadDetail({ lead }: { lead: LeadDTO }) {
               <dd className="text-gray-800 break-all">{lead.referer}</dd>
             </div>
           )}
+          {lead.sessionId && (
+            <div className="flex gap-2 pt-1">
+              <dt className="font-mono text-gray-500 min-w-[6rem] shrink-0">heatmap</dt>
+              <dd>
+                <Link
+                  href={`/dashboard/projects/${lead.projectId}/heatmap?sessionId=${encodeURIComponent(lead.sessionId)}`}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100"
+                >
+                  <Activity className="w-3 h-3" />
+                  View this visitor&apos;s heatmap
+                </Link>
+              </dd>
+            </div>
+          )}
         </dl>
       </div>
     </div>
@@ -96,6 +112,20 @@ function CallDetail({ call }: { call: CallDTO }) {
           {call.campaign && <Row k="campaign" v={call.campaign} />}
           {call.landingPageUrl && <Row k="landing url" v={call.landingPageUrl} breakAll />}
           <Row k="call id" v={call.id} mono breakAll />
+          {call.sessionId && (
+            <div className="flex gap-2 pt-1">
+              <dt className="font-mono text-gray-500 min-w-[7rem] shrink-0">heatmap</dt>
+              <dd>
+                <Link
+                  href={`/dashboard/projects/${call.projectId}/heatmap?sessionId=${encodeURIComponent(call.sessionId)}`}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100"
+                >
+                  <Activity className="w-3 h-3" />
+                  View this caller&apos;s heatmap
+                </Link>
+              </dd>
+            </div>
+          )}
         </dl>
       </div>
     </div>
@@ -128,6 +158,20 @@ function VisitorDetail({ visitor }: { visitor: IdentifiedVisitorDTO }) {
           <Row k="last seen" v={visitor.lastSeenAt ? new Date(visitor.lastSeenAt).toLocaleString() : '—'} />
           {visitor.lastUrl && <Row k="last url" v={visitor.lastUrl} breakAll />}
           {visitor.edid && <Row k="edid" v={visitor.edid} mono breakAll />}
+          {visitor.sessionId && (
+            <div className="flex gap-2 pt-1">
+              <dt className="font-mono text-gray-500 min-w-[7rem] shrink-0">heatmap</dt>
+              <dd>
+                <Link
+                  href={`/dashboard/projects/${visitor.projectId}/heatmap?sessionId=${encodeURIComponent(visitor.sessionId)}`}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100"
+                >
+                  <Activity className="w-3 h-3" />
+                  View this visitor&apos;s heatmap
+                </Link>
+              </dd>
+            </div>
+          )}
         </dl>
       </div>
     </div>

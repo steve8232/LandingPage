@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Sparkles, ArrowLeft, Loader2, AlertCircle, Camera } from 'lucide-react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { Sparkles, ArrowLeft, Loader2, AlertCircle, Camera, User, X } from 'lucide-react';
 import simpleheat from 'simpleheat';
 import ProjectTabs from '../ProjectTabs';
 import type { CreationMethod } from '@/lib/projects/types';
@@ -25,6 +26,7 @@ export interface DeploymentLite {
 interface HeatmapResponse {
   device: 'desktop' | 'mobile';
   range: { from: string; to: string };
+  sessionId: string | null;
   deployment: { id: string; url: string | null; createdAt: string } | null;
   snapshot:
     | { url: string | null; widthPx: number; heightPx: number | null; status: 'pending' | 'ready' | 'error' }
@@ -51,9 +53,18 @@ interface Props {
 }
 
 export default function HeatmapClient({ project, deployments, userEmail }: Props) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  // Per-session filter is URL-driven so the Spark-lead / call / identified-
+  // visitor deep links work on first paint without an extra round trip.
+  const sessionId = searchParams.get('sessionId');
+
   const [device, setDevice] = useState<Device>('desktop');
   const [deploymentId, setDeploymentId] = useState<string>(''); // '' = latest with snapshot
-  const [range, setRange] = useState<RangeKey>('30d');
+  // When filtering to one session, widen the default range so single-session
+  // events that happened weeks ago are still found.
+  const [range, setRange] = useState<RangeKey>(sessionId ? '90d' : '30d');
   const [data, setData] = useState<HeatmapResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -70,6 +81,7 @@ export default function HeatmapClient({ project, deployments, userEmail }: Props
     /* eslint-enable react-hooks/set-state-in-effect */
     const params = new URLSearchParams({ device });
     if (deploymentId) params.set('deploymentId', deploymentId);
+    if (sessionId) params.set('sessionId', sessionId);
     const days = RANGE_DAYS[range];
     const from = new Date(Date.now() - days * 24 * 3600 * 1000).toISOString();
     params.set('from', from);
@@ -82,7 +94,15 @@ export default function HeatmapClient({ project, deployments, userEmail }: Props
       .catch((err) => { if (!cancelled) setError(err instanceof Error ? err.message : 'Load failed'); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [project.id, device, deploymentId, range]);
+  }, [project.id, device, deploymentId, range, sessionId]);
+
+  // Drop the sessionId param while preserving any other query state.
+  function clearSession() {
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete('sessionId');
+    const qs = next.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname);
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-100">
@@ -125,6 +145,27 @@ export default function HeatmapClient({ project, deployments, userEmail }: Props
           range={range}
           onRangeChange={setRange}
         />
+
+        {sessionId && (
+          <div className="mt-4 p-3 bg-orange-50 border border-orange-200 rounded-lg text-sm flex items-center gap-3">
+            <User className="w-4 h-4 text-orange-600 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <div className="font-medium text-orange-900">Filtered to one visitor&apos;s session</div>
+              <div className="text-orange-700 text-xs font-mono truncate">{sessionId}</div>
+              <div className="text-orange-700 text-xs mt-0.5">
+                One session shows as a few dots, not a heat blob. Use the scroll-depth column on the
+                right to see how far this visitor read.
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={clearSession}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-orange-300 bg-white text-orange-700 hover:bg-orange-100 text-xs shrink-0"
+            >
+              <X className="w-3 h-3" /> Show all sessions
+            </button>
+          </div>
+        )}
 
         <StatsStrip totals={data?.totals} truncated={data?.truncated} />
 

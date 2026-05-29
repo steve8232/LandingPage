@@ -30,6 +30,10 @@ export interface CallDTO {
   landingPageUrl: string | null;
   recordingUrl: string | null;
   transcription: string | null;
+  /** First-party heatmap session id, parsed from landing_page_url's
+   *  `?spk_sid=<uuid>` (stamped by /h.js). Null when the visitor placed the
+   *  call before /h.js ran, or when the URL was stripped of query params. */
+  sessionId: string | null;
 }
 
 /** Normalize the duration field which CallRail sometimes returns as a string. */
@@ -54,6 +58,22 @@ function strOrNull(raw: unknown): string | null {
   return t === '' ? null : t;
 }
 
+const SESSION_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Extract `spk_sid` from a CallRail landing_page_url. Returns null when the
+ *  URL is missing, unparseable, the param is absent, or the value isn't a
+ *  uuid — same validation posture as /api/leads's session_id extraction. */
+export function parseSparkSessionId(landingPageUrl: string | null): string | null {
+  if (!landingPageUrl) return null;
+  try {
+    const u = new URL(landingPageUrl);
+    const v = u.searchParams.get('spk_sid');
+    return v && SESSION_ID_RE.test(v) ? v : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Shared core used by both the API and webhook normalizers. */
 function shape(call: CallRailCall, projectId: string): CallDTO {
   // Webhooks tag voicemail via `voicemail` + `call_type`. v3 list response
@@ -62,6 +82,7 @@ function shape(call: CallRailCall, projectId: string): CallDTO {
     (call as { voicemail?: boolean }).voicemail === true ||
     (call as { call_type?: string }).call_type === 'voicemail';
   const direction = call.direction === 'outbound' ? 'outbound' : 'inbound';
+  const landingPageUrl = strOrNull(call.landing_page_url);
   return {
     id: String(call.id ?? ''),
     projectId,
@@ -77,11 +98,12 @@ function shape(call: CallRailCall, projectId: string): CallDTO {
     trackingPhone: strOrNull(call.tracking_phone_number),
     source: strOrNull(call.source_name) ?? strOrNull((call as { formatted_tracking_source?: string }).formatted_tracking_source),
     campaign: strOrNull(call.campaign),
-    landingPageUrl: strOrNull(call.landing_page_url),
+    landingPageUrl,
     // recording_player is the embeddable HTML5 URL; recording is the JSON
     // resolver endpoint. Prefer the embeddable one for the <audio> element.
     recordingUrl: strOrNull(call.recording_player) ?? strOrNull(call.recording),
     transcription: strOrNull(call.transcription),
+    sessionId: parseSparkSessionId(landingPageUrl),
   };
 }
 

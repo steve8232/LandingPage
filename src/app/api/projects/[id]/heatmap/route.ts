@@ -17,6 +17,9 @@ import {
  *     deploymentId  uuid (default: latest deployment with a ready snapshot
  *                   for the selected device)
  *     from, to      ISO timestamps                 (default last 30 days)
+ *     sessionId     uuid — when set, restrict events to that one heatmap
+ *                   session (used by the Spark-lead / call / identified-
+ *                   visitor "View this visitor's heatmap" deep links).
  *
  *   Auth: user-scoped Supabase client; RLS scopes both `heatmap_events`
  *   and `page_snapshots` reads to the project owner. The signed URL is
@@ -62,6 +65,11 @@ export async function GET(
   const deploymentIdParam = params.get('deploymentId');
   if (deploymentIdParam && !UUID_RE.test(deploymentIdParam)) {
     return NextResponse.json({ error: 'Invalid deploymentId' }, { status: 400 });
+  }
+
+  const sessionIdParam = params.get('sessionId');
+  if (sessionIdParam && !UUID_RE.test(sessionIdParam)) {
+    return NextResponse.json({ error: 'Invalid sessionId' }, { status: 400 });
   }
 
   const now = Date.now();
@@ -129,13 +137,17 @@ export async function GET(
 
   // Pull raw events for the device + time window. Capped — popular pages
   // can rack up millions of rows and the dashboard only needs an aggregate.
-  const { data: eventRowsRaw } = await supabase
+  // When sessionId is supplied we restrict to that one session so the viewer
+  // can show a single visitor's clicks/scroll path.
+  let eventsQuery = supabase
     .from('heatmap_events')
     .select('session_id, event_type, x_norm, y_norm, scroll_pct')
     .eq('project_id', id)
     .eq('device', device)
     .gte('created_at', fromIso)
-    .lte('created_at', toIso)
+    .lte('created_at', toIso);
+  if (sessionIdParam) eventsQuery = eventsQuery.eq('session_id', sessionIdParam);
+  const { data: eventRowsRaw } = await eventsQuery
     .order('created_at', { ascending: false })
     .limit(MAX_ROWS);
   const eventRows = (eventRowsRaw ?? []) as HeatmapEventRow[];
@@ -144,6 +156,7 @@ export async function GET(
   return NextResponse.json({
     device,
     range: { from: fromIso, to: toIso },
+    sessionId: sessionIdParam ?? null,
     deployment: deployment
       ? { id: deployment.id, url: deployment.url, createdAt: deployment.created_at }
       : null,

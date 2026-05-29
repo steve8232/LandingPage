@@ -19,7 +19,26 @@ export interface IdentifiedVisitorDTO {
   /** Page on the published site that most recently fired the pixel. */
   lastUrl: string | null;
   edid: string | null;
+  /** First-party heatmap session id parsed from the V4 event's full_url
+   *  / referrer_url query string (stamped by /h.js as `?spk_sid=<uuid>`).
+   *  Null for the visitor's first hit if the pixel fired before /h.js ran,
+   *  or for events whose URL was stripped of query params upstream. */
+  sessionId: string | null;
   resolution: V4Resolution;
+}
+
+const SESSION_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Extract `spk_sid` from a stamped URL. Returns null when missing or invalid. */
+function parseSparkSessionId(rawUrl: string | null | undefined): string | null {
+  if (!rawUrl) return null;
+  try {
+    const u = new URL(rawUrl);
+    const v = u.searchParams.get('spk_sid');
+    return v && SESSION_ID_RE.test(v) ? v : null;
+  } catch {
+    return null;
+  }
 }
 
 export interface NormalizeIdentifiedInput {
@@ -49,12 +68,21 @@ export function normalizeIdentifiedVisitors(
     const existing = byKey.get(key);
     if (existing && existing.lastSeenAt >= ts) return;
 
+    // Prefer the session id stamped on the most recent event's URL; fall
+    // back to the referrer (the previous page in the same browsing session
+    // also carried our stamp once /h.js ran).
+    const sessionId =
+      parseSparkSessionId(evt.full_url) ??
+      parseSparkSessionId(evt.referrer_url) ??
+      null;
+
     byKey.set(key, {
       id: `${input.projectId}:${key}`,
       projectId: input.projectId,
       lastSeenAt: ts,
       lastUrl: evt.full_url || evt.referrer_url || null,
       edid: evt.edid ?? null,
+      sessionId,
       resolution,
     });
   });

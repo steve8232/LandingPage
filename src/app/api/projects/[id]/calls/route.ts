@@ -45,6 +45,7 @@ interface CallsTableRow {
   landing_page_url: string | null;
   recording_url: string | null;
   transcription: string | null;
+  session_id: string | null;
 }
 
 const PAGE_LIMIT = 200;
@@ -69,6 +70,7 @@ function rowToDto(r: CallsTableRow, projectId: string): CallDTO {
     landingPageUrl: r.landing_page_url,
     recordingUrl: r.recording_url,
     transcription: r.transcription,
+    sessionId: r.session_id,
   };
 }
 
@@ -95,7 +97,7 @@ export async function GET(
   const { data: dbRowsRaw } = await supabase
     .from('calls')
     .select(
-      'callrail_call_id, start_time, direction, answered, duration, customer_name, customer_phone, customer_city, customer_state, tracking_phone, source, campaign, landing_page_url, recording_url, transcription'
+      'callrail_call_id, start_time, direction, answered, duration, customer_name, customer_phone, customer_city, customer_state, tracking_phone, source, campaign, landing_page_url, recording_url, transcription, session_id'
     )
     .eq('project_id', id)
     .order('start_time', { ascending: false, nullsFirst: false })

@@ -97,6 +97,7 @@ export async function POST(
         landing_page_url: dto.landingPageUrl,
         recording_url: dto.recordingUrl,
         transcription: dto.transcription,
+        session_id: dto.sessionId,
         payload: parsed,
         updated_at: new Date().toISOString(),
       },

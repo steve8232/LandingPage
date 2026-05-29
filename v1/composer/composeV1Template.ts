@@ -929,6 +929,14 @@ function renderLeadFormScript(redirectTo: string): string {
         var data = {};
         var fd = new FormData(form);
         fd.forEach(function(value, key){ data[key] = value; });
+        // Attach the heatmap session id (minted by /h.js, stored in
+        // sessionStorage under __sp_hm_sid) so /api/leads/[projectId] can
+        // correlate this lead to that visitor's heatmap. Best-effort:
+        // browsers that block storage or strip the tracker simply omit it.
+        try {
+          var sid = window.sessionStorage && window.sessionStorage.getItem('__sp_hm_sid');
+          if (sid) data['__sp_session_id'] = sid;
+        } catch (e) { /* storage blocked — submit without correlation */ }
         fetch(action, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },

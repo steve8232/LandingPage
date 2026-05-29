@@ -42,6 +42,23 @@
     }
   } catch (e) { sessionId = uuid(); }
 
+  // Stamp the session id onto the visitor's URL via history.replaceState so
+  // CallRail's landing_page_url and AudienceLab's full_url / referrer_url
+  // both carry it. Dashboard normalisers parse spk_sid back out to deep-link
+  // a call / identified-visitor to that one session's heatmap. Idempotent:
+  // if spk_sid is already present (e.g. after an SPA-like nav) we leave it.
+  try {
+    if (window.history && typeof window.history.replaceState === 'function') {
+      var loc = window.location;
+      var qs = loc.search || '';
+      if (qs.indexOf('spk_sid=') === -1) {
+        var sep = qs ? '&' : '?';
+        var nextSearch = qs + sep + 'spk_sid=' + encodeURIComponent(sessionId);
+        window.history.replaceState(window.history.state, '', loc.pathname + nextSearch + (loc.hash || ''));
+      }
+    }
+  } catch (e) { /* history blocked / sandboxed iframe — pageview still tracked */ }
+
   function uuid() {
     var c = window.crypto;
     if (c && c.randomUUID) return c.randomUUID();

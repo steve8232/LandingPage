@@ -19,6 +19,7 @@ function lead(id: string, createdAt: string): LeadDTO {
     payload: {},
     userAgent: null,
     referer: null,
+    sessionId: null,
     createdAt,
   };
 }
@@ -30,6 +31,7 @@ function visitor(id: string, lastSeenAt: string): IdentifiedVisitorDTO {
     lastSeenAt,
     lastUrl: null,
     edid: null,
+    sessionId: null,
     resolution: {} as IdentifiedVisitorDTO['resolution'],
   };
 }
@@ -53,6 +55,7 @@ function call(id: string, startTime: string): CallDTO {
     landingPageUrl: null,
     recordingUrl: null,
     transcription: null,
+    sessionId: null,
   };
 }
 

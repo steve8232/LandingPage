@@ -89,14 +89,14 @@ export default async function ProjectDashboardPage({
   const [leadsRes, callsRes] = await Promise.all([
     supabase
       .from('leads')
-      .select('id, project_id, payload, user_agent, referer, ip, created_at')
+      .select('id, project_id, payload, user_agent, referer, ip, session_id, created_at')
       .eq('project_id', id)
       .order('created_at', { ascending: false })
       .limit(500),
     supabase
       .from('calls')
       .select(
-        'project_id, callrail_call_id, start_time, direction, answered, duration, customer_name, customer_phone, customer_city, customer_state, tracking_phone, source, campaign, landing_page_url, recording_url, transcription'
+        'project_id, callrail_call_id, start_time, direction, answered, duration, customer_name, customer_phone, customer_city, customer_state, tracking_phone, source, campaign, landing_page_url, recording_url, transcription, session_id'
       )
       .eq('project_id', id)
       .order('start_time', { ascending: false, nullsFirst: false })
@@ -141,6 +141,7 @@ export default async function ProjectDashboardPage({
     landing_page_url: string | null;
     recording_url: string | null;
     transcription: string | null;
+    session_id: string | null;
   }>;
   const dbCalls: CallDTO[] = dbCallRows.map((r) => ({
     id: r.callrail_call_id,
@@ -160,6 +161,7 @@ export default async function ProjectDashboardPage({
     landingPageUrl: r.landing_page_url,
     recordingUrl: r.recording_url,
     transcription: r.transcription,
+    sessionId: r.session_id,
   }));
 
   // Live tail when the project is bound and CallRail env is configured.
