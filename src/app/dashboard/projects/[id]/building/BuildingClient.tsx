@@ -21,10 +21,15 @@ import type { BuildStatus } from '@/lib/projects/types';
 const POLL_INTERVAL_MS = 2000;
 
 /**
- * Ordered list of stage labels the runUrlOnboardPipeline helper writes
- * to projects.build_stage. Passed to GeneratingScreen so the dot
+ * Ordered list of stage labels the URL onboarding pipeline writes to
+ * projects.build_stage. Passed to GeneratingScreen so the dot
  * checklist ticks through correctly. Keep in sync with STAGE in
  * runUrlOnboardPipeline.ts.
+ *
+ * The first two stages belong to the extract phase (pre-confirm); the
+ * remaining stages belong to the generate phase (post-confirm). The
+ * confirm page sits between them, so the dot checklist visibly pauses
+ * mid-list while the user reviews the draft.
  */
 const STAGES = [
   'Scanning your site',
@@ -88,6 +93,10 @@ export default function BuildingClient({
           router.replace(`/?project=${projectId}`);
           return;
         }
+        if (json.status === 'awaiting_confirm') {
+          router.replace(`/dashboard/projects/${projectId}/confirm`);
+          return;
+        }
         if (json.status === 'failed') {
           return;
         }
@@ -98,6 +107,8 @@ export default function BuildingClient({
       tick();
     } else if (status === 'ready') {
       router.replace(`/?project=${projectId}`);
+    } else if (status === 'awaiting_confirm') {
+      router.replace(`/dashboard/projects/${projectId}/confirm`);
     }
     return () => {
       cancelled = true;

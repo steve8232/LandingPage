@@ -46,8 +46,14 @@ export default async function BuildingPage({
   // Already finished — bounce straight into the editor so the user never
   // sees the spinner on a refresh. The home page handles the project=<id>
   // query param by loading the project and dropping into PreviewDownload.
-  if ((row.build_status ?? 'ready') === 'ready') {
+  const settled = row.build_status ?? 'ready';
+  if (settled === 'ready') {
     redirect(`/?project=${id}`);
+  }
+  // Extract finished while the user was elsewhere — send them straight
+  // to the confirm screen so the polling client never has to.
+  if (settled === 'awaiting_confirm') {
+    redirect(`/dashboard/projects/${id}/confirm`);
   }
 
   return (

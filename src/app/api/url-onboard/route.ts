@@ -9,19 +9,20 @@ import {
   type ProjectRow,
 } from '@/lib/projects/types';
 import type { V1ContentOverrides } from '../../../../v1/composer/composeV1Template';
-import { runUrlOnboardPipeline } from '@/lib/firecrawl/runUrlOnboardPipeline';
+import { runUrlExtractPhase } from '@/lib/firecrawl/runUrlOnboardPipeline';
 
 /**
  * POST /api/url-onboard — Lane D "already have a site" submission.
  *
  * Two-phase. The POST returns within ~1s with a project shell
  * (`build_status='building'`) so the wizard can transition to the
- * /dashboard/projects/[id]/building page immediately. The heavy lifting
- * — Firecrawl scrape, OpenAI extract, generate, enhance, neighborhood
- * expansion, Unsplash auto-pick — runs in a Next.js `after()`
- * continuation against the service-role admin client. The /building
- * page polls /api/projects/[id]/build-status until the pipeline flips
- * the row to 'ready' (or 'failed' with `build_error` set).
+ * /dashboard/projects/[id]/building page immediately. The background
+ * `after()` continuation runs only the **extract** half of the pipeline
+ * — Firecrawl scrape + OpenAI extraction — then flips the row to
+ * `'awaiting_confirm'`. BuildingClient sees that status and redirects
+ * to /dashboard/projects/[id]/confirm, where the user reviews / edits
+ * the draft. POST /api/projects/[id]/confirm runs the heavy generate
+ * phase (generate / enhance / expand / autoPick / finalize).
  *
  * Admin-only. `maxDuration` is generous because the after() work shares
  * the function's wall-clock budget with the synchronous response.
@@ -167,16 +168,38 @@ export async function POST(request: NextRequest) {
 
   const projectRow = project as ProjectRow;
 
-  // Kick off the heavy work after the response is sent. The continuation
-  // shares the function's wall-clock budget (maxDuration above) but
-  // doesn't keep the client waiting.
+  // Kick off the extract phase after the response is sent. On success it
+  // pins the picked template + persists the editable draft, then we flip
+  // build_status to 'awaiting_confirm' so /building can redirect the
+  // user to /confirm. On failure we record the error so the recovery UI
+  // surfaces it.
   after(async () => {
     const admin = createAdminClient();
-    await runUrlOnboardPipeline(admin, {
-      projectId: projectRow.id,
-      userId: user.id,
-      url,
-    });
+    try {
+      await runUrlExtractPhase(admin, {
+        projectId: projectRow.id,
+        url,
+      });
+      await admin
+        .from('projects')
+        .update({
+          build_status: 'awaiting_confirm',
+          build_stage: null,
+          build_error: null,
+        })
+        .eq('id', projectRow.id);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Extract failed';
+      console.error('[url-onboard] extract failed:', err);
+      await admin
+        .from('projects')
+        .update({
+          build_status: 'failed',
+          build_stage: null,
+          build_error: message.slice(0, 1000),
+        })
+        .eq('id', projectRow.id);
+    }
   });
 
   return NextResponse.json(
