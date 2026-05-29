@@ -16,13 +16,6 @@ export interface ProjectLite {
   creationMethod?: CreationMethod;
 }
 
-export interface DeploymentLite {
-  id: string;
-  url: string | null;
-  status: string;
-  createdAt: string;
-}
-
 interface HeatmapResponse {
   device: 'desktop' | 'mobile';
   range: { from: string; to: string };
@@ -48,11 +41,10 @@ const RANGE_DAYS: Record<RangeKey, number> = { '7d': 7, '30d': 30, '90d': 90 };
 
 interface Props {
   project: ProjectLite;
-  deployments: DeploymentLite[];
   userEmail: string;
 }
 
-export default function HeatmapClient({ project, deployments, userEmail }: Props) {
+export default function HeatmapClient({ project, userEmail }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -61,7 +53,6 @@ export default function HeatmapClient({ project, deployments, userEmail }: Props
   const sessionId = searchParams.get('sessionId');
 
   const [device, setDevice] = useState<Device>('desktop');
-  const [deploymentId, setDeploymentId] = useState<string>(''); // '' = latest with snapshot
   // When filtering to one session, widen the default range so single-session
   // events that happened weeks ago are still found.
   const [range, setRange] = useState<RangeKey>(sessionId ? '90d' : '30d');
@@ -80,7 +71,6 @@ export default function HeatmapClient({ project, deployments, userEmail }: Props
     setError('');
     /* eslint-enable react-hooks/set-state-in-effect */
     const params = new URLSearchParams({ device });
-    if (deploymentId) params.set('deploymentId', deploymentId);
     if (sessionId) params.set('sessionId', sessionId);
     const days = RANGE_DAYS[range];
     const from = new Date(Date.now() - days * 24 * 3600 * 1000).toISOString();
@@ -94,7 +84,7 @@ export default function HeatmapClient({ project, deployments, userEmail }: Props
       .catch((err) => { if (!cancelled) setError(err instanceof Error ? err.message : 'Load failed'); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [project.id, device, deploymentId, range, sessionId]);
+  }, [project.id, device, range, sessionId]);
 
   // Drop the sessionId param while preserving any other query state.
   function clearSession() {
@@ -139,9 +129,6 @@ export default function HeatmapClient({ project, deployments, userEmail }: Props
         <Controls
           device={device}
           onDeviceChange={setDevice}
-          deployments={deployments}
-          deploymentId={deploymentId}
-          onDeploymentChange={setDeploymentId}
           range={range}
           onRangeChange={setRange}
         />
@@ -187,9 +174,6 @@ export default function HeatmapClient({ project, deployments, userEmail }: Props
 function Controls(props: {
   device: Device;
   onDeviceChange: (d: Device) => void;
-  deployments: DeploymentLite[];
-  deploymentId: string;
-  onDeploymentChange: (id: string) => void;
   range: RangeKey;
   onRangeChange: (r: RangeKey) => void;
 }) {
@@ -210,22 +194,6 @@ function Controls(props: {
           </button>
         ))}
       </div>
-
-      <label className="text-sm text-gray-600 inline-flex items-center gap-2">
-        <span>Deployment</span>
-        <select
-          value={props.deploymentId}
-          onChange={(e) => props.onDeploymentChange(e.target.value)}
-          className="border border-gray-200 rounded-lg px-2 py-1 text-sm bg-white"
-        >
-          <option value="">Latest with snapshot</option>
-          {props.deployments.map((d) => (
-            <option key={d.id} value={d.id}>
-              {new Date(d.createdAt).toLocaleString()} · {d.status}
-            </option>
-          ))}
-        </select>
-      </label>
 
       <label className="text-sm text-gray-600 inline-flex items-center gap-2">
         <span>Range</span>

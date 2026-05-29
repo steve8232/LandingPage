@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import type { CreationMethod } from '@/lib/projects/types';
-import HeatmapClient, { type DeploymentLite, type ProjectLite } from './HeatmapClient';
+import HeatmapClient, { type ProjectLite } from './HeatmapClient';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,11 +10,11 @@ export const dynamic = 'force-dynamic';
  *
  * Server-side concerns only:
  *   • auth + ownership check (RLS scopes the project SELECT)
- *   • initial project + deployment list for the device / deployment switcher
+ *   • initial project payload for the client UI
  *
  * The actual heatmap data + signed snapshot URL is fetched client-side from
- * /api/projects/[id]/heatmap so the device / range / deployment controls can
- * re-query without a full page reload.
+ * /api/projects/[id]/heatmap so the device / range controls can re-query
+ * without a full page reload.
  */
 
 interface ProjectRow {
@@ -23,13 +23,6 @@ interface ProjectRow {
   subdomain: string | null;
   custom_domain: string | null;
   creation_method: CreationMethod;
-}
-
-interface DeploymentRow {
-  id: string;
-  url: string | null;
-  status: string;
-  created_at: string;
 }
 
 export default async function HeatmapPage({
@@ -56,14 +49,6 @@ export default async function HeatmapPage({
           subdomain: 'e2e-mock',
           customDomain: null,
         }}
-        deployments={[
-          {
-            id: '00000000-0000-0000-0000-000000000001',
-            url: 'https://e2e-mock.example.com',
-            status: 'ready',
-            createdAt: new Date().toISOString(),
-          },
-        ]}
         userEmail="e2e@example.com"
       />
     );
@@ -80,22 +65,6 @@ export default async function HeatmapPage({
     .maybeSingle<ProjectRow>();
   if (!projectRaw) redirect('/dashboard');
 
-  // Latest 20 deployments — the switcher only needs the recent few so this is
-  // plenty. Older deployments rarely have useful heatmap data anyway because
-  // the published page has been replaced.
-  const { data: depRaw } = await supabase
-    .from('deployments')
-    .select('id, url, status, created_at')
-    .eq('project_id', id)
-    .order('created_at', { ascending: false })
-    .limit(20);
-  const deployments: DeploymentLite[] = (depRaw ?? []).map((d: DeploymentRow) => ({
-    id: d.id,
-    url: d.url,
-    status: d.status,
-    createdAt: d.created_at,
-  }));
-
   const project: ProjectLite = {
     id: projectRaw.id,
     title: projectRaw.title,
@@ -107,7 +76,6 @@ export default async function HeatmapPage({
   return (
     <HeatmapClient
       project={project}
-      deployments={deployments}
       userEmail={user.email ?? ''}
     />
   );
