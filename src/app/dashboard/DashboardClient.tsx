@@ -59,7 +59,11 @@ export default function DashboardClient({
   const [renameValue, setRenameValue] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState('');
-  const [, startTransition] = useTransition();
+  // `pendingOpenId` is the project being navigated to; combined with the
+  // transition's pending flag it drives an inline spinner on the clicked card
+  // so users get immediate feedback while the per-project RSC stream loads.
+  const [pendingOpenId, setPendingOpenId] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
 
   async function handleSignOut() {
     const supabase = createClient();
@@ -102,6 +106,7 @@ export default function DashboardClient({
   }
 
   function openProject(p: ProjectDTO) {
+    setPendingOpenId(p.id);
     startTransition(() => router.push(`/dashboard/projects/${p.id}`));
   }
 
@@ -205,6 +210,7 @@ export default function DashboardClient({
             renamingId={renamingId}
             renameValue={renameValue}
             busyId={busyId}
+            openingId={isPending ? pendingOpenId : null}
             isAdmin={isAdmin}
             onOpen={openProject}
             onStartRename={(p) => { setRenamingId(p.id); setRenameValue(p.title); }}
@@ -225,6 +231,8 @@ interface ProjectListProps {
   renamingId: string | null;
   renameValue: string;
   busyId: string | null;
+  /** Project currently being navigated to; renders a spinner on its card. */
+  openingId: string | null;
   isAdmin: boolean;
   onOpen: (p: ProjectDTO) => void;
   onStartRename: (p: ProjectDTO) => void;
@@ -235,7 +243,7 @@ interface ProjectListProps {
 }
 
 function ProjectList({
-  projects, latestDeployments, renamingId, renameValue, busyId, isAdmin,
+  projects, latestDeployments, renamingId, renameValue, busyId, openingId, isAdmin,
   onOpen, onStartRename, onRenameChange, onRenameSubmit, onRenameCancel, onDelete,
 }: ProjectListProps) {
   return (
@@ -243,6 +251,7 @@ function ProjectList({
       {projects.map((p) => {
         const isRenaming = renamingId === p.id;
         const isBusy = busyId === p.id;
+        const isOpening = openingId === p.id;
         const dep = latestDeployments[p.id];
         const pill = dep ? STATUS_PILL[dep.status] : { label: 'Draft', cls: 'bg-gray-50 text-gray-600 border-gray-200' };
         return (
@@ -268,8 +277,9 @@ function ProjectList({
               ) : (
                 <button
                   onClick={() => onOpen(p)}
-                  className="text-left w-full"
-                  title="Open dashboard"
+                  disabled={isBusy || isOpening}
+                  className="text-left w-full disabled:opacity-60"
+                  title={isOpening ? 'Opening dashboard…' : 'Open dashboard'}
                 >
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="font-semibold text-gray-900 truncate">{p.title}</span>
@@ -350,17 +360,19 @@ function ProjectList({
             <div className="flex items-center gap-1 shrink-0">
               <button
                 onClick={() => onOpen(p)}
-                disabled={isBusy}
+                disabled={isBusy || isOpening}
                 className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg disabled:opacity-50"
-                title="Open dashboard"
+                title={isOpening ? 'Opening dashboard…' : 'Open dashboard'}
               >
-                <LayoutDashboard className="w-4 h-4" />
+                {isOpening
+                  ? <Loader2 className="w-4 h-4 animate-spin" />
+                  : <LayoutDashboard className="w-4 h-4" />}
               </button>
               <Link
                 href={`/dashboard/projects/${p.id}/heatmap`}
-                aria-disabled={isBusy}
+                aria-disabled={isBusy || isOpening}
                 className={`p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg ${
-                  isBusy ? 'pointer-events-none opacity-50' : ''
+                  isBusy || isOpening ? 'pointer-events-none opacity-50' : ''
                 }`}
                 title="View heatmap"
               >
@@ -368,7 +380,7 @@ function ProjectList({
               </Link>
               <button
                 onClick={() => onStartRename(p)}
-                disabled={isBusy}
+                disabled={isBusy || isOpening}
                 className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg disabled:opacity-50"
                 title="Rename"
               >

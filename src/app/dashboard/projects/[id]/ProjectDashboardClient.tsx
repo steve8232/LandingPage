@@ -1,11 +1,11 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { Suspense, use, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   Sparkles, ArrowLeft, LogOut, Download, ExternalLink,
-  FileText, Phone, Sparkle, Inbox,
+  FileText, Phone, Sparkle, Inbox, Loader2,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import type { LeadDTO } from '@/lib/leads/types';
@@ -39,8 +39,12 @@ export interface ProjectLite {
 interface Props {
   project: ProjectLite;
   leads: LeadDTO[];
-  identified: IdentifiedVisitorDTO[];
-  calls: CallDTO[];
+  /** DB-cached calls (webhook ingest). Available synchronously on first paint. */
+  initialCalls: CallDTO[];
+  /** Streamed in via Suspense + `use()`; resolves to [] on vendor errors. */
+  identifiedPromise: Promise<IdentifiedVisitorDTO[]>;
+  /** Streamed CallRail live tail; merged with initialCalls (live wins on id). */
+  liveCallsPromise: Promise<CallDTO[]>;
   userEmail: string;
   loadError: string;
   viewerRole: 'admin' | 'user';
@@ -48,20 +52,44 @@ interface Props {
   collaborators: CollaboratorDTO[];
 }
 
+/** Merge DB-cached calls with the live CallRail tail; live wins on id overlap. */
+function mergeCalls(initialCalls: CallDTO[], liveCalls: CallDTO[]): CallDTO[] {
+  const byId = new Map<string, CallDTO>();
+  for (const c of initialCalls) byId.set(c.id, c);
+  for (const c of liveCalls) byId.set(c.id, c);
+  return [...byId.values()].sort((a, b) =>
+    (b.startTime || '').localeCompare(a.startTime || ''),
+  );
+}
+
+/**
+ * Tiny module-scope CSV download helper. Pulled out of the component closure
+ * so it can be shared between the Suspense fallback (DB-only) and resolved
+ * (enriched) activity blocks without prop drilling.
+ */
+function downloadCsv(csv: string, prefix: string) {
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = csvFilenameForToday(prefix);
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 export default function ProjectDashboardClient({
-  project, leads, identified, calls, userEmail, loadError,
-  viewerRole, owner, collaborators,
+  project, leads, initialCalls, identifiedPromise, liveCallsPromise,
+  userEmail, loadError, viewerRole, owner, collaborators,
 }: Props) {
   const router = useRouter();
+  // Timeline-row expansion state is lifted here so it survives the Suspense
+  // fallback → resolved swap when the streamed data lands.
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const projectTitleById = useMemo(
     () => ({ [project.id]: project.title }),
     [project.id, project.title],
-  );
-
-  const items = useMemo(
-    () => buildTimeline({ leads, identified, calls }),
-    [leads, identified, calls],
   );
 
   async function handleSignOut() {
@@ -69,18 +97,6 @@ export default function ProjectDashboardClient({
     await supabase.auth.signOut();
     router.push('/');
     router.refresh();
-  }
-
-  function downloadCsv(csv: string, prefix: string) {
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = csvFilenameForToday(prefix);
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
   }
 
   const liveUrl = project.customDomain
@@ -143,11 +159,26 @@ export default function ProjectDashboardClient({
           <ProjectTabs projectId={project.id} active="dashboard" creationMethod={project.creationMethod} />
         </div>
 
-        <SummaryCards
-          formCount={leads.length}
-          callCount={calls.length}
-          visitorCount={identified.length}
-        />
+        {/* Summary cards: form count is known synchronously; calls and
+            visitors stream in via Suspense once the AudienceLab + CallRail
+            promises resolve. Until then the call count reflects DB-cached
+            rows only and the visitor count shows a skeleton. */}
+        <Suspense
+          fallback={
+            <SummaryCards
+              formCount={leads.length}
+              callCount={initialCalls.length}
+              visitorCount={null}
+            />
+          }
+        >
+          <SummaryCardsEnriched
+            leads={leads}
+            initialCalls={initialCalls}
+            identifiedPromise={identifiedPromise}
+            liveCallsPromise={liveCallsPromise}
+          />
+        </Suspense>
 
         <div className="mt-4">
           <ShareAccessCard
@@ -158,59 +189,181 @@ export default function ProjectDashboardClient({
           />
         </div>
 
-        <div className="mt-4 flex items-center justify-end gap-2">
-          <ExportButton
-            label="Form CSV"
-            disabled={leads.length === 0}
-            onClick={() =>
-              downloadCsv(buildLeadsCsv({ leads, projectTitleById }), 'sparkpage-leads')
-            }
+        {/* CSV exports + timeline. Fallback shows the DB-cached subset (form
+            submissions + webhook-ingested calls) so the user has something
+            useful instantly; the streamed third-party data merges in on
+            resolve. */}
+        <Suspense
+          fallback={
+            <ActivityBlock
+              leads={leads}
+              calls={initialCalls}
+              identified={[]}
+              loadError={loadError}
+              projectTitleById={projectTitleById}
+              expanded={expanded}
+              setExpanded={setExpanded}
+              loading
+            />
+          }
+        >
+          <ActivityEnriched
+            leads={leads}
+            initialCalls={initialCalls}
+            identifiedPromise={identifiedPromise}
+            liveCallsPromise={liveCallsPromise}
+            loadError={loadError}
+            projectTitleById={projectTitleById}
+            expanded={expanded}
+            setExpanded={setExpanded}
           />
-          <ExportButton
-            label="Calls CSV"
-            disabled={calls.length === 0}
-            onClick={() =>
-              downloadCsv(buildCallsCsv({ calls, projectTitleById }), 'sparkpage-calls')
-            }
-          />
-          <ExportButton
-            label="SparkLeads CSV"
-            disabled={identified.length === 0}
-            onClick={() =>
-              downloadCsv(
-                buildIdentifiedCsv({ visitors: identified, projectTitleById }),
-                'sparkpage-sparkleads',
-              )
-            }
-          />
-        </div>
-
-        {loadError && (
-          <div className="mt-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
-            {loadError}
-          </div>
-        )}
-
-        <div className="mt-4 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          {items.length === 0 ? (
-            <EmptyState />
-          ) : (
-            <ul className="divide-y divide-gray-100">
-              {items.map((item) => (
-                <TimelineRow
-                  key={item.id}
-                  item={item}
-                  expanded={!!expanded[item.id]}
-                  onToggle={() =>
-                    setExpanded((prev) => ({ ...prev, [item.id]: !prev[item.id] }))
-                  }
-                />
-              ))}
-            </ul>
-          )}
-        </div>
+        </Suspense>
       </main>
     </div>
+  );
+}
+
+/* ---------- Streamed sub-components (suspend on the promises) ---------- */
+
+interface SummaryCardsEnrichedProps {
+  leads: LeadDTO[];
+  initialCalls: CallDTO[];
+  identifiedPromise: Promise<IdentifiedVisitorDTO[]>;
+  liveCallsPromise: Promise<CallDTO[]>;
+}
+
+function SummaryCardsEnriched({
+  leads, initialCalls, identifiedPromise, liveCallsPromise,
+}: SummaryCardsEnrichedProps) {
+  const identified = use(identifiedPromise);
+  const liveCalls = use(liveCallsPromise);
+  const calls = useMemo(
+    () => mergeCalls(initialCalls, liveCalls),
+    [initialCalls, liveCalls],
+  );
+  return (
+    <SummaryCards
+      formCount={leads.length}
+      callCount={calls.length}
+      visitorCount={identified.length}
+    />
+  );
+}
+
+interface ActivityEnrichedProps {
+  leads: LeadDTO[];
+  initialCalls: CallDTO[];
+  identifiedPromise: Promise<IdentifiedVisitorDTO[]>;
+  liveCallsPromise: Promise<CallDTO[]>;
+  loadError: string;
+  projectTitleById: Record<string, string>;
+  expanded: Record<string, boolean>;
+  setExpanded: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+}
+
+function ActivityEnriched({
+  leads, initialCalls, identifiedPromise, liveCallsPromise,
+  loadError, projectTitleById, expanded, setExpanded,
+}: ActivityEnrichedProps) {
+  const identified = use(identifiedPromise);
+  const liveCalls = use(liveCallsPromise);
+  const calls = useMemo(
+    () => mergeCalls(initialCalls, liveCalls),
+    [initialCalls, liveCalls],
+  );
+  return (
+    <ActivityBlock
+      leads={leads}
+      calls={calls}
+      identified={identified}
+      loadError={loadError}
+      projectTitleById={projectTitleById}
+      expanded={expanded}
+      setExpanded={setExpanded}
+    />
+  );
+}
+
+interface ActivityBlockProps {
+  leads: LeadDTO[];
+  calls: CallDTO[];
+  identified: IdentifiedVisitorDTO[];
+  loadError: string;
+  projectTitleById: Record<string, string>;
+  expanded: Record<string, boolean>;
+  setExpanded: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+  /** When true, surfaces a small "refreshing live data…" hint over the CSV row. */
+  loading?: boolean;
+}
+
+function ActivityBlock({
+  leads, calls, identified, loadError, projectTitleById,
+  expanded, setExpanded, loading,
+}: ActivityBlockProps) {
+  const items = useMemo(
+    () => buildTimeline({ leads, identified, calls }),
+    [leads, identified, calls],
+  );
+  return (
+    <>
+      <div className="mt-4 flex items-center justify-end gap-2">
+        {loading && (
+          <span className="inline-flex items-center gap-1.5 text-xs text-gray-500 mr-auto">
+            <Loader2 className="w-3 h-3 animate-spin" />
+            Refreshing live data…
+          </span>
+        )}
+        <ExportButton
+          label="Form CSV"
+          disabled={leads.length === 0}
+          onClick={() =>
+            downloadCsv(buildLeadsCsv({ leads, projectTitleById }), 'sparkpage-leads')
+          }
+        />
+        <ExportButton
+          label="Calls CSV"
+          disabled={calls.length === 0}
+          onClick={() =>
+            downloadCsv(buildCallsCsv({ calls, projectTitleById }), 'sparkpage-calls')
+          }
+        />
+        <ExportButton
+          label="SparkLeads CSV"
+          disabled={identified.length === 0}
+          onClick={() =>
+            downloadCsv(
+              buildIdentifiedCsv({ visitors: identified, projectTitleById }),
+              'sparkpage-sparkleads',
+            )
+          }
+        />
+      </div>
+
+      {loadError && (
+        <div className="mt-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+          {loadError}
+        </div>
+      )}
+
+      <div className="mt-4 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        {items.length === 0 ? (
+          <EmptyState />
+        ) : (
+          <ul className="divide-y divide-gray-100">
+            {items.map((item) => (
+              <TimelineRow
+                key={item.id}
+                item={item}
+                expanded={!!expanded[item.id]}
+                onToggle={() =>
+                  setExpanded((prev) => ({ ...prev, [item.id]: !prev[item.id] }))
+                }
+              />
+            ))}
+          </ul>
+        )}
+      </div>
+    </>
   );
 }
 
@@ -231,8 +384,10 @@ function EmptyState() {
 
 interface SummaryCardsProps {
   formCount: number;
-  callCount: number;
-  visitorCount: number;
+  /** null renders a pulsing dash while the value streams in. */
+  callCount: number | null;
+  /** null renders a pulsing dash while the value streams in. */
+  visitorCount: number | null;
 }
 
 function SummaryCards({ formCount, callCount, visitorCount }: SummaryCardsProps) {
@@ -264,7 +419,7 @@ interface SummaryCardProps {
   icon: React.ReactNode;
   tint: string;
   label: string;
-  count: number;
+  count: number | null;
 }
 
 function SummaryCard({ icon, tint, label, count }: SummaryCardProps) {
@@ -274,7 +429,11 @@ function SummaryCard({ icon, tint, label, count }: SummaryCardProps) {
         {icon}
         {label}
       </div>
-      <div className="text-2xl font-bold text-gray-900 mt-1">{count}</div>
+      {count === null ? (
+        <div className="h-7 w-10 bg-gray-200/70 rounded animate-pulse mt-1" />
+      ) : (
+        <div className="text-2xl font-bold text-gray-900 mt-1">{count}</div>
+      )}
     </div>
   );
 }

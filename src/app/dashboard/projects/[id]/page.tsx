@@ -105,26 +105,31 @@ export default async function ProjectDashboardPage({
 
   const leads = ((leadsRes.data ?? []) as LeadRow[]).map(leadRowToDTO);
 
-  // Identified visitors — only fetched when the project has a pixel id and the
-  // AudienceLab env is wired. Errors are logged and swallowed. pageSize is
-  // capped at 100 to keep retries cheap and avoid tripping vendor-side
-  // payload-size flakes; we dedupe by edid downstream so coverage on the
-  // typical dashboard render is unchanged.
-  let identifiedVisitors: IdentifiedVisitorDTO[] = [];
-  if (projectRow.audiencelab_pixel_id && process.env.AUDIENCELAB_API_KEY) {
-    try {
-      const data = await lookupPixelV4({
-        pixelId: projectRow.audiencelab_pixel_id,
-        pageSize: 100,
-      });
-      identifiedVisitors = normalizeIdentifiedVisitors({
-        projectId: projectRow.id,
-        events: data.events,
-      });
-    } catch (err) {
-      console.error(`[project-dashboard] lookupPixelV4 failed for ${projectRow.id}:`, err);
-    }
-  }
+  // Identified visitors — kicked off but NOT awaited. The 3rd-party AudienceLab
+  // round-trip is the dominant tail on a CallRail/SparkLeads-bound project, so
+  // we hand the promise to the client component and let it stream the result
+  // into a Suspense boundary. Errors are swallowed to an empty array so a
+  // vendor outage never blanks the page.
+  const identifiedPromise: Promise<IdentifiedVisitorDTO[]> =
+    projectRow.audiencelab_pixel_id && process.env.AUDIENCELAB_API_KEY
+      ? lookupPixelV4({
+          pixelId: projectRow.audiencelab_pixel_id,
+          pageSize: 100,
+        })
+          .then((data) =>
+            normalizeIdentifiedVisitors({
+              projectId: projectRow.id,
+              events: data.events,
+            }),
+          )
+          .catch((err) => {
+            console.error(
+              `[project-dashboard] lookupPixelV4 failed for ${projectRow.id}:`,
+              err,
+            );
+            return [];
+          })
+      : Promise.resolve([]);
 
   // DB-cached calls (webhook ingest) → CallDTOs.
   const dbCallRows = (callsRes.data ?? []) as Array<{
@@ -167,34 +172,35 @@ export default async function ProjectDashboardPage({
     sessionId: r.session_id,
   }));
 
-  // Live tail when the project is bound and CallRail env is configured.
-  let liveCalls: CallDTO[] = [];
-  if (projectRow.callrail_company_id && isCallRailConfigured()) {
-    try {
-      const apiKey = getCallRailApiKey();
-      const accountId = await getCallRailAccountId();
-      const res = await listCalls({
-        apiKey,
-        accountId,
-        companyId: projectRow.callrail_company_id,
-        dateRange: 'recent',
-        perPage: 100,
-      });
-      liveCalls = normalizeCallsFromApi(res.calls, projectRow.id);
-    } catch (err) {
-      if (!(err instanceof CallRailAuthError)) {
-        console.warn(`[project-dashboard] listCalls failed for ${projectRow.id}:`, err);
-      }
-    }
-  }
-
-  // Merge: live wins on overlap (fresher recording_player + transcription).
-  const callsById = new Map<string, CallDTO>();
-  for (const c of dbCalls) callsById.set(c.id, c);
-  for (const c of liveCalls) callsById.set(c.id, c);
-  const calls = [...callsById.values()].sort((a, b) =>
-    (b.startTime || '').localeCompare(a.startTime || '')
-  );
+  // Live CallRail tail — same pattern as identifiedPromise: built unawaited and
+  // streamed into the client so the third-party RTT doesn't block first paint.
+  // Merge with dbCalls happens client-side; live wins on id overlap (fresher
+  // recording_player + transcription).
+  const liveCallsPromise: Promise<CallDTO[]> =
+    projectRow.callrail_company_id && isCallRailConfigured()
+      ? (async () => {
+          try {
+            const apiKey = getCallRailApiKey();
+            const accountId = await getCallRailAccountId();
+            const res = await listCalls({
+              apiKey,
+              accountId,
+              companyId: projectRow.callrail_company_id!,
+              dateRange: 'recent',
+              perPage: 100,
+            });
+            return normalizeCallsFromApi(res.calls, projectRow.id);
+          } catch (err) {
+            if (!(err instanceof CallRailAuthError)) {
+              console.warn(
+                `[project-dashboard] listCalls failed for ${projectRow.id}:`,
+                err,
+              );
+            }
+            return [];
+          }
+        })()
+      : Promise.resolve([]);
 
   const project: ProjectLite = {
     id: projectRow.id,
@@ -252,8 +258,9 @@ export default async function ProjectDashboardPage({
     <ProjectDashboardClient
       project={project}
       leads={leads}
-      identified={identifiedVisitors}
-      calls={calls}
+      initialCalls={dbCalls}
+      identifiedPromise={identifiedPromise}
+      liveCallsPromise={liveCallsPromise}
       userEmail={user.email ?? ''}
       loadError={loadError}
       viewerRole={viewerRole}
