@@ -83,8 +83,18 @@ export async function POST(
   if (pErr) return NextResponse.json({ error: pErr.message }, { status: 500 });
   if (!project) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-  // 3) Compose the meta slice. Reviewer edits win; normalizer fills blanks;
-  // user-supplied wizard meta wins over both via the `existing` arg.
+  // 3) Compose the meta slice.
+  //
+  // Two paths converge here with different intents:
+  //   • Reviewed apply  (reviewed_overrides set): the operator stared at the
+  //     draft on the review screen and clicked Apply. Their edits must land
+  //     on the page, even if `project.overrides.meta` already carries a
+  //     value from the wizard. We pass `undefined` for `existing` so the
+  //     draft is treated as authoritative.
+  //   • Auto apply (reviewed_overrides null): nothing's been reviewed —
+  //     we're enriching the project with the raw normalizer output. Keep
+  //     the "research enriches, never clobbers" default by passing the
+  //     current meta as `existing`.
   const normalized = normalizeResearchPayload(research.raw_payload);
   const reviewed = (research.reviewed_overrides && typeof research.reviewed_overrides === 'object'
     ? (research.reviewed_overrides as Partial<ResearchDraft>)
@@ -93,7 +103,7 @@ export async function POST(
     ? { ...normalized, ...reviewed, hours: reviewed.hours ?? normalized.hours, photos: reviewed.photos ?? normalized.photos }
     : normalized;
   const currentOverrides: V1ContentOverrides = project.overrides || {};
-  const slice = draftToOverrides(draft, currentOverrides.meta);
+  const slice = draftToOverrides(draft, reviewed ? undefined : currentOverrides.meta);
 
   const nextOverrides: V1ContentOverrides = {
     ...currentOverrides,
@@ -125,8 +135,18 @@ export async function POST(
     created_by: user.id,
   });
 
+  // Stamp applied_at on the research row so the review screen can show
+  // "Applied X ago" and tell saved-but-not-applied from already-applied.
+  // Best-effort — failure to stamp doesn't fail the apply itself.
+  const appliedAt = new Date().toISOString();
+  await admin
+    .from('dataforseo_research')
+    .update({ applied_at: appliedAt })
+    .eq('id', research.id);
+
   return NextResponse.json({
     project: rowToDTO(updated as ProjectRow),
     appliedMeta: slice.meta || {},
+    appliedAt,
   });
 }

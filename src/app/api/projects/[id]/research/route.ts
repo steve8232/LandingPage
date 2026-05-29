@@ -36,10 +36,11 @@ interface ResearchRow {
   error_message: string | null;
   created_at: string;
   updated_at: string;
+  applied_at: string | null;
 }
 
 const RESEARCH_COLS =
-  'id, project_id, task_id, status, keyword, location_name, language_code, raw_payload, reviewed_overrides, error_message, created_at, updated_at';
+  'id, project_id, task_id, status, keyword, location_name, language_code, raw_payload, reviewed_overrides, error_message, created_at, updated_at, applied_at';
 
 function rowToResponse(row: ResearchRow) {
   const normalized: ResearchDraft = normalizeResearchPayload(row.raw_payload);
@@ -64,6 +65,13 @@ function rowToResponse(row: ResearchRow) {
     errorMessage: row.error_message,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    appliedAt: row.applied_at,
+    // Convenience flag for the UI: was the row touched by Save (PUT) since
+    // the last successful Apply? When true, the review screen shows
+    // "Saved — not yet applied" so the operator knows an edit is pending.
+    hasUnappliedEdits: Boolean(reviewed) && (
+      !row.applied_at || new Date(row.updated_at) > new Date(row.applied_at)
+    ),
   };
 }
 

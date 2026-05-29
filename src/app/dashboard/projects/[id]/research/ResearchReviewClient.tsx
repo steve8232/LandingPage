@@ -52,6 +52,9 @@ interface ResearchResponse {
   draft: ResearchDraft;
   errorMessage: string | null;
   createdAt: string;
+  updatedAt: string;
+  appliedAt: string | null;
+  hasUnappliedEdits: boolean;
 }
 
 const POLL_INTERVAL_MS = 5000;
@@ -73,6 +76,11 @@ export default function ResearchReviewClient({ project }: { project: ProjectLite
   const [regenerating, setRegenerating] = useState(false);
   const [actionMsg, setActionMsg] = useState<string | null>(null);
   const [actionErr, setActionErr] = useState<string | null>(null);
+  // Set to the apply route's response timestamp on a successful Apply so the
+  // success block can render the "Open editor" CTA. Distinct from
+  // data.appliedAt (which is the most-recent persisted timestamp) because we
+  // want the CTA to appear right after the click, before the refetch lands.
+  const [justAppliedAt, setJustAppliedAt] = useState<string | null>(null);
   const pollHandle = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchOnce = useCallback(async (opts?: { manual?: boolean }) => {
@@ -187,6 +195,10 @@ export default function ResearchReviewClient({ project }: { project: ProjectLite
       const j = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) throw new Error(j.error || `Save failed (${res.status})`);
       setActionMsg('Saved.');
+      // Save creates unapplied edits — clear the just-applied CTA so the
+      // status badge can correctly show "Saved — not yet applied".
+      setJustAppliedAt(null);
+      void fetchOnce();
     } catch (err) {
       setActionErr(err instanceof Error ? err.message : 'Save failed');
     } finally {
@@ -213,9 +225,16 @@ export default function ResearchReviewClient({ project }: { project: ProjectLite
         method: 'POST',
         credentials: 'include',
       });
-      const j = (await res.json().catch(() => ({}))) as { error?: string };
+      const j = (await res.json().catch(() => ({}))) as { error?: string; appliedAt?: string };
       if (!res.ok) throw new Error(j.error || `Apply failed (${res.status})`);
-      setActionMsg('Applied to project. Open the editor to fine-tune.');
+      // Drive the success block off justAppliedAt so the CTA renders before
+      // the refetch lands; the textual actionMsg stays in sync.
+      setJustAppliedAt(j.appliedAt ?? new Date().toISOString());
+      setActionMsg('Applied to project.');
+      // Refetch the research row so data.appliedAt / hasUnappliedEdits reflect
+      // the new state in the status badge above the form. router.refresh()
+      // updates the server-rendered shell (ProjectTabs, header) similarly.
+      void fetchOnce();
       router.refresh();
     } catch (err) {
       setActionErr(err instanceof Error ? err.message : 'Apply failed');
@@ -281,6 +300,8 @@ export default function ResearchReviewClient({ project }: { project: ProjectLite
           regenerating={regenerating}
           actionErr={actionErr}
           actionMsg={actionMsg}
+          justAppliedAt={justAppliedAt}
+          projectId={project.id}
           onSave={handleSave}
           onApply={handleApply}
           onRegenerate={handleRegenerate}
@@ -310,6 +331,8 @@ interface BodyProps {
   regenerating: boolean;
   actionErr: string | null;
   actionMsg: string | null;
+  justAppliedAt: string | null;
+  projectId: string;
   onSave: () => void;
   onApply: () => void;
   onRegenerate: () => void;
@@ -327,6 +350,7 @@ interface BodyProps {
 function ReviewBody({
   loading, loadError, data, draft, setDraft,
   saving, applying, regenerating, actionErr, actionMsg,
+  justAppliedAt, projectId,
   onSave, onApply, onRegenerate, onRefresh, refreshing,
   onPullNow, pulling, pullMsg, pullErr,
   onRequeue, requeuing, requeueErr,
@@ -399,6 +423,10 @@ function ReviewBody({
       regenerating={regenerating}
       actionErr={actionErr}
       actionMsg={actionMsg}
+      appliedAt={data.appliedAt}
+      hasUnappliedEdits={data.hasUnappliedEdits}
+      justAppliedAt={justAppliedAt}
+      projectId={projectId}
       onSave={onSave}
       onApply={onApply}
       onRegenerate={onRegenerate}
@@ -414,6 +442,10 @@ interface FormProps {
   regenerating: boolean;
   actionErr: string | null;
   actionMsg: string | null;
+  appliedAt: string | null;
+  hasUnappliedEdits: boolean;
+  justAppliedAt: string | null;
+  projectId: string;
   onSave: () => void;
   onApply: () => void;
   onRegenerate: () => void;
@@ -421,19 +453,46 @@ interface FormProps {
 
 function DraftForm({
   draft, setDraft, saving, applying, regenerating,
-  actionErr, actionMsg, onSave, onApply, onRegenerate,
+  actionErr, actionMsg, appliedAt, hasUnappliedEdits, justAppliedAt, projectId,
+  onSave, onApply, onRegenerate,
 }: FormProps) {
   function field<K extends keyof ResearchDraft>(key: K, value: ResearchDraft[K]) {
     setDraft({ ...draft, [key]: value });
   }
+  // Status badge resolution order:
+  //   1. unapplied edits  → amber  "Saved — not yet applied"
+  //   2. ever applied     → green  "Applied {relative time}"
+  //   3. otherwise        → none
+  // justAppliedAt only affects the in-page success CTA below, not this badge,
+  // because the badge is meant to show persisted state from the server row.
+  const statusBadge: { tone: 'amber' | 'emerald'; text: string } | null = hasUnappliedEdits
+    ? { tone: 'amber', text: 'Saved — not yet applied to page' }
+    : appliedAt
+      ? { tone: 'emerald', text: `Applied ${relativeTime(appliedAt)}` }
+      : null;
+
   return (
     <>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-1">Review the research</h1>
-        <p className="text-sm text-gray-600">
-          We pulled this from your Google Business Profile. Edit anything that needs fixing, then
-          apply it to the page.
-        </p>
+      <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-1">Review the research</h1>
+          <p className="text-sm text-gray-600">
+            We pulled this from your Google Business Profile. Edit anything that needs fixing, then
+            apply it to the page.
+          </p>
+        </div>
+        {statusBadge && (
+          <span
+            className={
+              statusBadge.tone === 'emerald'
+                ? 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0'
+                : 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200 shrink-0'
+            }
+          >
+            {statusBadge.tone === 'emerald' ? <Check className="w-3.5 h-3.5" /> : <Clock className="w-3.5 h-3.5" />}
+            {statusBadge.text}
+          </span>
+        )}
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm p-6 space-y-5 mb-6">
@@ -481,9 +540,18 @@ function DraftForm({
         </div>
       )}
       {actionMsg && (
-        <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg text-sm flex items-center gap-1.5">
-          <Check className="w-4 h-4" />
-          {actionMsg}
+        <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg text-sm flex items-center gap-2 flex-wrap">
+          <Check className="w-4 h-4 shrink-0" />
+          <span className="grow">{actionMsg}</span>
+          {justAppliedAt && (
+            <Link
+              href={`/?project=${projectId}`}
+              className="inline-flex items-center gap-1 px-2.5 py-1 bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-100 rounded-md text-xs font-medium shrink-0"
+            >
+              Open editor
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          )}
         </div>
       )}
 
@@ -866,4 +934,22 @@ function formatElapsed(ms: number): string {
   const m = Math.floor(total / 60);
   const s = total % 60;
   return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+// Lightweight relative-time formatter for the "Applied X ago" badge. Stays
+// in this file rather than pulling in a date lib — the badge only surfaces
+// past timestamps and rounds aggressively, so the math is cheap.
+function relativeTime(iso: string): string {
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return 'recently';
+  const diffSec = Math.max(0, Math.floor((Date.now() - then) / 1000));
+  if (diffSec < 45) return 'just now';
+  if (diffSec < 90) return '1 min ago';
+  const diffMin = Math.round(diffSec / 60);
+  if (diffMin < 60) return `${diffMin} min ago`;
+  const diffHr = Math.round(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  const diffDay = Math.round(diffHr / 24);
+  if (diffDay < 7) return `${diffDay}d ago`;
+  return new Date(iso).toLocaleDateString();
 }
