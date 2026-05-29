@@ -1,4 +1,26 @@
 import type { V1ContentOverrides } from '../../../v1/composer/composeV1Template';
+import type { ExtractedBusinessInfo } from '@/lib/firecrawl/extractBusinessInfo';
+
+/**
+ * Persisted between the extract and generate halves of the unified
+ * onboarding pipeline — see supabase/migrations/0022_project_onboarding_state.sql.
+ * Holds the AI's first-pass draft so the /confirm page can present it for
+ * the user to edit before the heavy generation phase runs.
+ */
+export interface OnboardingState {
+  source: 'url' | 'describe';
+  /** Original URL (URL lane only). */
+  url?: string;
+  /** Firecrawl scrape side-channel (URL lane only). */
+  scrape?: {
+    screenshotUrl?: string;
+    metadata?: Record<string, unknown>;
+  };
+  /** Editable AI extraction — the /confirm page rewrites this on submit. */
+  draft: ExtractedBusinessInfo;
+  /** Verbatim user description (Describe lane only). */
+  description?: string;
+}
 
 /**
  * Row shape for `public.projects` (see supabase/migrations/0001_init.sql).
@@ -20,13 +42,17 @@ export type CustomDomainStatus =
 export type CreationMethod = 'manual' | 'research' | 'chat' | 'url';
 
 /**
- * Async-pipeline state — see supabase/migrations/0020_project_build_status.sql.
- *  - 'ready'     : project is fully built and usable (all sync-built lanes).
- *  - 'building'  : URL lane is still running scrape/extract/generate after
- *                  the POST returned; the /building page polls until done.
- *  - 'failed'    : background pipeline threw; build_error holds the message.
+ * Async-pipeline state — see supabase/migrations/0020_project_build_status.sql
+ * and 0022_project_onboarding_state.sql.
+ *  - 'ready'             : project is fully built and usable.
+ *  - 'building'          : background pipeline is running scrape/extract or
+ *                          the post-confirm generate phase; /building polls.
+ *  - 'awaiting_confirm'  : extract phase finished; waiting on the user to
+ *                          confirm/edit the draft on /confirm before the
+ *                          heavy generate phase kicks off.
+ *  - 'failed'            : background pipeline threw; build_error holds it.
  */
-export type BuildStatus = 'building' | 'ready' | 'failed';
+export type BuildStatus = 'building' | 'ready' | 'failed' | 'awaiting_confirm';
 
 export interface ProjectRow {
   id: string;
@@ -56,6 +82,7 @@ export interface ProjectRow {
   build_status: BuildStatus;
   build_stage: string | null;
   build_error: string | null;
+  onboarding_state: OnboardingState | null;
   created_at: string;
   updated_at: string;
 }
@@ -87,6 +114,7 @@ export interface ProjectDTO {
   buildStatus: BuildStatus;
   buildStage: string | null;
   buildError: string | null;
+  onboardingState: OnboardingState | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -118,6 +146,7 @@ export function rowToDTO(row: ProjectRow): ProjectDTO {
     buildStatus: (row.build_status ?? 'ready') as BuildStatus,
     buildStage: row.build_stage ?? null,
     buildError: row.build_error ?? null,
+    onboardingState: row.onboarding_state ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -129,7 +158,7 @@ export function rowToDTO(row: ProjectRow): ProjectDTO {
  * lives only in server-side reads (see remoteStorage helpers).
  */
 export const PROJECT_COLS =
-  'id, user_id, template_id, title, slug, overrides, subdomain, subdomain_status, subdomain_error, custom_domain, custom_domain_status, custom_domain_error, custom_domain_error_code, custom_domain_apex, audiencelab_pixel_id, audiencelab_install_url, callrail_company_id, callrail_company_name, business_phone, callrail_tracker_id, callrail_tracking_phone, callrail_script_url, creation_method, build_status, build_stage, build_error, created_at, updated_at';
+  'id, user_id, template_id, title, slug, overrides, subdomain, subdomain_status, subdomain_error, custom_domain, custom_domain_status, custom_domain_error, custom_domain_error_code, custom_domain_apex, audiencelab_pixel_id, audiencelab_install_url, callrail_company_id, callrail_company_name, business_phone, callrail_tracker_id, callrail_tracking_phone, callrail_script_url, creation_method, build_status, build_stage, build_error, onboarding_state, created_at, updated_at';
 
 /**
  * Slug from a free-form title plus a short random suffix so two projects with
