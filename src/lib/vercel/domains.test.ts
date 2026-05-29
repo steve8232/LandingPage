@@ -168,6 +168,111 @@ test('addProjectDomain: releaseOrphan with failing DELETE surfaces same_team err
   );
 });
 
+test('addProjectDomain: 409 vague "one of your projects" without releaseOrphan throws same_team(null)', async () => {
+  // Real Vercel wording — the message names no project, so we must not
+  // try to detach anything and must surface a same_team conflict so the
+  // picker UI can render the actionable panel.
+  mockFetchOnce({
+    status: 409,
+    body: {
+      error: {
+        code: 'domain_already_in_use',
+        message: "Cannot add foo.example since it's already in use by one of your projects.",
+      },
+    },
+  });
+  await assert.rejects(
+    () => addProjectDomain('sparkpage-aaaa1111', 'foo.example'),
+    (err) => {
+      assert.ok(err instanceof DomainClaimedError, 'expected DomainClaimedError');
+      assert.equal((err as DomainClaimedError).scope, 'same_team');
+      assert.equal((err as DomainClaimedError).conflictingProjectName, null);
+      return true;
+    },
+  );
+});
+
+test('addProjectDomain: vague 409 + releaseOrphan discovers sparkpage orphan, detaches, retries', async () => {
+  const { calls } = mockFetchSequence([
+    // 1) attach attempt: 409 vague conflict
+    {
+      status: 409,
+      body: {
+        error: {
+          code: 'domain_already_in_use',
+          message: "Cannot add foo.example since it's already in use by one of your projects.",
+        },
+      },
+    },
+    // 2) discovery: list projects (sparkpage-bbbb2222 is a candidate,
+    //    other-app is not because it doesn't have the sparkpage- prefix)
+    {
+      status: 200,
+      body: {
+        projects: [
+          { name: 'sparkpage-bbbb2222' },
+          { name: 'other-app' },
+          { name: 'sparkpage-aaaa1111' }, // our own project — must be skipped
+        ],
+        pagination: { next: null },
+      },
+    },
+    // 3) discovery probe on sparkpage-bbbb2222 — owns the domain
+    { status: 200, body: { name: 'foo.example' } },
+    // 4) DELETE the orphan's domain — succeeds
+    { status: 200, body: { uid: 'xxx' } },
+    // 5) retry attach — succeeds
+    { status: 200, body: { name: 'foo.example' } },
+  ]);
+  await assert.doesNotReject(
+    addProjectDomain('sparkpage-aaaa1111', 'foo.example', { releaseOrphan: true }),
+  );
+  assert.equal(calls.length, 5);
+  assert.match(calls[0].url, /\/v10\/projects\/sparkpage-aaaa1111\/domains/);
+  assert.equal(calls[0].init?.method, 'POST');
+  assert.match(calls[1].url, /\/v9\/projects\?limit=100/);
+  assert.equal(calls[1].init?.method, 'GET');
+  assert.match(calls[2].url, /\/v9\/projects\/sparkpage-bbbb2222\/domains\/foo\.example/);
+  assert.equal(calls[2].init?.method, 'GET');
+  assert.match(calls[3].url, /\/v9\/projects\/sparkpage-bbbb2222\/domains\/foo\.example/);
+  assert.equal(calls[3].init?.method, 'DELETE');
+  assert.match(calls[4].url, /\/v10\/projects\/sparkpage-aaaa1111\/domains/);
+  assert.equal(calls[4].init?.method, 'POST');
+});
+
+test('addProjectDomain: vague 409 + releaseOrphan with no sparkpage orphan found throws same_team(null)', async () => {
+  mockFetchSequence([
+    // 1) attach attempt: 409 vague conflict
+    {
+      status: 409,
+      body: {
+        error: {
+          code: 'domain_already_in_use',
+          message: "Cannot add foo.example since it's already in use by one of your projects.",
+        },
+      },
+    },
+    // 2) discovery: list projects — no sparkpage candidates
+    {
+      status: 200,
+      body: {
+        projects: [{ name: 'other-app' }, { name: 'sparkpage-aaaa1111' }],
+        pagination: { next: null },
+      },
+    },
+  ]);
+  await assert.rejects(
+    () => addProjectDomain('sparkpage-aaaa1111', 'foo.example', { releaseOrphan: true }),
+    (err) => {
+      assert.ok(err instanceof DomainClaimedError);
+      assert.equal((err as DomainClaimedError).scope, 'same_team');
+      assert.equal((err as DomainClaimedError).conflictingProjectName, null);
+      return true;
+    },
+  );
+});
+
+
 test('addProjectDomain: 403 forbidden throws DomainClaimedError(other_account)', async () => {
   mockFetchOnce({
     status: 403,

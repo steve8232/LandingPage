@@ -62,21 +62,103 @@ async function parseError(res: Response): Promise<VercelErrorBody> {
  * Vercel's messages we've seen in the wild:
  *   "Domain foo.com is already in use by project sparkpage-bbbb2222"
  *   "Domain foo.com is already attached to this project"
+ *   "Cannot add foo.com since it's already in use by one of your projects."
  *   "Project already contains domain foo.com"
  *
- * Returns the other project's name (or 'unknown' when we can't extract one)
- * when this is a cross-project conflict; returns null when the message looks
- * like a same-project idempotent hit.
+ * Return shape:
+ *   null                              — no conflict signal (or idempotent
+ *                                       same-project hit, e.g. "attached to
+ *                                       this project")
+ *   { otherProjectName: 'sparkpage-…' } — conflict with a parseable name
+ *   { otherProjectName: null }         — conflict signal present but the
+ *                                       wording was too vague to extract a
+ *                                       project name (caller may need to
+ *                                       discover the orphan via the API)
  */
+const CONFLICT_STOP_WORDS = new Set([
+  'this', 'one', 'another', 'your', 'the', 'our', 'a', 'an', 'some', 'project', 'projects',
+]);
+
 function detectCrossProjectConflict(
   message: string,
   ownProjectName: string,
 ): { otherProjectName: string | null } | null {
-  const m = message.match(/(?:in use by|attached to)(?:\s+project)?\s+([a-z0-9_-]+)/i);
-  if (!m) return null;
+  const hasConflictSignal =
+    /in use|already attached|already exists|already contains/i.test(message);
+
+  const m = message.match(
+    /(?:in use by|attached to|owned by)(?:\s+project)?\s+([a-z0-9_-]+)/i,
+  );
+  if (!m) {
+    return hasConflictSignal ? { otherProjectName: null } : null;
+  }
   const other = m[1];
-  if (other === 'this' || other === ownProjectName) return null;
+  const lower = other.toLowerCase();
+  // "attached to this project" → our own project, idempotent.
+  if (lower === 'this' || lower === ownProjectName.toLowerCase()) return null;
+  // Captured an English stop-word (e.g. "in use by one of your projects")
+  // — definitely a cross-project conflict, but we can't name the project
+  // from the message alone.
+  if (CONFLICT_STOP_WORDS.has(lower) || lower.length < 3) {
+    return { otherProjectName: null };
+  }
   return { otherProjectName: other };
+}
+
+/**
+ * When Vercel returns a vague 409 ("already in use by one of your projects")
+ * we have to discover *which* project is holding the domain ourselves.
+ * Pages through the team's project list and, for each `sparkpage-*` project
+ * other than our own, asks Vercel whether that project has the domain
+ * attached. Returns the first match's project name, or null if none of the
+ * SparkPage projects in the first MAX_PAGES pages own it.
+ *
+ * Bounded at 3 pages × 100 = 300 projects to keep the failure path fast.
+ */
+async function findOrphanSparkpageProject(
+  domain: string,
+  ownProjectName: string,
+): Promise<string | null> {
+  const { token, teamId } = readEnv();
+  const headers = { 'Authorization': `Bearer ${token}` };
+  const MAX_PAGES = 3;
+
+  let until: string | undefined;
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const params = new URLSearchParams({ limit: '100' });
+    if (until) params.set('until', until);
+    const listUrl = withTeam(`${VERCEL_API}/v9/projects?${params.toString()}`, teamId);
+    const listRes = await fetch(listUrl, { method: 'GET', headers });
+    if (!listRes.ok) return null;
+    const listData = (await listRes.json()) as {
+      projects?: Array<{ name?: string }>;
+      pagination?: { next?: string | number | null };
+    };
+
+    const candidates = (listData.projects ?? [])
+      .map((p) => p.name)
+      .filter((n): n is string =>
+        typeof n === 'string' && n.startsWith('sparkpage-') && n !== ownProjectName,
+      );
+
+    const owners = await Promise.all(
+      candidates.map(async (name) => {
+        const url = withTeam(
+          `${VERCEL_API}/v9/projects/${encodeURIComponent(name)}/domains/${encodeURIComponent(domain)}`,
+          teamId,
+        );
+        const r = await fetch(url, { method: 'GET', headers });
+        return r.ok ? name : null;
+      }),
+    );
+    const found = owners.find((n): n is string => n !== null);
+    if (found) return found;
+
+    const next = listData.pagination?.next;
+    if (next === null || next === undefined) return null;
+    until = String(next);
+  }
+  return null;
 }
 
 export type DomainClaimScope = 'same_team' | 'other_account' | 'unknown';
@@ -217,7 +299,13 @@ async function classifyAttachError(
       // the domain is already where we want it.
       return 'soft';
     }
-    const otherName = conflict.otherProjectName;
+    let otherName = conflict.otherProjectName;
+    // Vague wording ("one of your projects") + caller opted in to
+    // self-healing: actively discover which sparkpage-* project is holding
+    // the domain so we can detach it.
+    if (opts.releaseOrphan && otherName === null) {
+      otherName = await findOrphanSparkpageProject(domain, projectName);
+    }
     if (opts.releaseOrphan && otherName && /^sparkpage-/.test(otherName)) {
       try {
         await removeProjectDomain(otherName, domain);
