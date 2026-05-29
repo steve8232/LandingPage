@@ -15,12 +15,6 @@ import { PROJECT_COLS, type ProjectRow } from '@/lib/projects/types';
 import { buildPagesHost, buildPagesUrl } from '@/lib/projects/subdomain';
 import { addProjectDomain, DomainClaimedError } from '@/lib/vercel/domains';
 import { createPixel } from '@/lib/audiencelab/client';
-import {
-  createLocation,
-  inviteLocationAdmin,
-  isGhlConfigured,
-  readSnapshotId,
-} from '@/lib/ghl/client';
 
 /**
  * POST /api/projects/[id]/deploy
@@ -144,63 +138,6 @@ export async function POST(
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.warn('[deploy] createPixel failed:', message);
-    }
-  }
-
-  // Auto-provision a GoHighLevel sub-account on first deploy. Mirrors the
-  // AudienceLab block above: skipped when env is not wired, idempotent on
-  // projects.ghl_location_id, non-fatal on any error so the publish still
-  // ships. The owner is invited as a location admin so they can sign into
-  // app.gohighlevel.com with their existing SparkPage email.
-  if (!project.ghl_location_id && isGhlConfigured()) {
-    try {
-      const ownerEmail = user.email || '';
-      const fullName =
-        (user.user_metadata?.full_name as string | undefined) ||
-        (user.user_metadata?.name as string | undefined) ||
-        '';
-      const nameParts = fullName.trim().split(/\s+/).filter(Boolean);
-      const firstName = nameParts[0] || ownerEmail.split('@')[0] || 'SparkPage';
-      const lastName = nameParts.slice(1).join(' ') || 'User';
-
-      const loc = await createLocation({
-        name: project.title || projectName,
-        email: ownerEmail,
-        snapshotId: readSnapshotId() ?? undefined,
-        phone: project.business_phone || undefined,
-      });
-
-      let invitedUserId: string | null = null;
-      if (ownerEmail) {
-        try {
-          const invited = await inviteLocationAdmin({
-            locationId: loc.id,
-            email: ownerEmail,
-            firstName,
-            lastName,
-            phone: project.business_phone || undefined,
-          });
-          invitedUserId = invited.id;
-        } catch (err) {
-          const message = err instanceof Error ? err.message : String(err);
-          console.warn('[deploy] inviteLocationAdmin failed:', message);
-        }
-      }
-
-      const { error: updateErr } = await admin
-        .from('projects')
-        .update({
-          ghl_location_id: loc.id,
-          ghl_user_id: invitedUserId,
-          ghl_provisioned_at: new Date().toISOString(),
-        })
-        .eq('id', project.id);
-      if (updateErr) {
-        console.warn('[deploy] persist ghl location failed:', updateErr.message);
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      console.warn('[deploy] createLocation failed:', message);
     }
   }
 

@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   ExternalLink, LayoutDashboard, Trash2, ArrowRightLeft, Loader2, Search,
+  KeyRound, CheckCircle2, X,
 } from 'lucide-react';
 import type { ProjectDTO } from '@/lib/projects/types';
 import type { DeploymentDTO } from '@/lib/deployments/types';
@@ -62,6 +63,7 @@ export default function PagesClient({
   const [busyId, setBusyId] = useState<string | null>(null);
   const [transferOpenId, setTransferOpenId] = useState<string | null>(null);
   const [transferTarget, setTransferTarget] = useState('');
+  const [ghlOpenFor, setGhlOpenFor] = useState<AdminPageRowDTO | null>(null);
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
 
@@ -95,6 +97,44 @@ export default function PagesClient({
       setInfo(`Deleted "${p.project.title}".`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Delete failed');
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function handleProvisionGhl(
+    p: AdminPageRowDTO,
+    input: { email: string; password: string; firstName: string; lastName: string },
+  ) {
+    setBusyId(p.project.id);
+    setError('');
+    setInfo('');
+    try {
+      const res = await fetch(`/api/admin/projects/${p.project.id}/ghl/provision`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(input),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.error || `Provision failed (${res.status})`);
+      setPages((prev) =>
+        prev.map((x) =>
+          x.project.id === p.project.id
+            ? {
+                ...x,
+                project: {
+                  ...x.project,
+                  ghlLocationId: json.locationId ?? x.project.ghlLocationId,
+                  ghlProvisionedAt: json.provisionedAt ?? x.project.ghlProvisionedAt,
+                },
+              }
+            : x,
+        ),
+      );
+      setInfo(`GHL sub-account provisioned (${json.locationId}).`);
+      setGhlOpenFor(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Provision failed');
     } finally {
       setBusyId(null);
     }
@@ -180,7 +220,17 @@ export default function PagesClient({
         onTransferTargetChange={setTransferTarget}
         onTransferSubmit={handleTransfer}
         onDelete={handleDelete}
+        onGhlOpen={(p) => setGhlOpenFor(p)}
       />
+
+      {ghlOpenFor && (
+        <GhlProvisionModal
+          page={ghlOpenFor}
+          busy={busyId === ghlOpenFor.project.id}
+          onCancel={() => setGhlOpenFor(null)}
+          onSubmit={(input) => handleProvisionGhl(ghlOpenFor, input)}
+        />
+      )}
     </div>
   );
 }
@@ -196,11 +246,13 @@ interface PagesTableProps {
   onTransferTargetChange: (id: string) => void;
   onTransferSubmit: (p: AdminPageRowDTO) => void;
   onDelete: (p: AdminPageRowDTO) => void;
+  onGhlOpen: (p: AdminPageRowDTO) => void;
 }
 
 function PagesTable({
   pages, owners, busyId, transferOpenId, transferTarget,
   onTransferOpen, onTransferCancel, onTransferTargetChange, onTransferSubmit, onDelete,
+  onGhlOpen,
 }: PagesTableProps) {
   return (
     <section className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
@@ -236,6 +288,7 @@ function PagesTable({
                 onTransferTargetChange={onTransferTargetChange}
                 onTransferSubmit={() => onTransferSubmit(p)}
                 onDelete={() => onDelete(p)}
+                onGhlOpen={() => onGhlOpen(p)}
               />
             ))}
           </tbody>
@@ -256,12 +309,15 @@ interface PageRowProps {
   onTransferTargetChange: (id: string) => void;
   onTransferSubmit: () => void;
   onDelete: () => void;
+  onGhlOpen: () => void;
 }
 
 function PageRow({
   page, owners, isBusy, transferOpen, transferTarget,
   onTransferOpen, onTransferCancel, onTransferTargetChange, onTransferSubmit, onDelete,
+  onGhlOpen,
 }: PageRowProps) {
+  const ghlReady = Boolean(page.project.ghlLocationId);
   const dep = page.latestDeployment;
   const pill = dep
     ? STATUS_PILL[dep.status]
@@ -354,6 +410,18 @@ function PageRow({
             <ArrowRightLeft className="w-4 h-4" />
           </button>
           <button
+            onClick={onGhlOpen}
+            disabled={isBusy || ghlReady}
+            className={`p-2 rounded-lg disabled:opacity-60 ${
+              ghlReady
+                ? 'text-emerald-600 hover:bg-emerald-50'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+            }`}
+            title={ghlReady ? `GHL provisioned (${page.project.ghlLocationId})` : 'Provision GHL sub-account'}
+          >
+            {ghlReady ? <CheckCircle2 className="w-4 h-4" /> : <KeyRound className="w-4 h-4" />}
+          </button>
+          <button
             onClick={onDelete}
             disabled={isBusy}
             className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg disabled:opacity-50"
@@ -364,5 +432,142 @@ function PageRow({
         </div>
       </td>
     </tr>
+  );
+}
+
+interface GhlProvisionModalProps {
+  page: AdminPageRowDTO;
+  busy: boolean;
+  onCancel: () => void;
+  onSubmit: (input: { email: string; password: string; firstName: string; lastName: string }) => void;
+}
+
+function GhlProvisionModal({ page, busy, onCancel, onSubmit }: GhlProvisionModalProps) {
+  const [email, setEmail] = useState(page.ownerEmail ?? '');
+  const [password, setPassword] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [showPw, setShowPw] = useState(false);
+
+  const canSubmit = !busy && email.trim().length > 0 && password.length >= 8;
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!canSubmit) return;
+    onSubmit({
+      email: email.trim(),
+      password,
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+    });
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md border border-gray-100">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <div>
+            <h2 className="text-base font-semibold text-gray-900">Provision GHL sub-account</h2>
+            <p className="text-xs text-gray-500 mt-0.5 truncate" title={page.project.title}>
+              {page.project.title}
+            </p>
+          </div>
+          <button
+            onClick={onCancel}
+            disabled={busy}
+            className="p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-50 rounded-lg disabled:opacity-40"
+            aria-label="Close"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <form onSubmit={submit} className="px-5 py-4 space-y-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Email</label>
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={busy}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+              placeholder="owner@example.com"
+              autoComplete="off"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Password</label>
+            <div className="relative">
+              <input
+                type={showPw ? 'text' : 'password'}
+                required
+                minLength={8}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={busy}
+                className="w-full px-3 py-2 pr-16 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                placeholder="At least 8 characters"
+                autoComplete="new-password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPw((v) => !v)}
+                disabled={busy}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-500 hover:text-gray-900 px-1.5 py-0.5"
+              >
+                {showPw ? 'Hide' : 'Show'}
+              </button>
+            </div>
+            <p className="text-[11px] text-gray-500 mt-1">
+              GHL requires 8+ chars with mixed case, a number, and a symbol.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">First name <span className="text-gray-400">(optional)</span></label>
+              <input
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                disabled={busy}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                autoComplete="off"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Last name <span className="text-gray-400">(optional)</span></label>
+              <input
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                disabled={busy}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                autoComplete="off"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={busy}
+              className="px-3 py-1.5 text-sm text-gray-700 hover:text-gray-900 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={!canSubmit}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50"
+            >
+              {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <KeyRound className="w-3.5 h-3.5" />}
+              {busy ? 'Provisioning…' : 'Provision'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }

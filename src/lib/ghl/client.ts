@@ -154,6 +154,13 @@ export interface InviteLocationAdminInput {
   firstName: string;
   lastName: string;
   phone?: string;
+  /**
+   * Optional plaintext password forwarded to GHL. When set, GHL skips the
+   * "set your password" email so the user can sign in with this credential
+   * immediately. Must satisfy GHL's password policy (>=8 chars, mixed
+   * case, number, symbol) or the API returns 4xx.
+   */
+  password?: string;
 }
 
 export interface InviteLocationAdminResponse {
@@ -162,8 +169,9 @@ export interface InviteLocationAdminResponse {
 
 /**
  * Create a user under the agency and attach them to a single location as
- * an admin. GHL emails the user a "set your password" link automatically
- * so they can sign into app.gohighlevel.com with their SparkPage email.
+ * an admin. When `password` is omitted, GHL emails the user a "set your
+ * password" link automatically; when supplied, that password becomes the
+ * sign-in credential and no email is sent.
  */
 export async function inviteLocationAdmin(
   input: InviteLocationAdminInput
@@ -171,7 +179,7 @@ export async function inviteLocationAdmin(
   const token = readAgencyToken();
   const companyId = readCompanyId();
 
-  const body = {
+  const body: Record<string, unknown> = {
     companyId,
     firstName: input.firstName,
     lastName: input.lastName,
@@ -206,6 +214,7 @@ export async function inviteLocationAdmin(
       marketingEnabled: true,
     },
   };
+  if (input.password) body.password = input.password;
 
   const res = await fetch(`${GHL_API}/users/`, {
     method: 'POST',
