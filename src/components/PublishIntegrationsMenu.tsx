@@ -106,7 +106,15 @@ const PublishIntegrationsMenu = forwardRef<SubdomainPickerHandle, PublishIntegra
         ? 'pending'
         : 'off';
     const googleTagTone: DotTone = props.googleTagId.trim() ? 'ok' : 'off';
-    const audiencelabTone: DotTone = props.audiencelabInstallUrl ? 'ok' : 'off';
+    // SparkID only fires once the project is live on its own custom domain
+    // — provisioning + injection are both gated server-side (see the deploy
+    // route). Reflect that in the tone so an existing pixel id doesn't read
+    // as "Tracking" while the page is still served from sparkpage.us.
+    const customDomainReady =
+      !!props.customDomain && props.customDomainStatus === 'ready';
+    const audiencelabTone: DotTone = customDomainReady
+      ? (props.audiencelabInstallUrl ? 'ok' : 'pending')
+      : 'off';
     const heatmapTone: DotTone = props.heatmapEnabled ? 'ok' : 'off';
 
     const publishing =
@@ -243,9 +251,21 @@ const PublishIntegrationsMenu = forwardRef<SubdomainPickerHandle, PublishIntegra
                 icon={<Target className="w-3.5 h-3.5" />}
                 title="SparkID"
                 tone={audiencelabTone}
-                statusLabel={audiencelabTone === 'ok' ? 'Tracking' : 'Auto'}
+                statusLabel={
+                  audiencelabTone === 'ok'
+                    ? 'Tracking'
+                    : audiencelabTone === 'pending'
+                      ? 'Auto'
+                      : 'Waiting'
+                }
               >
-                {props.audiencelabPixelId ? (
+                {!customDomainReady ? (
+                  <div className="text-xs text-gray-500">
+                    Visitor identification activates once your custom domain
+                    is verified. Add one above and your pixel will be
+                    provisioned against that domain on your next publish.
+                  </div>
+                ) : props.audiencelabPixelId ? (
                   <div className="text-xs text-gray-600 break-all">
                     Pixel ID: <span className="font-mono">{props.audiencelabPixelId}</span>
                   </div>

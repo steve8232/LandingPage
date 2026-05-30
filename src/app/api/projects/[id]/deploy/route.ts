@@ -12,7 +12,7 @@ import {
 import { mapReadyState } from '@/lib/vercel/types';
 import { rowToDTO, type DeploymentRow } from '@/lib/deployments/types';
 import { PROJECT_COLS, type ProjectRow } from '@/lib/projects/types';
-import { buildPagesHost, buildPagesUrl } from '@/lib/projects/subdomain';
+import { buildPagesHost } from '@/lib/projects/subdomain';
 import { addProjectDomain, DomainClaimedError } from '@/lib/vercel/domains';
 import { createPixel } from '@/lib/audiencelab/client';
 
@@ -110,34 +110,56 @@ export async function POST(
   const submitUrl = `${appBase}/api/leads/${project.id}`;
   const projectName = vercelProjectNameFor(project.id);
 
-  // Auto-provision an AudienceLab pixel on first deploy (Angle A). Reuses the
-  // stored pixel on subsequent deploys so we never create duplicates. Failures
-  // here are non-fatal: the page still ships without a tracking script.
+  // Auto-provision an AudienceLab pixel on first deploy *after* the project
+  // is live on its own brand. Gating on a ready custom domain keeps platform
+  // URLs (*.pages.sparkpage.us / *.vercel.app) out of the AudienceLab
+  // dashboard so the customer sees their own domain there from day one.
+  //
+  // Re-provisioning policy: if the stored websiteUrl doesn't match the
+  // current custom-domain URL (legacy row with NULL, or the user attached a
+  // different domain), we create a fresh pixel and overwrite the row. The
+  // old pixel is abandoned in AudienceLab (we never call delete).
+  //
+  // Injection mirrors the same gate below — projects without a ready custom
+  // domain ship with no pixel tag in the published HTML.
   const admin = createAdminClient();
-  let pixelInstallUrl = project.audiencelab_install_url ?? null;
-  if (!pixelInstallUrl && process.env.AUDIENCELAB_API_KEY) {
-    const publishedUrl = project.subdomain
-      ? buildPagesUrl(project.subdomain)
-      : `https://${projectName}.vercel.app`;
-    try {
-      const pixel = await createPixel({
-        websiteName: project.title || projectName,
-        websiteUrl: publishedUrl,
-      });
-      pixelInstallUrl = pixel.install_url;
-      const { error: updateErr } = await admin
-        .from('projects')
-        .update({
-          audiencelab_pixel_id: pixel.pixel_id,
-          audiencelab_install_url: pixel.install_url,
-        })
-        .eq('id', project.id);
-      if (updateErr) {
-        console.warn('[deploy] persist audiencelab pixel failed:', updateErr.message);
+  const customDomainReady =
+    !!project.custom_domain && project.custom_domain_status === 'ready';
+  const expectedPixelWebsiteUrl = customDomainReady
+    ? `https://${project.custom_domain}`
+    : null;
+
+  let pixelInstallUrl: string | null = null;
+  if (customDomainReady && expectedPixelWebsiteUrl && process.env.AUDIENCELAB_API_KEY) {
+    const storedInstallUrl = project.audiencelab_install_url ?? null;
+    const storedWebsiteUrl = project.audiencelab_pixel_website_url ?? null;
+    const needsProvision =
+      !storedInstallUrl || storedWebsiteUrl !== expectedPixelWebsiteUrl;
+
+    if (needsProvision) {
+      try {
+        const pixel = await createPixel({
+          websiteName: project.title || projectName,
+          websiteUrl: expectedPixelWebsiteUrl,
+        });
+        pixelInstallUrl = pixel.install_url;
+        const { error: updateErr } = await admin
+          .from('projects')
+          .update({
+            audiencelab_pixel_id: pixel.pixel_id,
+            audiencelab_install_url: pixel.install_url,
+            audiencelab_pixel_website_url: expectedPixelWebsiteUrl,
+          })
+          .eq('id', project.id);
+        if (updateErr) {
+          console.warn('[deploy] persist audiencelab pixel failed:', updateErr.message);
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.warn('[deploy] createPixel failed:', message);
       }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      console.warn('[deploy] createPixel failed:', message);
+    } else {
+      pixelInstallUrl = storedInstallUrl;
     }
   }
 

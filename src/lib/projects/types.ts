@@ -71,6 +71,7 @@ export interface ProjectRow {
   custom_domain_apex: boolean;
   audiencelab_pixel_id: string | null;
   audiencelab_install_url: string | null;
+  audiencelab_pixel_website_url: string | null;
   ghl_location_id: string | null;
   ghl_user_id: string | null;
   ghl_provisioned_at: string | null;
@@ -108,6 +109,7 @@ export interface ProjectDTO {
   customDomainApex: boolean;
   audiencelabPixelId: string | null;
   audiencelabInstallUrl: string | null;
+  audiencelabPixelWebsiteUrl: string | null;
   ghlLocationId: string | null;
   ghlProvisionedAt: string | null;
   callrailCompanyId: string | null;
@@ -142,6 +144,7 @@ export function rowToDTO(row: ProjectRow): ProjectDTO {
     customDomainApex: row.custom_domain_apex ?? false,
     audiencelabPixelId: row.audiencelab_pixel_id ?? null,
     audiencelabInstallUrl: row.audiencelab_install_url ?? null,
+    audiencelabPixelWebsiteUrl: row.audiencelab_pixel_website_url ?? null,
     ghlLocationId: row.ghl_location_id ?? null,
     ghlProvisionedAt: row.ghl_provisioned_at ?? null,
     callrailCompanyId: row.callrail_company_id ?? null,
@@ -166,7 +169,7 @@ export function rowToDTO(row: ProjectRow): ProjectDTO {
  * lives only in server-side reads (see remoteStorage helpers).
  */
 export const PROJECT_COLS =
-  'id, user_id, template_id, title, slug, overrides, subdomain, subdomain_status, subdomain_error, custom_domain, custom_domain_status, custom_domain_error, custom_domain_error_code, custom_domain_apex, audiencelab_pixel_id, audiencelab_install_url, ghl_location_id, ghl_user_id, ghl_provisioned_at, ghl_field_map, callrail_company_id, callrail_company_name, business_phone, callrail_tracker_id, callrail_tracking_phone, callrail_script_url, creation_method, build_status, build_stage, build_error, onboarding_state, created_at, updated_at';
+  'id, user_id, template_id, title, slug, overrides, subdomain, subdomain_status, subdomain_error, custom_domain, custom_domain_status, custom_domain_error, custom_domain_error_code, custom_domain_apex, audiencelab_pixel_id, audiencelab_install_url, audiencelab_pixel_website_url, ghl_location_id, ghl_user_id, ghl_provisioned_at, ghl_field_map, callrail_company_id, callrail_company_name, business_phone, callrail_tracker_id, callrail_tracking_phone, callrail_script_url, creation_method, build_status, build_stage, build_error, onboarding_state, created_at, updated_at';
 
 /**
  * Slug from a free-form title plus a short random suffix so two projects with
