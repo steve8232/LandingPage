@@ -9,6 +9,7 @@
     "lint": "eslint",
     "build:previews": "npx tsx v1/preview/buildPreviews.ts",
     "build:gallery": "npx tsx v1/preview/buildGallery.ts",
+    "cleanup:audiencelab": "node --env-file=.env.local --import tsx scripts/cleanup-audiencelab-pixels.ts",
     "test:e2e": "playwright test"
   },
   "dependencies": {

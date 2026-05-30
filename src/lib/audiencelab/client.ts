@@ -105,6 +105,38 @@ export async function createPixel(input: CreatePixelInput): Promise<CreatePixelR
   return data;
 }
 
+export interface DeletePixelResult {
+  /** True when AudienceLab returned `success: true`. */
+  deleted: boolean;
+  /** True when the pixel was already gone (treated as a no-op success). */
+  notFound: boolean;
+}
+
+/**
+ * DELETE /pixels/{id} — used by the one-shot cleanup script to scrub
+ * legacy sparkpage.us pixels from the AudienceLab dashboard. A 404 is
+ * folded into success so re-running the script on a partially-completed
+ * batch is safe.
+ */
+export async function deletePixel(pixelId: string): Promise<DeletePixelResult> {
+  const apiKey = readApiKey();
+  const res = await fetch(`${AUDIENCELAB_API}/pixels/${encodeURIComponent(pixelId)}`, {
+    method: 'DELETE',
+    headers: {
+      'X-Api-Key': apiKey,
+      'Accept': 'application/json',
+    },
+  });
+
+  if (res.status === 404) {
+    return { deleted: false, notFound: true };
+  }
+  if (!res.ok) {
+    throw new Error(`deletePixel failed: ${await parseError(res)}`);
+  }
+  return { deleted: true, notFound: false };
+}
+
 /**
  * Curated subset of the V4 resolution payload — all UPPER_CASE keys are
  * optional strings per the AudienceLab schema. Captured here so the rest of
