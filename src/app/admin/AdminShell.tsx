@@ -2,13 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Sparkles, LogOut, Shield, Users, FileText, Share2, LayoutDashboard } from 'lucide-react';
+import { Sparkles, LogOut, Shield, Users, FileText, Share2, LayoutDashboard, Plug } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
 const TABS: Array<{ href: string; label: string; Icon: typeof Users }> = [
   { href: '/admin/users', label: 'Users', Icon: Users },
   { href: '/admin/pages', label: 'Pages', Icon: FileText },
   { href: '/admin/collaborators', label: 'Collaborators', Icon: Share2 },
+  { href: '/admin/integrations', label: 'Integrations', Icon: Plug },
 ];
 
 export default function AdminShell({

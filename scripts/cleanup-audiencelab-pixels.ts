@@ -27,36 +27,36 @@
  */
 
 import { createAdminClient } from '../src/lib/supabase/admin';
-import { deletePixel } from '../src/lib/audiencelab/client';
+import {
+  applyCleanup,
+  findCleanupCandidates,
+  type CleanupCandidate,
+  type CleanupOutcome,
+} from '../src/lib/audiencelab/cleanup';
 
-interface Row {
-  id: string;
-  title: string | null;
-  custom_domain: string | null;
-  custom_domain_status: string | null;
-  audiencelab_pixel_id: string | null;
-  audiencelab_install_url: string | null;
-  audiencelab_pixel_website_url: string | null;
+function describe(c: CleanupCandidate): string {
+  const tag = `[${c.projectId.slice(0, 8)}] ${c.projectTitle ?? '(untitled)'}`;
+  const why = c.reason === 'no_ready_custom_domain'
+    ? 'no ready custom domain'
+    : `stored ${JSON.stringify(c.currentWebsiteUrl)} != expected ${JSON.stringify(c.expectedUrl)}`;
+  return `${tag} — pixel ${c.pixelId} — reason: ${why}`;
 }
 
-interface Candidate {
-  row: Row;
-  reason: 'no_ready_custom_domain' | 'website_url_mismatch';
-  expectedUrl: string | null;
-}
-
-function classify(row: Row): Candidate | null {
-  if (!row.audiencelab_pixel_id) return null;
-  const ready =
-    !!row.custom_domain && row.custom_domain_status === 'ready';
-  const expectedUrl = ready ? `https://${row.custom_domain}` : null;
-  if (!ready) {
-    return { row, reason: 'no_ready_custom_domain', expectedUrl: null };
+function logOutcome(o: CleanupOutcome): void {
+  switch (o.outcome) {
+    case 'deleted':
+      console.log(`  ↳ AudienceLab DELETE ok; DB columns nulled`);
+      break;
+    case 'notFound':
+      console.log(`  ↳ AudienceLab 404 (already gone); DB columns nulled`);
+      break;
+    case 'failed':
+      console.warn(`  ↳ AudienceLab DELETE failed: ${o.message ?? 'unknown'} — leaving local row alone`);
+      break;
+    case 'db_failed':
+      console.warn(`  ↳ AudienceLab DELETE ok but DB update failed: ${o.message ?? 'unknown'}`);
+      break;
   }
-  if (row.audiencelab_pixel_website_url !== expectedUrl) {
-    return { row, reason: 'website_url_mismatch', expectedUrl };
-  }
-  return null;
 }
 
 async function main(): Promise<void> {
@@ -67,73 +67,28 @@ async function main(): Promise<void> {
   }
 
   const admin = createAdminClient();
-  const { data, error } = await admin
-    .from('projects')
-    .select(
-      'id, title, custom_domain, custom_domain_status, audiencelab_pixel_id, audiencelab_install_url, audiencelab_pixel_website_url'
-    )
-    .not('audiencelab_pixel_id', 'is', null);
+  const { scanned, candidates } = await findCleanupCandidates(admin);
 
-  if (error) {
-    console.error('[cleanup] query failed:', error.message);
-    process.exit(1);
-  }
-  const rows = (data ?? []) as Row[];
-  const candidates = rows.map(classify).filter((c): c is Candidate => c !== null);
-
-  console.log(`[cleanup] scanned ${rows.length} project(s) with a pixel; ${candidates.length} candidate(s) for cleanup.`);
+  console.log(`[cleanup] scanned ${scanned} project(s) with a pixel; ${candidates.length} candidate(s) for cleanup.`);
   console.log(`[cleanup] mode: ${apply ? 'APPLY (destructive)' : 'dry-run (read-only)'}\n`);
 
-  let deleted = 0;
-  let notFound = 0;
-  let failed = 0;
-  let nulled = 0;
+  for (const c of candidates) console.log(describe(c));
 
-  for (const c of candidates) {
-    const tag = `[${c.row.id.slice(0, 8)}] ${c.row.title ?? '(untitled)'}`;
-    const why = c.reason === 'no_ready_custom_domain'
-      ? 'no ready custom domain'
-      : `stored ${JSON.stringify(c.row.audiencelab_pixel_website_url)} != expected ${JSON.stringify(c.expectedUrl)}`;
-    console.log(`${tag} — pixel ${c.row.audiencelab_pixel_id} — reason: ${why}`);
-
-    if (!apply) continue;
-
-    try {
-      const res = await deletePixel(c.row.audiencelab_pixel_id!);
-      if (res.notFound) {
-        notFound++;
-        console.log(`  ↳ AudienceLab 404 (already gone) — treating as success`);
-      } else {
-        deleted++;
-        console.log(`  ↳ AudienceLab DELETE ok`);
-      }
-    } catch (err) {
-      failed++;
-      const msg = err instanceof Error ? err.message : String(err);
-      console.warn(`  ↳ AudienceLab DELETE failed: ${msg} — leaving local row alone`);
-      continue;
+  if (!apply) {
+    if (candidates.length > 0) {
+      console.log(`\n[cleanup] re-run with --apply to perform the cleanup.`);
     }
+    return;
+  }
 
-    const { error: updErr } = await admin
-      .from('projects')
-      .update({
-        audiencelab_pixel_id: null,
-        audiencelab_install_url: null,
-        audiencelab_pixel_website_url: null,
-      })
-      .eq('id', c.row.id);
-    if (updErr) {
-      console.warn(`  ↳ DB update failed: ${updErr.message}`);
-    } else {
-      nulled++;
-      console.log(`  ↳ DB columns nulled`);
-    }
+  console.log('');
+  const { outcomes, deleted, notFound, failed, nulled } = await applyCleanup(admin, candidates);
+  for (let i = 0; i < candidates.length; i++) {
+    console.log(describe(candidates[i]));
+    logOutcome(outcomes[i]);
   }
 
   console.log(`\n[cleanup] done. candidates=${candidates.length} deleted=${deleted} notFound=${notFound} failed=${failed} nulled=${nulled}`);
-  if (!apply && candidates.length > 0) {
-    console.log(`[cleanup] re-run with --apply to perform the cleanup.`);
-  }
 }
 
 main().catch((err) => {
