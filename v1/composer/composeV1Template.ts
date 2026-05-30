@@ -1053,17 +1053,20 @@ function renderCookieConsentMarkup(): string {
  *   analytics — CallRail swap.js, Microsoft Clarity, SparkPage heatmap
  *   identity  — AudienceLab pixel
  *
- * Runtime contract:
+ * Runtime contract (US default-accept policy):
  *   - On load, read `localStorage['sp_consent_v1']`. If present, immediately
  *     promote every `<script type="text/plain" data-consent-category="X">`
  *     whose category was accepted, and do NOT show the banner.
- *   - If no prior record, reveal the banner and listen for the visitor's
- *     choice (Ok / Customize / Decline All / Close).
- *   - "Close" (X) and scroll BOTH dismiss the banner without recording a
- *     choice — trackers stay inert and the banner returns next visit.
- *     This is the conservative GDPR-safe interpretation; no implicit accept.
- *   - On accept (full or partial), persist the per-category selections and
- *     promote matching deferred scripts in place.
+ *   - If no prior record, promote ALL categories immediately and persist a
+ *     full-accept record so trackers fire on this same page-view. The
+ *     banner is still rendered as a settings affordance — visitors can
+ *     narrow their selection (Customize → toggles → Save) or opt out
+ *     entirely (Decline All); those choices overwrite the saved record
+ *     and take effect on the next page load.
+ *   - "Close" (X) and scroll dismiss the banner; because the default-accept
+ *     record was already written on load, the banner does not return.
+ *   - Operators who need an explicit opt-in posture (e.g. EU traffic) can
+ *     wrap this banner with a geo-gate or a region-conditional default.
  *
  * CSS scoping: the original snippet's global `*` reset and `body` rule
  * would bleed into the published page. Both are replaced with selectors
@@ -1159,8 +1162,10 @@ function renderCookieConsentBanner(): string {
  *   2. If present, promote every deferred `<script type="text/plain"
  *      data-consent-category="X">` whose category was accepted. Banner
  *      stays hidden.
- *   3. If absent, reveal the banner and wire button + scroll handlers.
- *      Scroll dismisses without recording — banner returns next visit.
+ *   3. If absent (first visit), promote ALL categories immediately and
+ *      persist a full-accept record so trackers fire on the same page
+ *      view that produced the visit. Banner still renders so visitors
+ *      can narrow their selection or opt out for next time.
  */
 function renderCookieConsentScript(): string {
   return `
@@ -1215,27 +1220,36 @@ function renderCookieConsentScript(): string {
     return;
   }
 
-  // First visit — wire up the banner.
+  // First visit — default-accept policy. Promote ALL categories now so
+  // trackers fire on this page-view, persist a full-accept record so
+  // returning visitors skip the banner, and still render the banner as
+  // a settings affordance. Customize/Save and Decline All overwrite the
+  // record on explicit interaction; their narrowed selections take
+  // effect on the next page load.
   var selected = { marketing: true, analytics: true, identity: true };
+  promote(selected);
+  writeChoice(selected);
+
   var wrap = document.getElementById('ck-wrap');
   if (!wrap) return;
 
-  function dismiss(closeOnly) {
+  function dismiss() {
     wrap.classList.add('closing');
     setTimeout(function(){ wrap.style.display = 'none'; }, 320);
     window.removeEventListener('scroll', onScrollDismiss);
-    if (!closeOnly) writeChoice(selected);
+    writeChoice(selected);
   }
 
   function commit() {
     promote(selected);
-    dismiss(false);
+    dismiss();
   }
 
   function onScrollDismiss() {
-    // Scroll = banner closes WITHOUT recording consent. Trackers stay
-    // inert; banner returns next visit. Conservative, GDPR-safe default.
-    dismiss(true);
+    // Scroll = banner closes with the current selection (defaults to
+    // all-accepted on first visit). Scripts have already been promoted
+    // on load, so this just hides the chrome and pins the saved record.
+    dismiss();
   }
 
   function updateToggles() {
@@ -1290,7 +1304,7 @@ function renderCookieConsentScript(): string {
   });
 
   var closeBtn = document.getElementById('btn-close');
-  if (closeBtn) closeBtn.addEventListener('click', function(){ dismiss(true); });
+  if (closeBtn) closeBtn.addEventListener('click', function(){ dismiss(); });
 
   // Privacy policy modal wiring.
   var openPolicy = document.getElementById('btn-open-policy');
