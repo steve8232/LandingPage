@@ -14,8 +14,8 @@
 import type { createAdminClient } from '../supabase/admin';
 import { deletePixel as defaultDeletePixel } from './client';
 
-type AdminClient = ReturnType<typeof createAdminClient>;
-type DeletePixelFn = typeof defaultDeletePixel;
+export type AdminClient = ReturnType<typeof createAdminClient>;
+export type DeletePixelFn = typeof defaultDeletePixel;
 
 export type CleanupReason = 'no_ready_custom_domain' | 'website_url_mismatch';
 
